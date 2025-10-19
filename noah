@@ -1,0 +1,741 @@
+#!/usr/bin/env bash
+
+# --------------------------------------------------------------------------------------
+# ███╗   ██╗  ██████╗   █████╗  ██╗  ██╗  ██████╗     █████╗  ██████╗   ██████╗ ██╗  ██╗
+# ████╗  ██║ ██╔═══██╗ ██╔══██╗ ██║  ██║ ██╔════╝    ██╔══██╗ ██╔══██╗ ██╔════╝ ██║  ██║
+# ██╔██╗ ██║ ██║   ██║ ███████║ ███████║ ╚█████╗     ███████║ ██████╔╝ ██║      ███████║
+# ██║╚██╗██║ ██║   ██║ ██╔══██║ ██╔══██║  ╚═══██╗    ██╔══██║ ██╔══██╗ ██║      ██╔══██║
+# ██║ ╚████║ ╚██████╔╝ ██║  ██║ ██║  ██║ ██████╔╝    ██║  ██║ ██║  ██║ ╚██████╗ ██║  ██║
+# ╚═╝  ╚═══╝  ╚═════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═════╝     ╚═╝  ╚═╝ ╚═╝  ╚═╝  ╚═════╝ ╚═╝  ╚═╝
+# --------------------------------------------------------------------------------------
+# The one-opinion opinionated automated Arch Linux Installer
+# --------------------------------------------------------------------------------------
+set -euo pipefail
+
+#############################################################################
+#  TODO:
+#  1. bootloaders needs research
+#  3. GPU drivers NVIDIA
+#  5. ensure correct chmod
+#  7. Greetings/ending
+#  8. Remove question about EFI size
+#  9. Add "hide-apps"
+#
+#############################################################################
+
+#######################################
+# Sourcing
+#######################################
+CURRENT_DIR="$(dirname "$0")"
+LOG_FILE="$CURRENT_DIR/fresh_log"
+
+KEEL="$CURRENT_DIR/keel"
+CONF_D="$CURRENT_DIR/conf"
+
+. "$KEEL/mnt_cp_keys.sh"
+. "$KEEL/disk-helpers.sh"
+. "$KEEL/disk-actions.sh"
+
+. "$CONF_D/conf_user.sh"
+. "$CURRENT_DIR/utils.sh"
+
+#######################################
+# Declare Globals
+########################################
+DEVICE=""
+CHOICE=""
+MNT_HOME="/mnt/root"
+SWORDPAS=""
+CPU_VENDOR="amd"
+EFI_SIZE="$DEFAULT_EFI_SIZE"
+
+#######################################
+# Functions
+########################################
+
+key_check() {
+	local need_copy=0
+
+	# Check key files if KEY_FILES array and KEY_DIR are set
+	if [[ -n "${KEY_DIR}" && ${#KEY_FILES[@]} -gt 0 ]]; then
+		for key_file in "${KEY_FILES[@]}"; do
+			local file_path="/root/$KEY_DIR/$key_file"
+			if [[ ! -f "$file_path" ]]; then
+				info "Key file missing on root: $file_path"
+				need_copy=1
+				break
+			fi
+		done
+	fi
+
+	# Check WiFi folder if WIFI_PASS_DIR is set
+	if [[ -n "$WIFI_PASS_DIR" ]]; then
+		if [[ ! -d "/root/$WIFI_PASS_DIR" ]]; then
+			info "WiFi folder missing on root: /root/$WIFI_PASS_DIR"
+			need_copy=1
+		fi
+	fi
+
+	return $need_copy
+}
+
+#######################################
+# Prompt user to select an unmounted USB partition
+# Globals:
+#   DEVICE - set to selected partition device path
+#######################################
+make_choice() {
+	local -a PARTITIONS=()
+	local index
+	while true; do
+		info "Detecting available unmounted partitions..."
+		PARTITIONS=()
+		index=1
+		# Read partitions and their properties
+		while read -r line; do
+			# Parse key=value pairs into variables
+			eval "$line"
+			# Only consider unmounted partitions
+			if [[ "$TYPE" == "part" && -z "$MOUNTPOINT" ]]; then
+				local dev="/dev/$NAME"
+				PARTITIONS+=("$dev")
+				local mount_status="UNMOUNTED"
+				printf "%d) %-12s Size: %-8s FS: %-8s Mounted: %-12s Removable: %s\n" \
+					"$index" "$dev" "$SIZE" "$FSTYPE" "$mount_status" "$RM"
+				((index++))
+			fi
+		done < <(lsblk -P -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,RM)
+		if ((${#PARTITIONS[@]} > 0)); then
+			break
+		fi
+		warning "No unmounted partitions detected. Insert USB and press Enter..."
+		read -r
+	done
+	# Prompt user for selection until valid
+	while true; do
+		read -rp "Select partition for keys (1-${#PARTITIONS[@]}): " CHOICE
+		if ! [[ "$CHOICE" =~ ^[0-9]+$ ]]; then
+			warning "Invalid selection: '$CHOICE' is not a valid number."
+			continue
+		elif ((CHOICE < 1 || CHOICE > ${#PARTITIONS[@]})); then
+			warning "Invalid selection: '$CHOICE' out of range (1-${#PARTITIONS[@]})"
+			continue
+		fi
+		DEVICE="${PARTITIONS[$((CHOICE - 1))]}"
+		if [[ -z "$DEVICE" || ! -b "$DEVICE" ]]; then
+			error "Selected device '$DEVICE' is invalid or not a block device."
+			exit 1
+		fi
+		success "Selected partition: $DEVICE"
+		break
+	done
+	# Prepare mount point and mount device
+	mkdir -p "$USB_MNT"
+	if ! mount "$DEVICE" "$USB_MNT"; then
+		fatal "Failed to mount $DEVICE at $USB_MNT."
+	fi
+	success "Mounted $DEVICE at $USB_MNT."
+}
+
+#######################################
+# Copy key files from USB to target directory
+# Globals:
+#   KEY_FILES - array of filenames to copy
+#   USB_MNT - mount point of USB
+#   KEY_DIR - relative directory on USB where keys reside
+#######################################
+copy_missing_keys() {
+	if [[ -z "$KEY_DIR" || ${#KEY_FILES[@]} -eq 0 ]]; then
+		info "No key directory or key files specified. Skipping key copy."
+		return
+	}
+
+	info "Preparing to copy key files from USB..."
+	mkdir -p "$HOME/$KEY_DIR"
+
+	for key_file in "${KEY_FILES[@]}"; do
+		local src="$USB_MNT/$KEY_DIR/$key_file"
+		local dest="$HOME/$KEY_DIR/$key_file"
+
+		if [[ ! -f "$dest" ]]; then
+			if cp "$src" "$dest"; then
+				success "Copied $key_file to $HOME/$KEY_DIR"
+			else
+				warning "Failed to copy $key_file from USB."
+			fi
+		else
+			info "$key_file already exists in $HOME/$KEY_DIR, skipping copy."
+		fi
+	done
+}
+
+#######################################
+# Copy wifi password files from USB
+# Globals:
+#   USB_MNT - USB mount point
+#   WIFI_PASS_DIR - relative directory on USB for wifi passwords
+#######################################
+copy_wifi_pass() {
+	if [[ -z "$WIFI_PASS_DIR" ]]; then
+		info "No WiFi password directory specified. Skipping WiFi password copy."
+		return
+	}
+
+	info "Copying WiFi password files from USB..."
+	local src="$USB_MNT/$WIFI_PASS_DIR"
+	local dest="$HOME/WIFI"
+
+	if [[ ! -d "$src" ]]; then
+		error "WiFi password directory $src not found on USB."
+		return
+	fi
+
+	mkdir -p "$dest" || { error "Failed to create $dest"; return; }
+
+	find "$src" -type f -name '*.nmconnection' -exec cp -p {} "$dest" \;
+
+	success "WiFi password files copied to $dest."
+}
+
+
+#######################################
+# Unmount USB partition and cleanup mount point
+# Globals:
+#   USB_MNT - mount point to unmount and remove
+#######################################
+unmount_partition() {
+	if mountpoint -q "$USB_MNT"; then
+		if umount "$USB_MNT"; then
+			success "Unmounted USB from $USB_MNT."
+		else
+			warning "Failed to unmount USB from $USB_MNT."
+		fi
+	fi
+
+	rmdir "$USB_MNT" 2>/dev/null || true
+}
+
+#######################################
+# Convert size input with IEC suffix (KiB, MiB, GiB, TiB, PiB) to KiB
+# Arguments:
+#   $1 - size input string (e.g. "512M", "1G", "256MiB")
+# Returns:
+#   Echoes converted size in KiB (e.g. "524288k")
+#   Returns 0 on success, 1 on error
+#######################################
+sanitize_size_input() {
+	local input="$1"
+	local value suffix
+
+	# Remove spaces
+	input=$(echo "$input" | tr -d ' ')
+
+	# Extract numeric value and suffix
+	value=$(echo "$input" | sed -n 's/^\([0-9.]\+\)[A-Za-z]*$/\1/p')
+	suffix=$(echo "$input" | sed -n 's/^[0-9.]\+\([A-Za-z]\+\)$/\1/p')
+
+	# Default suffix to none if missing
+	suffix=${suffix:-}
+
+	case "${suffix,,}" in
+	pib) value=$(printf "%.0f" "$(echo "$value * 1024 * 1024 * 1024 * 1024" | bc -l)") ;;
+	tib) value=$(printf "%.0f" "$(echo "$value * 1024 * 1024 * 1024" | bc -l)") ;;
+	gib) value=$(printf "%.0f" "$(echo "$value * 1024 * 1024" | bc -l)") ;;
+	mib) value=$(printf "%.0f" "$(echo "$value * 1024" | bc -l)") ;;
+	kib) value=$(printf "%.0f" "$value") ;; # Already in KiB
+	"")
+		# If no suffix, ensure it's an integer number (KiB assumed)
+		if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+			error "No suffix provided and value is not a valid integer."
+			return 1
+		fi
+		;;
+	*)
+		error "Only IEC units allowed (KiB, MiB, GiB, TiB, PiB)."
+		return 1
+		;;
+	esac
+
+	# Final integer check
+	if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+		error "Invalid numeric value after conversion."
+		return 1
+	fi
+
+	echo "${value}k"
+}
+
+#######################################
+# Prompt user to select a disk device from available disks
+#######################################
+ask_device() {
+	local disks disk
+	mapfile -t disks < <(lsblk -nd -o NAME,TYPE | awk '$2=="disk"{print $1}')
+	if [[ ${#disks[@]} -eq 0 ]]; then
+		fatal "No disk devices found."
+	fi
+
+	info "Select device for installation:"
+	select disk in "${disks[@]}"; do
+		if [[ -n "$disk" && -b "/dev/$disk" && ! $(findmnt --source "/dev/$disk") ]]; then
+			DEVICE="$disk"
+			success "Selected device: /dev/$DEVICE"
+			break
+		else
+			warning "Invalid selection or disk is mounted. Please try again."
+		fi
+	done
+}
+
+#######################################
+# Prompt user for EFI partition size, sanitize input to KiB
+#######################################
+ask_efi_size() {
+	local sanitized input
+
+	# Try sanitizing pre-set EFI_SIZE
+	if [[ -n "$EFI_SIZE" ]]; then
+		sanitized=$(sanitize_size_input "$EFI_SIZE") || sanitized=""
+		if [[ "$sanitized" =~ ^[0-9]+k$ ]]; then
+			EFI_SIZE="$sanitized"
+			success "Using user-defined EFI size: $EFI_SIZE"
+			return
+		fi
+	fi
+
+	# Prompt until valid
+	while true; do
+		read -rp "Enter EFI partition size (default 512MiB, e.g., 256MiB, 1GiB): " input
+		if [[ -z "$input" ]]; then
+			EFI_SIZE="524288k" # 512 MiB in KiB
+			info "Using default EFI size: 512MiB"
+			break
+		fi
+
+		sanitized=$(sanitize_size_input "$input")
+		if [[ $? -eq 0 && "$sanitized" =~ ^[0-9]+k$ ]]; then
+			EFI_SIZE="$sanitized"
+			success "EFI size set to: $EFI_SIZE"
+			break
+		else
+			warning "Invalid EFI size. Please enter a valid size with IEC units (e.g., 256MiB, 1GiB)."
+		fi
+	done
+}
+
+#######################################
+# Check if disk has existing partition table and optionally wipe it
+# Arguments:
+#   $1 - Disk device name (e.g. sda)
+# Returns:
+#   0 if OK or wiped, 1 if user aborts
+#######################################
+check_disk() {
+	local disk="$1" reply
+
+	if blkid -p "/dev/$disk" &>/dev/null; then
+		read -rp "Partition scheme exists on /dev/$disk. Wipe it? (y/N) " reply
+		if [[ "$reply" =~ ^[Yy]$ ]]; then
+
+			umount -R "/dev/$disk"* 2>/dev/null || \
+				warning "Failed to unmount some partitions"
+
+			info "Wiping partition table on /dev/$disk..."
+			sgdisk -Z "/dev/$disk" || \
+				warning "Failed to wipe partition table"
+			partprobe "/dev/$disk"
+			success "Partition table wiped on /dev/$disk."
+		else
+			warning "User chose not to wipe /dev/$disk."
+			return 1
+		fi
+	fi
+}
+#######################################
+# Partition the given DEVICE with EFI and root
+# Globals:
+#   DEVICE, EFI_SIZE, EFI_PARTITION, ROOT_PARTITION
+#######################################
+set_partitions() {
+	info "Partitioning /dev/${DEVICE}..."
+
+	sgdisk -Z "/dev/${DEVICE}"         # Zap existing partitions
+	sgdisk -a 2048 -o "/dev/${DEVICE}" # Set optimal alignment
+
+	local part_count=1
+
+	# Determine partition suffix based on device type
+	local part_suffix=""
+	if [[ "${DEVICE}" == *nvme* ]]; then
+		part_suffix="p"
+	fi
+
+	# Create EFI system partition
+	info "Creating EFI system partition..."
+	sgdisk -n ${part_count}:0:${EFI_SIZE} -t ${part_count}:ef00 -c ${part_count}:EFIBOOT "/dev/${DEVICE}"
+	EFI_PARTITION="/dev/${DEVICE}${part_suffix}${part_count}"
+	((part_count++))
+
+	# Create root partition (rest of the space)
+	info "Creating root partition..."
+	sgdisk -n ${part_count}:0:0 -t ${part_count}:8300 -c ${part_count}:ROOT "/dev/${DEVICE}"
+	ROOT_PARTITION="/dev/${DEVICE}${part_suffix}${part_count}"
+
+	partprobe "/dev/${DEVICE}"
+	sync
+	success "Partitions created: EFI=$EFI_PARTITION, ROOT=$ROOT_PARTITION"
+}
+
+#######################################
+# Format EFI and root partitions
+# Globals:
+#   EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL
+#######################################
+format_partitions() {
+	info "Formatting partitions..."
+
+	if [[ -b "$EFI_PARTITION" ]]; then
+		mkfs.vfat -F32 -n EFI -i 0077 "$EFI_PARTITION"
+		success "EFI partition formatted as FAT32"
+	else
+		warning "EFI partition not found: $EFI_PARTITION"
+	fi
+
+	if [[ -b "$ROOT_PARTITION" ]]; then
+		mkfs.btrfs -f -L "$ROOT_LABEL" "$ROOT_PARTITION"
+		success "Root partition formatted as Btrfs with label $ROOT_LABEL"
+	else
+		fatal "Root partition not found: $ROOT_PARTITION"
+	fi
+
+	sync
+}
+
+#######################################
+# Mount partitions for installation and setup subvolumes
+# Globals:
+#   ROOT_PARTITION, EFI_PARTITION, MOUNT_OPTIONS
+#######################################
+mount_install() {
+	info "Mounting partitions..."
+
+	# Temporarily mount root to create Btrfs subvolumes
+	mount "$ROOT_PARTITION" /mnt
+
+	btrfs subvolume create /mnt/@
+	btrfs subvolume create /mnt/@home
+	umount /mnt
+
+	# Mount main subvolume
+	mount -o ${MOUNT_OPTIONS},subvol=@ "$ROOT_PARTITION" /mnt
+	mkdir -p /mnt/home
+	mount -o ${MOUNT_OPTIONS},subvol=@home "$ROOT_PARTITION" /mnt/home
+
+	# Mount EFI if available
+	if [[ -b "$EFI_PARTITION" ]]; then
+		mkdir -p /mnt/boot
+		mount "$EFI_PARTITION" /mnt/boot
+		success "EFI partition mounted at /mnt/boot"
+	fi
+
+	success "All partitions mounted."
+}
+
+#######################################
+# Unmount all mounted partitions under /mnt
+#######################################
+unmount_install() {
+	info "Unmounting installation partitions..."
+	umount -R -l /mnt 2>/dev/null || \
+		warning "Some partitions could not be unmounted"
+}
+
+#######################################
+# Update system mirrors and wireless regulatory domain based on ISO country
+# Globals:
+#   None explicitly, uses get_country_iso, /etc/xdg/reflector/reflector.conf
+######################################
+iso_specific_updates() {
+	info "Determining country ISO and updating mirrors/regdom..."
+	local iso regdom_cfg
+	iso=$(get_country_iso)
+	regdom_cfg=/mnt/etc/modprobe.d/cfg80211.conf
+
+	info "Running reflector for country: ${iso}"
+	reflector \
+		--country "${iso}" \
+		--protocol https \
+		--completion-percent 100 \
+		--age 12 \
+		--fastest 10 \
+		--sort rate \
+		--threads 8 \
+		--download-timeout 4 \
+		--save /etc/pacman.d/mirrorlist 
+
+	info "Writing reflector configuration."
+	cat >/mnt/etc/xdg/reflector/reflector.conf <<-EOF
+		--country "${iso}" \
+		--protocol https \
+		--completion-percent 100 \
+		--age 12 \
+		--fastest 10 \
+		--sort rate \
+		--threads 8 \
+		--download-timeout 4 \
+		--save /etc/pacman.d/mirrorlist
+	EOF
+	success "Reflector configuration updated successfully"
+
+	echo "options cfg80211 ieee80211_regdom=$iso" >"$regdom_cfg"
+	success "Wireless regulatory domain set to ${iso}"
+}
+
+#######################################
+# Detect CPU vendor to determine appropriate microcode package
+# Globals:
+#   CPU_VENDOR
+#######################################
+detect_cpu_microcode() {
+	info "Detecting CPU vendor for microcode…"
+	if grep -q "GenuineIntel" /proc/cpuinfo; then
+		CPU_VENDOR="intel"
+		success "Intel CPU detected — installing intel-ucode"
+	elif grep -q "AuthenticAMD" /proc/cpuinfo; then
+		CPU_VENDOR="amd"
+		success "AMD CPU detected — installing amd-ucode"
+	else
+		CPU_VENDOR="unknown"
+		warning "Unknown CPU vendor — skipping microcode installation"
+	fi
+}
+
+#######################################
+# Install base system packages including Linux kernel and Btrfs tools
+# Globals:
+#   None explicitly
+#######################################
+install_base_system() {
+	info "Installing base system (minimal)..."
+	pacman -Sy
+	pacstrap /mnt \
+		base \
+		base-devel \
+		btrfs-progs \
+		linux \
+		linux-firmware
+	success "Base system installed successfully."
+}
+
+#######################################
+# Install additional essential packages in the chroot environment
+# Globals:
+#   None explicitly
+#######################################
+install_additional_packages() {
+	info "Installing additional essential packages..."
+	arch-chroot /mnt pacman -S --noconfirm \
+		git \
+		iwd \
+		networkmanager \
+		pacman-contrib \
+		reflector \
+		rsync \
+		zsh \
+		zsh-completions
+	success "Additional packages installed successfully."
+}
+
+#######################################
+# Copy configuration and key files to the target system
+# Globals:
+#   CONF_D, WIFI_PASS_DIR, TO_DEF, KEY_DIR, MNT_HOME
+#######################################
+pass_files_to_sys() {
+	local nm_con="/mnt/etc/NetworkManager/system-connections/"
+	info "Passing configuration files to target system..."
+
+	rsync -a "$HOME/$TO_DEF/etc/" /mnt/etc/ 
+	rsync -a "$HOME/$TO_DEF/" "$MNT_HOME/$TO_DEF/"
+	rsync -a "$HOME/WIFI/" "$nm_con"
+	rsync -a "$HOME/$KEY_DIR/" "$MNT_HOME/$KEY_DIR/"
+	rsync -a /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/
+	rsync -a /etc/pacman.conf /mnt/etc/
+
+	success "Configuration files transferred successfully."
+}
+
+#######################################
+# Configure system settings: fstab, timezone, locale, hostname, keymap
+# Globals:
+#   TIMEZONE, LOCALE, HOST_NAME
+#######################################
+configure_system() {
+	info "Configuring system..."
+	genfstab -U /mnt >"/mnt/etc/fstab" || fatal "Failed to generate fstab."
+
+	info "Setting timezone, locale, and hostname..."
+	arch-chroot /mnt ln -sf "/usr/share/zoneinfo/${TIMEZONE}" /etc/localtime
+	arch-chroot /mnt hwclock --systohc
+	echo "${LOCALE} UTF-8" >>/mnt/etc/locale.gen
+	arch-chroot /mnt locale-gen
+	echo "LANG=${LOCALE}" >/mnt/etc/locale.conf
+	echo "KEYMAP=us" >/mnt/etc/vconsole.conf
+	echo "${HOST_NAME}" >"/mnt/etc/hostname"
+
+	success "System configuration completed successfully."
+}
+
+#######################################
+# Install and configure bootloader (GRUB, systemd-boot, or rEFInd)
+# Globals:
+#   BOOTLOADER, ROOT_PARTITION, CPU_VENDOR
+#######################################
+configure_bootloader() {
+	info "Configuring bootloader: ${BOOTLOADER}"
+	local root_uuid
+	local arch_conf="/mnt/boot/loader/entries/arch.conf"
+
+	root_uuid=$(blkid -s UUID -o value "$ROOT_PARTITION") || \
+		fatal "Failed to get root UUID."
+
+	case "$BOOTLOADER" in
+		grub)
+			arch-chroot /mnt grub-install \
+				--target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB || \
+				fatal "GRUB install failed."
+			arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+			;;
+
+		systemd-boot)
+			arch-chroot /mnt bootctl --path=/boot install
+			systemctl enable systemd-boot-update
+
+			cat >"/mnt/boot/loader/loader.conf" <<EOF
+default arch.conf
+timeout 1
+EOF
+
+			cat >"$arch_conf" <<EOF
+title   Arch Linux
+linux   /vmlinuz-linux
+EOF
+
+			case "$CPU_VENDOR" in
+				intel)
+					echo "initrd /intel-ucode.img" >>"$arch_conf"
+					;;
+				amd)
+					echo "initrd /amd-ucode.img" >>"$arch_conf"
+					;;
+			esac
+
+			echo "initrd /initramfs-linux.img" >>"$arch_conf"
+			echo "options root=UUID=$root_uuid rw rootflags=subvol=@" >>"$arch_conf"
+			;;
+
+		refind)
+			arch-chroot /mnt refind-install || fatal "rEFInd installation failed."
+			;;
+
+		*)
+			fatal "Unsupported bootloader: ${BOOTLOADER}"
+			;;
+	esac
+
+	success "Bootloader (${BOOTLOADER}) configured successfully."
+}
+
+#######################################
+# Create a user with sudo privileges and specific configurations
+# Globals:
+#   USER_NAME, SWORDPAS
+########################################
+create_user() {
+	info "cloning dotfiles"
+	git clone "$DOT_URL" "$HOME/$DOT_DIR"
+	rsync -a --exclude='.git' "$HOME/$DOT_DIR/" /mnt/etc/skel/
+
+	info "Creating user '$USER_NAME'..."
+	arch-chroot /mnt "useradd -m -s /bin/zsh ${USER_NAME}"
+	arch-chroot /mnt "echo ${USER_NAME}:${SWORDPAS} | chpasswd"
+	cat >"/mnt/etc/sudoers.d/$USER_NAME" <<EOF
+$USER_NAME ALL=(ALL:ALL) ALL
+$USER_NAME ALL=(ALL) NOPASSWD: /usr/bin/udisksctl
+Defaults:$USER_NAME timestamp_timeout=-1
+Defaults passwd_tries=10
+EOF
+	chmod 440 "/mnt/etc/sudoers.d/${USER_NAME}"
+	echo "Users configured successfully"
+	find /mnt/etc/skel -mindepth 1 -delete
+}
+
+set_mkinitcpio() {
+  sed -i 's/^HOOKS=.*/HOOKS=(base systemd autodetect microcode modconf kms sd-vconsole block filesystems fsck)/' \
+    /mnt/etc/mkinitcpio.conf
+
+  if [[ "$CPU_VENDOR" == "AuthenticAMD" ]]; then
+  sed -i 's/^MODULES=.*/MODULES=(amdgpu)/' /mnt/etc/mkinitcpio.conf
+  elif [[ "$CPU_VENDOR" == "GenuineIntel" ]]; then
+  	sed -i 's/^MODULES=.*/MODULES=(i915)/' /mnt/etc/mkinitcpio.conf
+  fi
+
+  mkinitcpio -P
+}
+
+install_ucode() {
+  if [[ "$CPU_VENDOR" == "AuthenticAMD" ]]; then
+    arch-chroot /mnt pacman -S --noconfirm amd-ucode
+  elif [[ "$CPU_VENDOR" == "GenuineIntel" ]]; then
+    arch-chroot /mnt pacman -S --noconfirm intel-ucode
+  fi
+}
+
+#######################################
+# Main
+#######################################
+ark() {
+	umount -A --recursive /mnt || \
+		info "No previous mount or failed to unmount."
+
+	if ! usb_files_check; then
+		info "Missing keys. Proceeding to mount USB and copy."
+		make_choice
+
+		copy_missing_keys
+		copy_wifi_pass
+
+		unmount_partition
+		success "Keys and WiFi passwords copied successfully."
+	fi
+
+	ask_device
+	ask_efi_size
+	check_disk "$DEVICE"
+
+	ask_password
+	detect_cpu_microcode
+
+	set_partitions
+	format_partitions
+	mount_install
+
+	install_base_system
+	iso_specific_updates
+	install_additional_packages
+	pass_files_to_sys
+	configure_system
+	configure_bootloader
+	create_user
+
+  set_mkinitcpio
+  install_ucode
+  
+	chmod +x /mnt/root/fresh/get-chrooted
+	arch-chroot /mnt /bin/bash -c "/root/$TO_DEF/get-chrooted"
+
+	# unmount_install
+}
+ark
+trap 'error_trap ${LINENO} "$BASH_COMMAND"' ERR
+

@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+
+# --------------------------------------------------------------------------------------
+# ███╗   ██╗  ██████╗   █████╗  ██╗  ██╗  ██████╗     █████╗  ██████╗   ██████╗ ██╗  ██╗
+# ████╗  ██║ ██╔═══██╗ ██╔══██╗ ██║  ██║ ██╔════╝    ██╔══██╗ ██╔══██╗ ██╔════╝ ██║  ██║
+# ██╔██╗ ██║ ██║   ██║ ███████║ ███████║ ╚█████╗     ███████║ ██████╔╝ ██║      ███████║
+# ██║╚██╗██║ ██║   ██║ ██╔══██║ ██╔══██║  ╚═══██╗    ██╔══██║ ██╔══██╗ ██║      ██╔══██║
+# ██║ ╚████║ ╚██████╔╝ ██║  ██║ ██║  ██║ ██████╔╝    ██║  ██║ ██║  ██║ ╚██████╗ ██║  ██║
+# ╚═╝  ╚═══╝  ╚═════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═════╝     ╚═╝  ╚═╝ ╚═╝  ╚═╝  ╚═════╝ ╚═╝  ╚═╝
+# --------------------------------------------------------------------------------------
+# The one-opinion opinionated automated Arch Linux Installer
+# --------------------------------------------------------------------------------------
+set -euo pipefail
+
+#######################################
+# Sourcing
+#######################################
+CURRENT_DIR="$(dirname "$0")"
+LOG_FILE="$CURRENT_DIR/fresh_log"
+CONF_D="$CURRENT_DIR/conf"
+
+. "$CURRENT_DIR/utils.sh"
+. "$CONF_D/conf_user.sh"
+. "$CONF_D/conf_pkg.sh"
+
+if [[ -z "${USER_NAME}" ]]; then
+    show_error "USER_NAME not defined in $USER_CONF."
+    exit 1
+fi
+USER_HOME="/home/$USER_NAME"
+
+#######################################
+# Functions
+#######################################
+add_user_to_groups() {
+    shift
+    local USER_GROUPS=("$@")
+
+    for group in "${USER_GROUPS[@]}"; do
+        if ! getent group "$group" >/dev/null; then
+            info "Creating missing group: ${group}"
+            groupadd "$group"
+        fi
+        info "Adding '${USER_NAME}' to group: ${group}"
+        usermod -aG "$group" "$USER_NAME"
+    done
+}
+
+determine_gpu_drivers() {
+    gpu_type=$(lspci)
+    if grep -E "Radeon|AMD" <<< "${gpu_type}" && grep 'VGA' <<< "${gpu_type}"; then
+        info "AMD GPU detected."
+        pacman -S --noconfirm --needed \
+        	mesa \
+        	vulkan-radeon
+    elif grep -E "NVIDIA|GeForce" <<< "${gpu_type}"; then
+        info "NVIDIA GPU detected."
+        pacman -S --noconfirm --needed \
+        	linux-headers \
+        	dkms \
+        	nvidia-open-dkms \
+        	nvidia-utils \
+        	libglvnd
+    elif grep -E "Intel.*(Tiger Lake|Alder Lake|Iris Xe|UHD)" <<< "${gpu_type}"; then
+        info "Intel 11th-gen or newer integrated GPU detected."
+        pacman -S --noconfirm --needed \
+        	mesa \
+        	vulkan-intel \
+        	libva-utils \
+        	libvdpau-va-gl
+    else
+        error "No matching GPU found. Please check lspci output manually."
+        info "lspci output for VGA/Display controller:"
+        lspci | grep -E "VGA|Display controller"
+    fi
+}
+
+zram_config() {
+    tee /etc/systemd/zram-generator.conf >/dev/null <<EOF
+[zram0]
+zram-size = min(ram / 2, 4096)
+compression-algorithm = zstd
+EOF
+
+    tee /etc/sysctl.d/99-vm-zram-parameters.conf >/dev/null <<EOF
+vm.swappiness = 180
+vm.watermark_boost_factor = 0
+vm.watermark_scale_factor = 125
+vm.page-cluster = 0
+EOF
+}
+
+chaotic_repo() {
+    chaotic_key_id="3056513887B78AEB"
+    key_serv="keyserver.ubuntu.com"
+
+    pacman-key --init
+    pacman-key --recv-key "$chaotic_key_id" --keyserver $key_serv
+    pacman-key --lsign-key "$chaotic_key_id"
+
+
+		pacman -U --noconfirm --needed \
+    		https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst
+		pacman -U --noconfirm --needed \
+    		https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst
+
+
+    sudo tee -a /etc/pacman.conf >/dev/null <<'EOF'
+
+[chaotic-aur]
+Include = /etc/pacman.d/chaotic-mirrorlist
+EOF
+}
+
+install_icons() {
+	local usr_icons
+	usr_icons="/usr/share/icons"
+	ti_dir="/tmp/whitesur-icons"
+
+	git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git "$ti_dir"
+	cd "$ti_dir"
+	./install.sh -t grey -d "$usr_icons"
+	cd ~
+	rm -rf "$ti_dir" "${usr_icons}/WhiteSur-grey-light" "${usr_icons}/capitaine-cursors"
+	rm -f "${usr_icons}/WhiteSur-grey/apps/scalable/preferences-system.svg"
+	
+	local old_color="#dedede"
+	local new_color="#d3dae3"
+	local -a files
+	mapfile -t files < <(
+		fd --type f --extension svg --exclude '*/scalable/*' . "$usr_icons/WhiteSur-grey-dark"
+	)
+	local -a matches=()
+	info "Changing icon colors"
+
+	for f in "${files[@]}"; do
+		rg --quiet "$old_color" "$f" && matches+=("$f")
+	done
+	parallel --jobs 4 "sd '$old_color' '$new_color' {}" ::: "${matches[@]}"
+}
+
+unit_exists() {
+    mapfile -t system_units < <(
+        systemctl list-unit-files --type=service,timer,socket --no-legend | \
+        	awk '{print $1}'
+    )
+
+    local unit="$1"
+    for existing in "${system_units[@]}"; do
+        if [[ "$unit" == "$existing" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+enable_services() {
+    echo "Enabling system units..."
+    for unit in "${SYSD_ENABLE[@]}"; do
+        if unit_exists "$unit"; then
+            info "Enabling $unit"
+            systemctl enable "$unit"
+        else
+            error "Unit $unit not found"
+        fi
+    done
+}
+
+disable_services() {
+    echo "Disabling system units..."
+    for unit in "${SYSD_DISABLE[@]}"; do
+        if unit_exists "$unit"; then
+            info "Disabling $unit"
+            systemctl disable "$unit"
+        else
+            error "Unit $unit not found"
+        fi
+    done
+}
+
+pass_files_to_user() {
+    rsync -a "$HOME/$TO_DEF/" "$USER_HOME/$TO_DEF/"
+    rsync -a "$HOME/$KEY_DIR/" "$USER_HOME/$KEY_DIR/"
+
+    chmod 600 "$USER_HOME/$KEY_DIR/$SSH_KEYFILE"
+    chmod 600 "$USER_HOME/$KEY_DIR/$GPG_KEYFILE"
+
+    chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/$TO_DEF" "$USER_HOME/$KEY_DIR"
+}
+
+create_autostart() {
+    local autostart_dir="$USER_HOME/.config/autostart"
+    local desktop_file="$autostart_dir/post.desktop"
+    local post_script="$USER_HOME/$TO_DEF/kat"
+
+    mkdir -p "$autostart_dir"
+    chmod +x "$post_script"
+
+    local exec_command="alacritty -e \"$post_script\""
+    cat >"$desktop_file" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Freshen Up
+Exec=sh -c 'sleep 5 && $exec_command'
+Terminal=false
+NoDisplay=true
+EOF
+
+    success "✅ Created: $desktop_file"
+}
+
+#######################################
+# Main
+#######################################
+were_gonna_need_a_bigger_boat() {
+    add_user_to_groups
+
+    vendor=$(lscpu | grep -Po '^Vendor ID:\s*\K[A-Za-z]+')
+    determine_gpu_drivers
+    zram_config
+
+    chaotic_repo
+    pacman_install "${FLOOD_PAC[@]}"
+    install_icons
+    enable_services
+    disable_services
+
+    pass_files_to_user
+    create_autostart
+
+    # disable root
+    passwd -l root
+}
+
+were_gonna_need_a_bigger_boat
+
+trap 'error_trap ${LINENO} "$BASH_COMMAND"' ERR
+

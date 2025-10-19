@@ -1,0 +1,285 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------
+
+# ███╗   ██╗  ██████╗   █████╗  ██╗  ██╗  ██████╗     █████╗  ██████╗   ██████╗ ██╗  ██╗
+# ████╗  ██║ ██╔═══██╗ ██╔══██╗ ██║  ██║ ██╔════╝    ██╔══██╗ ██╔══██╗ ██╔════╝ ██║  ██║
+# ██╔██╗ ██║ ██║   ██║ ███████║ ███████║ ╚█████╗     ███████║ ██████╔╝ ██║      ███████║
+# ██║╚██╗██║ ██║   ██║ ██╔══██║ ██╔══██║  ╚═══██╗    ██╔══██║ ██╔══██╗ ██║      ██╔══██║
+# ██║ ╚████║ ╚██████╔╝ ██║  ██║ ██║  ██║ ██████╔╝    ██║  ██║ ██║  ██║ ╚██████╗ ██║  ██║
+# ╚═╝  ╚═══╝  ╚═════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═════╝     ╚═╝  ╚═╝ ╚═╝  ╚═╝  ╚═════╝ ╚═╝  ╚═╝
+
+# -------------------------------------------------------------------------
+#             The one-opinion opinionated automated Arch Linux Installer
+# -------------------------------------------------------------------------
+set -euo pipefail
+
+#######################################
+# # Sourcing # # # # # # # # # # # # #
+#######################################
+CURRENT_DIR="$(dirname "$0")"
+LOG_FILE="$CURRENT_DIR/fresh_log"
+
+. "$CURRENT_DIR/conf/conf_user.sh"
+. "$CURRENT_DIR/utils.sh"
+
+DBEAVER_DELAY=120
+
+init_db() {
+	if [[ ! -d /var/lib/mysql/mysql ]]; then
+		info "Initializing MariaDB data directory..."
+		sudo mariadb-install-db \
+			--basedir=/usr \
+			--datadir=/var/lib/mysql \
+			--auth-root-authentication-method=socket \
+			--skip-test-db \
+			--user=mysql || \
+				error "Database initialization failed."
+	else
+		info "MariaDB data directory already initialized."
+	fi
+}
+
+set_db_password() {
+	sudo systemctl start mariadb
+
+	if sudo mariadb -e "SELECT 1;" >/dev/null 2>&1; then
+		info "Switching root authentication from socket to password..."
+		sudo mariadb -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${SWORDPAS}');"
+		info "Reloading privileges..."
+		sudo mariadb -e "FLUSH PRIVILEGES;"
+	else
+		info "Root already requires a password or database inaccessible."
+	fi
+}
+
+mapfile -t system_units < <(
+	systemctl --user list-unit-files \
+		--type=service,timer,socket \
+		--no-legend | awk '{print $1}'
+)
+
+unit_exists() {
+	local unit="$1"
+	for existing in "${system_units[@]}"; do
+		if [[ "$unit" == "$existing" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+enable_user_services() {
+	echo "Enabling user units..."
+	for unit in "${USER_SERV_ENABLE[@]}"; do
+		if unit_exists "$unit"; then
+			systemctl --user enable "$unit"
+		else
+			echo "Unit $unit not found"
+		fi
+	done
+}
+
+create_custom_folders() {
+	for folder in "${!CUSTOM_FOLDERS[@]}"; do
+		mkdir -p "$folder"
+		echo -e "[Desktop Entry]\nIcon=${CUSTOM_FOLDERS[$folder]}" >"$folder/.directory"
+	done
+}
+
+remove_xdg_dirs() {
+	for xdg_var in "${REMOVE_XDG_DIRS[@]}"; do
+		path=$(
+			grep "^$xdg_var=" "$HOME/.config/user-dirs.dirs" | \
+				cut -d '=' -f2 | \
+				tr -d '"'
+		)
+
+		if [[ -n "$path" ]]; then
+			rm -rf "$path"
+		fi
+		sed -i "/^$xdg_var=/d" "$HOME/.config/user-dirs.dirs"
+	done
+}
+
+add_xdg_dirs() {
+	for entry in "${CUSTOM_XDG_ENTRIES[@]}"; do
+		local key="${entry%%=*}"
+		if ! grep -q "^$key=" "$HOME/.config/user-dirs.dirs"; then
+			echo "$entry" >>"$HOME/.config/user-dirs.dirs"
+		fi
+	done
+}
+
+import_ssh_keys() {
+  ssh_path="$HOME/${KEY_DIR}/${SSH_KEYFILE}"
+
+  if [[ -z "${SSH_AUTH_SOCK:-}" ]]; then
+	  export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gcr/ssh"
+  fi
+
+  if [[ ! -S "${SSH_AUTH_SOCK}" ]]; then
+  	systemctl --user start gcr-ssh-agent.socket
+  fi
+
+  local key_fingerprint
+  key_fingerprint=$(ssh-keygen -lf "${ssh_path}" | awk '{print $2}')
+
+	if ssh-add -l 2>/dev/null | grep -q "${key_fingerprint}"; then
+  	info "SSH key already loaded in GCR SSH agent."
+	else
+   	if ssh-add "${ssh_path}" 2>/dev/null; then
+  	  info "$ssh_path successfully added to GCR SSH agent."
+    else
+      error "Failed to add SSH key to GCR SSH agent."
+      return 1
+    fi
+	fi
+}
+
+import_gpg_key() {
+	gpg_path="$HOME/${KEY_DIR}/${GPG_KEYFILE}"
+	local fingerprint
+	fingerprint=$(
+		gpg --import-options show-only --import \
+			--with-colons "${gpg_path}" 2>/dev/null | \
+			awk -F: '/^fpr:/ { print $10; exit }'
+	)
+
+	if ! gpg --list-keys "$fingerprint" &>/dev/null; then
+		gpg --import "${gpg_path}"
+		echo "${fingerprint}:6:" | gpg --import-ownertrust
+		success "Imported GPG key $fingerprint."
+	else
+		info "GPG key $fingerprint already exists."
+	fi
+}
+
+clone_gits() {
+	mkdir -p "${GIT_DIR}"
+	cd "${GIT_DIR}"
+
+	ssh-keyscan github.com >>~/.ssh/known_hosts 2>/dev/null
+
+	for repo in "${GIT_REPOS[@]}"; do
+		if [[ -d "$repo" ]]; then
+			info "$repo already exists."
+			continue
+		else
+			git clone "git@github.com:${GIT_USER}/$repo.git"
+			info "Cloned $repo."
+		fi
+	done
+}
+
+gtk_dotfiles() {
+	local theme_dir="$HOME/.themes/Sweet-Ambar-Blue-Dark/gtk-4.0"
+	local gtk_config_dir="$HOME/.config/gtk-4.0"
+	log INFO "Creating GTK theme symlinks..."
+	mkdir -p "$gtk_config_dir"
+	ln -sf "$theme_dir/gtk.css" "$gtk_config_dir/gtk.css"
+	ln -sf "$theme_dir/gtk-dark.css" "$gtk_config_dir/gtk-dark.css"
+}
+
+refresh_caches() {
+	fc-cache -f
+	if command -v tldr &>/dev/null; then
+		tldr --update
+	fi
+}
+
+# --- Sourcing Hidden Variables ---
+decrypt_and_source_secrets() {
+	local tmpfile
+	tmpfile=$(mktemp) || fatal "Failed to create temporary file."
+	ensure_mode "$tmpfile" 600
+
+	if ! gpg --quiet --decrypt "${MY_PASS}" >"$tmpfile"; then
+		rm -f "$tmpfile"
+		fatal "Failed to decrypt secrets."
+	fi
+
+	source "$tmpfile"
+	rm -f "$tmpfile"
+
+	if [[ -z "${MY_PASS:-}" ]]; then
+		fatal "MY_PASS variable is not set after decryption."
+	fi
+}
+
+launch_applications() {
+	local apps=(
+		wl-copy 
+		brave 
+		protonmail-bridge 
+		steam-native-runtime 
+		dbeaver 
+		betterbird
+	)
+
+	info "Launching main applications..."
+	for cmd in "${apps[@]}"; do
+		check_dependencies "$cmd"
+	done
+
+	echo "${MY_PASS}" | wl-copy || \
+		error "Failed to copy password to clipboard."
+
+	brave &>/dev/null &
+	protonmail-bridge &>/dev/null &
+	steam-native-runtime &>/dev/null &
+	betterbird &>/dev/null &
+
+	run_temp_app dbeaver "$DBEAVER_DELAY"
+}
+
+#######################################
+#  Main
+#######################################
+main() {
+	trap 'error_trap $LINENO "$BASH_COMMAND"' ERR
+	set -eEuo pipefail
+
+	sudo -v 
+	install_aur_packages "${AUR[@]}"
+	init_db
+	set_db_password
+	sudo firewall-cmd --set-default-zone=block
+	sudo firewall-cmd --reload
+
+	enable_user_services
+
+	xdg-user-dirs-update
+	info "Creating folders on disk."
+	create_custom_folders
+	info "Configuring XDG folders."
+	remove_xdg_dirs
+	add_xdg_dirs
+	xdg-user-dirs-update
+
+	import_ssh_keys
+	import_gpg_key
+	clone_gits
+
+	refresh_caches
+
+	decrypt_and_source_secrets
+	launch_applications
+	unset MY_PASS
+	success "Script completed successfully."
+
+	echo -ne "
+   -------------------------------------------------------------------------------------
+   ███╗   ██╗  ██████╗   █████╗  ██╗  ██╗  ██████╗     █████╗  ██████╗   ██████╗ ██╗  ██╗
+   ████╗  ██║ ██╔═══██╗ ██╔══██╗ ██║  ██║ ██╔════╝    ██╔══██╗ ██╔══██╗ ██╔════╝ ██║  ██║
+   ██╔██╗ ██║ ██║   ██║ ███████║ ███████║ ╚█████╗     ███████║ ██████╔╝ ██║      ███████║
+   ██║╚██╗██║ ██║   ██║ ██╔══██║ ██╔══██║  ╚═══██╗    ██╔══██║ ██╔══██╗ ██║      ██╔══██║
+   ██║ ╚████║ ╚██████╔╝ ██║  ██║ ██║  ██║ ██████╔╝    ██║  ██║ ██║  ██║ ╚██████╗ ██║  ██║
+   ╚═╝  ╚═══╝  ╚═════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═════╝     ╚═╝  ╚═╝ ╚═╝  ╚═╝  ╚═════╝ ╚═╝  ╚═╝
+
+   -------------------------------------------------------------------------------------
+                            Automated Arch Linux Installer
+   -------------------------------------------------------------------------------------
+                              					Done
+}
+main "$@"
