@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+
+# --------------------------------------------------------------------------------------
+# ███╗   ██╗  ██████╗   █████╗  ██╗  ██╗  ██████╗     █████╗  ██████╗   ██████╗ ██╗  ██╗
+# ████╗  ██║ ██╔═══██╗ ██╔══██╗ ██║  ██║ ██╔════╝    ██╔══██╗ ██╔══██╗ ██╔════╝ ██║  ██║
+# ██╔██╗ ██║ ██║   ██║ ███████║ ███████║ ╚█████╗     ███████║ ██████╔╝ ██║      ███████║
+# ██║╚██╗██║ ██║   ██║ ██╔══██║ ██╔══██║  ╚═══██╗    ██╔══██║ ██╔══██╗ ██║      ██╔══██║
+# ██║ ╚████║ ╚██████╔╝ ██║  ██║ ██║  ██║ ██████╔╝    ██║  ██║ ██║  ██║ ╚██████╗ ██║  ██║
+# ╚═╝  ╚═══╝  ╚═════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═════╝     ╚═╝  ╚═╝ ╚═╝  ╚═╝  ╚═════╝ ╚═╝  ╚═╝
+# --------------------------------------------------------------------------------------
+# The one-opinion opinionated automated Arch Linux Installer
+# --------------------------------------------------------------------------------------
+
+#######################################
+# Groups/Services
+#######################################
+INSTALL_SCRIPT="noah"
+TIMEZONE="US/Eastern"
+HOST_NAME="yulia"
+USER_NAME="nick"
+LOCALE="en_US.UTF-8"
+DEFAULT_EFI_SIZE="512MiB"
+BOOTLOADER="systemd-boot"
+ROOT_LABEL="Arch"
+KEY_DIR=".ssh"
+KEYMAP="us"
+MOUNT_OPTIONS="noatime,compress=zstd"
+
+#######################################
+# Groups/Services
+#######################################
+USER_GROUPS=(
+	wheel
+	power
+	input
+	audio
+	video
+	network
+	storage
+	rfkill
+	log
+	games
+	gamemode
+)
+
+#######################################
+# Sysd services
+#######################################
+SYSD_ENABLE=(
+	acpid.service
+	ananicy-cpp.service
+	avahi-daemon.service
+	bluetooth.service
+	ly.service
+	NetworkManager.service
+	ntpd.service
+	personal-powertop.service
+	restart-logid.service
+	tlp.service
+	fstrim.timer
+	logrotate.timer
+	man-db.timer
+	paccache.timer
+	reflector.timer
+)
+SYSD_DISABLE=(
+	systemd-timesyncd
+)
+
+#######################################
+# User services
+#######################################
+USER_SERV_ENABLE=(
+	gnome-keyring-daemon.service
+	hypridle.service
+	hyprpolkitagent.service
+	mako.service
+	pipewire.service
+	pipewire-pulse.service
+	wireplumber.service
+	waybar.service
+	wallpaper.timer
+	gcr-ssh-agent.socket
+)
+
+#######################################
+# Dotfiles
+#######################################
+DOT_URL="https://github.com/acctux/dots.git"
+DOT_DIRECTORIES=(
+    "$HOME/Polka/dots"
+    "$HOME/Polka/secretdots"
+)
+DIRECT_LINKS=(
+    ["$HOME/Polka/bin"]="$HOME/.local/bin"
+    ["$HOME/Polka/"]="$HOME/.local/bin"
+)
+SKIP_PATTERNS=(
+    ".git"
+    "__pycache__"
+    "*.pyc"
+    "*.log"
+)
+
+#######################################
+# Git
+#######################################
+GIT_USER="acctux"
+LIT_DIR="Lit"
+LIT_REPOS=(
+	"docs"
+	"noah"
+	"modules"
+)
+POLKA_DIR="Polka"
+POLKA_REPOS=(
+	"bin"
+	"dots"
+	"etc"
+	"secretdots"
+)
+
+#######################################
+# Keys
+#######################################
+SSH_KEYFILE="id_ed25519"
+GPG_KEYFILE="my-private-key.asc"
+MY_PASS="pass.asc"
+KEY_FILES=(
+	"$SSH_KEYFILE"
+	"$GPG_KEYFILE"
+	"$MY_PASS"
+)
+
+#######################################
+# Folders
+#######################################
+ICON_DIR="/usr/share/icons/WhiteSur-grey-dark"
+CUSTOM_FOLDERS=(
+	["$HOME/Games"]="$ICON_DIR/places/scalable/folder-games.svg"
+	["$HOME/Lit"]="$ICON_DIR/places/scalable/folder-github.svg"
+	["$HOME/Polka"]="$ICON_DIR/places/scalable/folder-html.svg""
+)
+REMOVE_XDG_DIRS=(
+	"XDG_PUBLICSHARE_DIR"
+	"XDG_DESKTOP_DIR"
+)
+

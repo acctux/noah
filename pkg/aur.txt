@@ -1,0 +1,3 @@
+ayugram-desktop-bin
+webkit2gtk
+surfshark-client

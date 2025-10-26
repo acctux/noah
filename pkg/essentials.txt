@@ -1,0 +1,9 @@
+git
+iwd
+btrfs-progs
+networkmanager
+pacman-contrib
+reflector
+rsync
+zsh
+zsh-completions
