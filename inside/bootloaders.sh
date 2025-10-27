@@ -28,7 +28,17 @@ EOF
   echo "initrd /$CPU_VENDOR-ucode.img" >>"$arch_conf"
 
   echo "initrd /initramfs-linux.img" >>"$arch_conf"
-  echo "options root=UUID=$root_uuid rw rootflags=subvol=@" >>"$arch_conf"
+  echo "options root=UUID=$root_uuid rw rootflags=subvol=@ quiet" >>"$arch_conf"
+}
+
+nvidia_blacklist_entry() {
+  local arch_conf="/boot/loader/entries/arch.conf"
+  local nvidia_conf="/boot/loader/entries/arch-blacklist-nvidia.conf"
+
+  [[ -f "$arch_conf" ]] || fatal "Boot entry $arch_conf does not exist."
+  cp "$arch_conf" "$nvidia_conf"
+  sed -i '/^options / s/$/ module_blacklist=nvidia,nvidia_drm,nouveau/' "$nvidia_conf"
+  info "Created NVIDIA-blacklisted boot entry at $nvidia_conf"
 }
 
 #######################################
@@ -46,6 +56,7 @@ configure_bootloader() {
 
   systemd-boot)
     install_gummiboot
+    nvidia_blacklist_entry
     ;;
 
   refind)

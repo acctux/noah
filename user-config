@@ -79,7 +79,7 @@ USER_SERV_ENABLE=(
 	pipewire-pulse.service
 	wireplumber.service
 	waybar.service
-	wallpaper.timer
+	wall.timer
 	gcr-ssh-agent.socket
 )
 
