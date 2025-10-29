@@ -17,7 +17,7 @@ setup_environment() {
       continue
     fi
 
-    if ! pacman -Sy; then
+    if ! pacman -Sy --noconfirm; then
       echo "pacman -Sy failed."
       ((tries++))
       sleep 5
@@ -44,24 +44,29 @@ setup_environment() {
       sleep 5
       continue
     fi
+
+    echo "Environment setup successful."
+    return 0 # ✅ Exit function if everything succeeded
   done
 
   echo "All $max_tries attempts failed. Exiting."
   exit 1
 }
-setup_environment
 
 clone_repo() {
   rm -rf "$CLONE_DIR"
   echo "Cloning repository..."
   if git clone "$REPO_URL" "$CLONE_DIR"; then
-    cd "$CLONE_DIR"
+    cd "$CLONE_DIR" || exit 1
     chmod +x noah
+    echo "Repository cloned successfully."
   else
     echo "Git clone failed."
-    return 1
+    exit 1
   fi
 }
-clone_repo
 
+#Main
+setup_environment
+clone_repo
 echo "Welcome to Noah's Arch, you'll be swept away."
