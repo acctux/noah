@@ -33,7 +33,7 @@ copy_missing_keys() {
 	if [[ -z "$KEY_DIR" || ${#KEY_FILES[@]} -eq 0 ]]; then
 		info "No key directory or key files specified. Skipping key copy."
 		return
-	}
+  fi
 
 	info "Preparing to copy key files from USB..."
 	mkdir -p "$HOME/$KEY_DIR"
