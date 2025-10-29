@@ -16,6 +16,7 @@ set -euo pipefail
 #  TODO:
 #  1. bootloaders needs research
 #  3. GPU drivers NVIDIA
+#  4. add etckeeper init
 #  5. ensure correct chmod
 #  7. Greetings/ending
 #  9. Add "hide-apps"

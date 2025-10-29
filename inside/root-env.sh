@@ -58,9 +58,10 @@ create_user() {
   echo "${USER_NAME}:${SWORDPAS}" | chpasswd
 
   cat >"/etc/sudoers.d/${USER_NAME}" <<EOF
-${USER_NAME} ALL=(ALL) NOPASSWD: ALL
-Defaults:${USER_NAME} timestamp_timeout=-1
+${USER_NAME} ALL=(ALL:ALL) ALL
+Defaults timestamp_timeout=-1
 Defaults passwd_tries=10
+Defaults env_keep += "EDITOR VISUAL SYSTEMD_EDITOR"
 EOF
 
   chmod 440 "/etc/sudoers.d/${USER_NAME}"

@@ -57,11 +57,13 @@ SYSD_ENABLE=(
 	personal-powertop.service
 	restart-logid.service
 	tlp.service
+  unbound.service
 	fstrim.timer
 	logrotate.timer
 	man-db.timer
 	paccache.timer
 	reflector.timer
+  roothints.timer
 )
 SYSD_DISABLE=(
 	systemd-timesyncd
@@ -88,18 +90,18 @@ USER_SERV_ENABLE=(
 #######################################
 DOT_URL="https://github.com/acctux/dots.git"
 DOT_DIRECTORIES=(
-    "$HOME/Polka/dots"
-    "$HOME/Polka/secretdots"
+  "$HOME/Polka/dots"
+  "$HOME/Polka/secretdots"
 )
 DIRECT_LINKS=(
-    ["$HOME/Polka/bin"]="$HOME/.local/bin"
-    ["$HOME/Polka/"]="$HOME/.local/bin"
+  ["$HOME/Polka/bin"]="$HOME/.local/bin"
+  ["$HOME/Polka/"]="$HOME/.local/bin"
 )
 SKIP_PATTERNS=(
-    ".git"
-    "__pycache__"
-    "*.pyc"
-    "*.log"
+  ".git"
+  "__pycache__"
+  "*.pyc"
+  "*.log"
 )
 
 #######################################

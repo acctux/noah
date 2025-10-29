@@ -104,6 +104,7 @@ hyprpicker
 hyprpolkitagent
 hyprshot
 kdeconnect
+qt5-tools
 keepassxc
 ktimer
 kvantum
@@ -128,6 +129,7 @@ swayosd
 swww
 ttf-caladea
 ttf-cascadia-mono-nerd
+ttf-jetbrains-mono-nerd
 unrar
 uwsm
 waybar
