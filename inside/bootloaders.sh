@@ -13,11 +13,25 @@ install_gummiboot() {
     fatal "Failed to get root UUID."
 
   bootctl --path=/boot install
-  systemctl enable systemd-boot-update
 
+  # hook to update after systemd-boot update
+  cat >"/etc/pacman.d/hooks/95-systemd-boot.hook" <<EOF
+[Trigger]
+Type = Package
+Operation = Upgrade
+Target = systemd
+
+[Action]
+Description = Gracefully upgrading systemd-boot...
+When = PostTransaction
+Exec = /usr/bin/systemctl restart systemd-boot-update.serviceEOF
+EOF
+
+  # @saved in order to remember the last picked entry on startup.
   cat >"/boot/loader/loader.conf" <<EOF
 default arch.conf
 timeout 1
+default @saved
 EOF
 
   cat >"$arch_conf" <<EOF
