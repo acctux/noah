@@ -31,6 +31,7 @@ TMP_CONF="$SCRIPT_D/tmp_conf"
 . "$IN_SCRIPTS/hardware.sh"
 . "$IN_SCRIPTS/groups-and-user.sh"
 . "$IN_SCRIPTS/pacman-setup.sh"
+. "$IN_SCRIPTS/unbound-setup.sh"
 
 if [[ -z "${USER_NAME}" ]]; then
   error "USER_NAME not defined in $USER_CONF."
@@ -43,19 +44,19 @@ USER_HOME="/home/$USER_NAME"
 # Main
 #######################################
 bigger_boat() {
-  pkg_install "${PKG_D}/essentials.txt"
-  config_sys_locality
-
-  generate_intramfs
-
-  config_hardware
-
-  create_user
-  pacman_setup
-  pkg_install "${PKG_D}/desktop.txt"
+  # pkg_install "${PKG_D}/essentials.txt"
+  # config_sys_locality
+  #
+  # generate_intramfs
+  #
+  # config_hardware
+  #
+  # create_user
+  # pacman_setup
+  # pkg_install "${PKG_D}/desktop.txt"
   setup_unbound
   enable_sysd_units SYSD_ENABLE
-  disable_sysd_services SYSD_DISABLE
+  disable_sysd_units SYSD_DISABLE
 
   pass_files_to_user
   create_autostart
