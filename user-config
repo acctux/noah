@@ -23,6 +23,7 @@ DEFAULT_EFI_SIZE="512MiB"
 BOOTLOADER="systemd-boot"
 ROOT_LABEL="Arch"
 KEY_DIR=".ssh"
+WIFI_PASS_DIR="$KEY_DIR"
 KEYMAP="us"
 MOUNT_OPTIONS="noatime,compress=zstd"
 
