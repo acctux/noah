@@ -26,7 +26,7 @@ When = PostTransaction
 Exec = /usr/bin/systemctl restart systemd-boot-update.service
 EOF
 
-  # @saved in order to remember the last picked entry on startup.
+  # @saved sets default to last picked entry on startup.
   cat >"/boot/loader/loader.conf" <<EOF
 default arch.conf
 timeout 1
