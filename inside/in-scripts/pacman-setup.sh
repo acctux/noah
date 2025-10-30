@@ -30,4 +30,5 @@ EOF
 pacman_setup() {
   s_pac_ed
   chaotic_repo
+  pacman -Sy
 }

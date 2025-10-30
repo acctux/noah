@@ -55,6 +55,7 @@ bigger_boat() {
   config_sys_locality
 
   generate_intramfs
+  configure_bootloader
 
   config_hardware
 
