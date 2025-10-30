@@ -18,15 +18,17 @@ set -euo pipefail
 SCRIPT_D="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
 OUT_SCRIPTS="$SCRIPT_D/outside/out-scripts"
 LOG_FILE="$SCRIPT_D/log"
-USER_CONF="$SCRIPT_D/user-config"
 TMP_CONF="${SCRIPT_D}/tmp_conf"
-SHARED_UTILS="$SCRIPT_D/helper-functions"
-. "$USER_CONF"
+
+#######################################
+# Variable Sourcing
+#######################################
+. "$SCRIPT_D/user-config"
 
 #######################################
 # Script Sourcing
 #######################################
-. "$SHARED_UTILS"
+. "$SCRIPT_D/utils"
 . "$OUT_SCRIPTS/cp-sensitive.sh"
 . "$OUT_SCRIPTS/gather-necessary.sh"
 . "$OUT_SCRIPTS/disk-setup.sh"
@@ -66,4 +68,5 @@ outside_env() {
   pass_files_to_sys
 }
 outside_env
+
 trap 'error_trap ${LINENO} "$BASH_COMMAND"' ERR

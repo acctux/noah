@@ -10,11 +10,10 @@ pass_files_to_user() {
 create_autostart() {
   local autostart_dir="$USER_HOME/.config/autostart"
   local desktop_file="$autostart_dir/post.desktop"
-  local post_script="$USER_HOME/$INSTALL_SCRIPT/no_moah"
-  local exec_command="alacritty -e \"$post_script\""
+  local exec_command="alacritty -e \"$POST_SCRIPT\""
 
   mkdir -p "$autostart_dir"
-  chmod +x "$post_script"
+  chmod +x "$POST_SCRIPT"
 
   cat >"$desktop_file" <<EOF
 [Desktop Entry]
@@ -27,7 +26,8 @@ EOF
 
   success "Created: $desktop_file"
 }
-user_files_and_autostart() {
+
+userfiles_and_autostart() {
   pass_files_to_user
   create_autostart
 }

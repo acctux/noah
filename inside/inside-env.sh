@@ -12,6 +12,9 @@
 # --------------------------------------------------------------------------------------
 set -euo pipefail
 
+#######################################
+# Variables
+#######################################
 SCRIPT_D="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
 PKG_D="$SCRIPT_D/pkg"
 IN_SCRIPTS="$SCRIPT_D/inside/in-scripts"
@@ -21,9 +24,14 @@ SHARED_UTILS="$SCRIPT_D/helper-functions"
 TMP_CONF="$SCRIPT_D/tmp_conf"
 
 #######################################
-# Sourcing
+# Variable Sourcing
 #######################################
 . "$USER_CONF"
+. "$TMP_CONF"
+
+#######################################
+# Script Sourcing
+#######################################
 . "$SCRIPT_D/helper-functions"
 . "$IN_SCRIPTS/sys-settings.sh"
 . "$IN_SCRIPTS/ucode-mkinit.sh"
@@ -32,6 +40,7 @@ TMP_CONF="$SCRIPT_D/tmp_conf"
 . "$IN_SCRIPTS/groups-and-user.sh"
 . "$IN_SCRIPTS/pacman-setup.sh"
 . "$IN_SCRIPTS/unbound-setup.sh"
+. "$IN_SCRIPTS/sys-services.sh"
 . "$IN_SCRIPTS/post-reboot-setup.sh"
 
 if [[ -z "${USER_NAME}" ]]; then
@@ -39,28 +48,27 @@ if [[ -z "${USER_NAME}" ]]; then
   exit 1
 fi
 USER_HOME="/home/$USER_NAME"
-. "$TMP_CONF"
+POST_SCRIPT="$USER_HOME/$INSTALL_SCRIPT/user/user-env.sh"
 
 #######################################
 # Main
 #######################################
 bigger_boat() {
-  # pkg_install "${PKG_D}/essentials.txt"
-  # config_sys_locality
-  #
-  # generate_intramfs
-  #
-  # config_hardware
-  #
-  # create_user
-  # pacman_setup
-  # pkg_install "${PKG_D}/desktop.txt"
-  setup_unbound
-  enable_sysd_units SYSD_ENABLE
-  disable_sysd_units SYSD_DISABLE
+  pkg_install "${PKG_D}/essentials.txt"
+  config_sys_locality
 
-  pass_files_to_user
-  create_autostart
+  generate_intramfs
+
+  config_hardware
+
+  create_user
+  pacman_setup
+  pkg_install "${PKG_D}/desktop.txt"
+  setup_unbound
+
+  handle_system_services
+
+  userfiles_and_autostart
 
   # disable root
   passwd -l root
