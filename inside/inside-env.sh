@@ -49,20 +49,20 @@ POST_SCRIPT="$USER_HOME/$INSTALL_SCRIPT/user/user-env.sh"
 # Main
 #######################################
 bigger_boat() {
-  pkg_list_install "${PKG_D}/dependencies.list"
-
-  etc_files_config
-
-  generate_intramfs
-  configure_bootloader
-
-  config_hardware
-
-  user_create
-
-  multi_list_install "${PKG_LISTS[@]}"
-
-  handle_system_services
+  # pkg_list_install "${PKG_D}/dependencies.list"
+  #
+  # etc_files_config
+  #
+  # generate_intramfs
+  # configure_bootloader
+  #
+  # config_hardware
+  #
+  # user_create
+  #
+  # multi_list_install "${PKG_LISTS[@]}"
+  #
+  # handle_system_services
 
   userfiles_and_autostart
 
