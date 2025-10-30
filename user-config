@@ -155,4 +155,4 @@ REMOVE_XDG_DIRS=(
 #######################################
 # Globals
 #######################################
-readonly TMP_CONF="/tmp/tmp_conf"
+TMP_CONF="/tmp/tmp_conf"
