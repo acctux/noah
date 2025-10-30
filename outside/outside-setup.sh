@@ -16,7 +16,7 @@ set -euo pipefail
 # Variable
 #######################################
 SCRIPT_D="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
-IN_D="$SCRIPT_D/inside"
+OUT_SCRIPTS="$SCRIPT_D/outside/out-scripts"
 LOG_FILE="$SCRIPT_D/log"
 USER_CONF="$SCRIPT_D/user-config"
 TMP_CONF="${SCRIPT_D}/tmp_conf"
@@ -27,11 +27,11 @@ SHARED_UTILS="$SCRIPT_D/helper-functions"
 # Script Sourcing
 #######################################
 . "$SHARED_UTILS"
-. "$OUT_D/cp-sensitive.sh"
-. "$OUT_D/gather-necessary.sh"
-. "$OUT_D/disk-setup.sh"
-. "$OUT_D/disk-format.sh"
-. "$OUT_D/pass-info.sh"
+. "$OUT_SCRIPTS/cp-sensitive.sh"
+. "$OUT_SCRIPTS/gather-necessary.sh"
+. "$OUT_SCRIPTS/disk-setup.sh"
+. "$OUT_SCRIPTS/disk-format.sh"
+. "$OUT_SCRIPTS/pass-info.sh"
 
 #######################################
 # Declare globals
