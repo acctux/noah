@@ -13,8 +13,6 @@ NC='\033[0m'
 
 #######################################
 # Logging Functions
-# Description:
-#   Functions to print messages with severity levels and optional logging to file.
 #######################################
 info() { printf "${BLUE}[INFO]${NC} %s\n" "$*" | tee -a "$LOG_FILE"; }
 success() { printf "${GREEN}[SUCCESS]${NC} %s\n" "$*" | tee -a "$LOG_FILE"; }
@@ -36,8 +34,6 @@ error_trap() {
 
 #######################################
 # Pre-flight Checks
-# Description:
-#   Functions to ensure the script runs under the correct conditions.
 #######################################
 require_root() {
   if [[ "$EUID" -ne 0 ]]; then
@@ -56,8 +52,6 @@ check_dependencies() {
 
 #######################################
 # Password Prompt
-# Description:
-#   Prompt the user to type and confirm a password.
 # Arguments:
 #   $1 = variable name to store password
 #######################################
@@ -218,6 +212,14 @@ multi_list_install() {
     fi
   done
 
-  pkg_list_install "${packages_to_install[@]}"
+  for attempt in {1..5}; do
+    info "Installing packages (attempt $attempt)..."
+    if pacman -Syu --noconfirm --needed "${packages_to_install[@]}"; then
+      success "All packages installed successfully."
+      return 0
+    else
+      sleep 5
+    fi
+  done
 }
 export -f multi_list_install
