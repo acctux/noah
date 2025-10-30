@@ -49,7 +49,7 @@ EFI_SIZE="${DEFAULT_EFI_SIZE:-512MiB}"
 #######################################
 # Main
 #######################################
-chroot_env() {
+outside_env() {
   umount -A --recursive /mnt || info "No mount or failed to unmount."
 
   copy_sensitive_files
@@ -64,5 +64,4 @@ chroot_env() {
   genfstab -U /mnt >"/mnt/etc/fstab" || fatal "Failed to generate fstab."
   pass_files_to_sys
 }
-chroot_env
 trap 'error_trap ${LINENO} "$BASH_COMMAND"' ERR

@@ -151,3 +151,8 @@ REMOVE_XDG_DIRS=(
   "XDG_PUBLICSHARE_DIR"
   "XDG_DESKTOP_DIR"
 )
+
+#######################################
+# Globals
+#######################################
+readonly TMP_CONF="/tmp/tmp_conf"
