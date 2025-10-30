@@ -1,4 +1,16 @@
-KEY_FILES="$KEY_FILES"
+SCRIPT_D="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
+
+PKG_D="$SCRIPT_D/pkg"
+IN_D="$SCRIPT_D/inside"
+OUT_D="$SCRIPT_D/outside"
+USER_D="$SCRIPT_D/user"
+LOG_FILE="$SCRIPT_D/log"
+USER_CONF="$SCRIPT_D/user-config"
+SHARED_UTILS="$SCRIPT_D/helper-functions"
+#######################################
+# Sourcing
+#######################################
+. "$USER_CONF"
 
 key_check() {
   local need_copy=0
