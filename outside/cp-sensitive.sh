@@ -1,3 +1,5 @@
+KEY_FILES="$KEY_FILES"
+
 key_check() {
   local need_copy=0
 
