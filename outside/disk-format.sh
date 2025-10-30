@@ -33,31 +33,31 @@ check_disk() {
 #   DEVICE, EFI_SIZE, EFI_PARTITION, ROOT_PARTITION
 #######################################
 set_partitions() {
-  info "Partitioning /dev/${DEVICE}..."
+  info "Partitioning ${DEVICE}..."
 
-  sgdisk -Z "/dev/${DEVICE}"         # Zap existing partitions
-  sgdisk -a 2048 -o "/dev/${DEVICE}" # Set optimal alignment
+  sgdisk -Z "${DEVICE}"
+  sgdisk -a 2048 -o "${DEVICE}"
 
   local part_count=1
 
-  # Determine partition suffix based on device type
   local part_suffix=""
-  if [[ "${DEVICE}" == *nvme* ]]; then
+  local device_name="${DEVICE#/dev/}"
+  if [[ "$device_name" == *nvme* ]]; then
     part_suffix="p"
   fi
 
   # Create EFI system partition
   info "Creating EFI system partition..."
-  sgdisk -n ${part_count}:0:${EFI_SIZE} -t ${part_count}:ef00 -c ${part_count}:EFIBOOT "/dev/${DEVICE}"
-  EFI_PARTITION="/dev/${DEVICE}${part_suffix}${part_count}"
+  sgdisk -n ${part_count}:0:${EFI_SIZE} -t ${part_count}:ef00 -c ${part_count}:EFIBOOT "${DEVICE}"
+  EFI_PARTITION="${DEVICE}${part_suffix}${part_count}"
   ((part_count++))
 
   # Create root partition (rest of the space)
   info "Creating root partition..."
-  sgdisk -n ${part_count}:0:0 -t ${part_count}:8300 -c ${part_count}:ROOT "/dev/${DEVICE}"
-  ROOT_PARTITION="/dev/${DEVICE}${part_suffix}${part_count}"
+  sgdisk -n ${part_count}:0:0 -t ${part_count}:8300 -c ${part_count}:ROOT "${DEVICE}"
+  ROOT_PARTITION="${DEVICE}${part_suffix}${part_count}"
 
-  partprobe "/dev/${DEVICE}"
+  partprobe "${DEVICE}"
   sync
   success "Partitions created: EFI=$EFI_PARTITION, ROOT=$ROOT_PARTITION"
 }
