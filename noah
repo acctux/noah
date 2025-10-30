@@ -25,15 +25,18 @@ set -euo pipefail
 #
 #############################################################################
 set -a
-SCRIPT_D="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-PKG_D="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"/pkg
-IN_D="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"/inside
-OUT_D="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"/outside
-USER_D="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"/user
+SCRIPT_D="$(dirname "${BASH_SOURCE[0]}")"
+PKG_D="$SCRIPT_D/pkg"
+IN_D="$SCRIPT_D/inside"
+OUT_D="$SCRIPT_D/outside"
+USER_D="$SCRIPT_D/user"
 LOG_FILE="$SCRIPT_D/log"
 USER_CONF="$SCRIPT_D/user-config"
 SHARED_UTILS="$SCRIPT_D/helper-functions"
 set +a
+
+. "$USER_CONF"
+. "$SHARED_UTILS"
 
 #######################################
 # Main
@@ -41,8 +44,8 @@ set +a
 noah() {
   bash $SCRIPT_D/outside/chroot-env.sh
   arch-chroot /mnt $HOME/${INSTALL_SCRIPT}/inside/root-env.sh
-  (arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- /home/$USER_NAME/${INSTALL_SCRIPT}/user/user-env.sh) |& tee $LOG_FILE
-  (arch-chroot /mnt $HOME/ArchTitus/scripts/3-post-setup.sh) |& tee 3-post-setup.log
+  arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- /home/$USER_NAME/${INSTALL_SCRIPT}/user/user-env.sh
+  arch-chroot /mnt $HOME/ArchTitus/scripts/3-post-setup.sh
 }
 noah
 trap 'error_trap ${LINENO} "$BASH_COMMAND"' ERR
