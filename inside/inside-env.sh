@@ -30,6 +30,7 @@ TMP_CONF="$SCRIPT_D/tmp_conf"
 . "$IN_SCRIPTS/bootloaders.sh"
 . "$IN_SCRIPTS/hardware.sh"
 . "$IN_SCRIPTS/groups-and-user.sh"
+. "$IN_SCRIPTS/pacman-setup.sh"
 
 if [[ -z "${USER_NAME}" ]]; then
   error "USER_NAME not defined in $USER_CONF."
