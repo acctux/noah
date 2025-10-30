@@ -28,5 +28,5 @@ EOF
 
 userfiles_and_autostart() {
   pass_files_to_user
-  # create_autostart
+  create_autostart
 }

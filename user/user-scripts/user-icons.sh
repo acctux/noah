@@ -40,7 +40,6 @@ create_custom_folders() {
 }
 
 user_folders_icons() {
-  # xdg-user-dirs-update
   install_icons
   create_custom_folders
 }

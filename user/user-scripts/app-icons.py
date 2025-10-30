@@ -30,9 +30,10 @@ ICON_OVERRIDES = {
     "com.ayugram.desktop.desktop": "telegram",
 }
 
+
 def hide_apps():
     """Append 'NoDisplay=true' to specified .desktop files."""
-    print(f"Hiding apps and backing up to: {BACKUP_DIR}")
+    print("Hiding apps")
 
     for file_path in HIDE_APP_FILES:
         basename = os.path.basename(file_path)
@@ -53,12 +54,14 @@ def hide_apps():
 
     if shutil.which("update-desktop-database"):
         print("Updating desktop database...")
-        subprocess.run(["sudo", "update-desktop-database", "/usr/share/applications/"], check=False)
+        subprocess.run(
+            ["sudo", "update-desktop-database", "/usr/share/applications/"], check=False
+        )
 
 
 def change_icons():
     """Update the Icon= field in .desktop files using ICON_OVERRIDES."""
-    print(f"Changing icons and backing up to: {BACKUP_DIR}")
+    print("Changing icons")
 
     for appname, new_icon in ICON_OVERRIDES.items():
         file_path = f"/usr/share/applications/{appname}.desktop"
@@ -86,7 +89,9 @@ def change_icons():
 
     if shutil.which("update-desktop-database"):
         print("Updating desktop database...")
-        subprocess.run(["sudo", "update-desktop-database", "/usr/share/applications/"], check=False)
+        subprocess.run(
+            ["sudo", "update-desktop-database", "/usr/share/applications/"], check=False
+        )
 
 
 if __name__ == "__main__":

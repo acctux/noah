@@ -2,3 +2,4 @@ pacman-contrib
 reflector
 rsync
 zsh-completions
+xdg-user-dirs
