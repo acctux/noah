@@ -167,6 +167,7 @@ update_reflector() {
   hours=24
   seconds=4
 
+  info "Updating reflector"
   reflector \
     --country "${ISO}" \
     --protocol https \
@@ -205,7 +206,7 @@ load_packages() {
 #   $1 = package manager (default: pacman)
 #   $2 = path to package list file
 #######################################
-pkg_install() {
+function pkg_install() {
   local pkgmgr="${1:-pacman}"
   local pkgfile="$2"
 
@@ -229,7 +230,7 @@ pkg_install() {
   info "Installation failed after 5 attempts with $pkgmgr." >&2
   exit 1
 }
-
+export -f pkg_install
 #######################################
 # Check if Systemd Unit Exists
 # Description:
