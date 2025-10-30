@@ -30,59 +30,59 @@ MOUNT_OPTIONS="noatime,compress=zstd"
 # Groups/Services
 #######################################
 USER_GROUPS=(
-	wheel
-	power
-	input
-	audio
-	video
-	network
-	storage
-	rfkill
-	log
-	games
-	gamemode
+  wheel
+  power
+  input
+  audio
+  video
+  network
+  storage
+  rfkill
+  log
+  games
+  gamemode
 )
 
 #######################################
 # Sysd services
 #######################################
 SYSD_ENABLE=(
-	acpid.service
-	ananicy-cpp.service
-	avahi-daemon.service
-	bluetooth.service
-	ly.service
-	NetworkManager.service
-	ntpd.service
-	personal-powertop.service
-	restart-logid.service
-	tlp.service
+  acpid.service
+  ananicy-cpp.service
+  avahi-daemon.service
+  bluetooth.service
+  ly.service
+  NetworkManager.service
+  ntpd.service
+  personal-powertop.service
+  restart-logid.service
+  tlp.service
   unbound.service
-	fstrim.timer
-	logrotate.timer
-	man-db.timer
-	paccache.timer
-	reflector.timer
+  fstrim.timer
+  logrotate.timer
+  man-db.timer
+  paccache.timer
+  reflector.timer
   roothints.timer
 )
 SYSD_DISABLE=(
-	systemd-timesyncd
+  systemd-timesyncd
 )
 
 #######################################
 # User services
 #######################################
 USER_SERV_ENABLE=(
-	gnome-keyring-daemon.service
-	hypridle.service
-	hyprpolkitagent.service
-	mako.service
-	pipewire.service
-	pipewire-pulse.service
-	wireplumber.service
-	waybar.service
-	wall.timer
-	gcr-ssh-agent.socket
+  gnome-keyring-daemon.service
+  hypridle.service
+  hyprpolkitagent.service
+  mako.service
+  pipewire.service
+  pipewire-pulse.service
+  wireplumber.service
+  waybar.service
+  wall.timer
+  gcr-ssh-agent.socket
 )
 
 #######################################
@@ -112,16 +112,16 @@ SKIP_PATTERNS=(
 GIT_USER="acctux"
 LIT_DIR="Lit"
 LIT_REPOS=(
-	"docs"
-	"noah"
-	"modules"
+  "docs"
+  "noah"
+  "modules"
 )
 POLKA_DIR="Polka"
 POLKA_REPOS=(
-	"bin"
-	"dots"
-	"etc"
-	"secretdots"
+  "bin"
+  "dots"
+  "etc"
+  "secretdots"
 )
 
 #######################################
@@ -131,9 +131,9 @@ SSH_KEYFILE="id_ed25519"
 GPG_KEYFILE="my-private-key.asc"
 MY_PASS="pass.asc"
 KEY_FILES=(
-	"$SSH_KEYFILE"
-	"$GPG_KEYFILE"
-	"$MY_PASS"
+  "$SSH_KEYFILE"
+  "$GPG_KEYFILE"
+  "$MY_PASS"
 )
 
 #######################################
@@ -141,12 +141,11 @@ KEY_FILES=(
 #######################################
 ICON_DIR="/usr/share/icons/WhiteSur-grey-dark"
 CUSTOM_FOLDERS=(
-	["$HOME/Games"]="$ICON_DIR/places/scalable/folder-games.svg"
-	["$HOME/Lit"]="$ICON_DIR/places/scalable/folder-github.svg"
-	["$HOME/Polka"]="$ICON_DIR/places/scalable/folder-html.svg""
+  ["$HOME/Games"]="$ICON_DIR/places/scalable/folder-games.svg"
+  ["$HOME/Lit"]="$ICON_DIR/places/scalable/folder-github.svg"
+  ["$HOME/Polka"]="$ICON_DIR/places/scalable/folder-html.svg"
 )
 REMOVE_XDG_DIRS=(
-	"XDG_PUBLICSHARE_DIR"
-	"XDG_DESKTOP_DIR"
+  "XDG_PUBLICSHARE_DIR"
+  "XDG_DESKTOP_DIR"
 )
-
