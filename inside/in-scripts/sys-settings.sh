@@ -83,9 +83,9 @@ enable_sudo_insults() {
 
 locality_and_pacman() {
   reflector_regdom_conf
-  sys_loc
+  sys_locality
   s_pac_ed
   chaotic_repo
   pacman -Sy
-  enable_sudo_insultsality
+  enable_sudo_insults
 }
