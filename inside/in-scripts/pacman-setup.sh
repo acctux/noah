@@ -27,8 +27,20 @@ Include = /etc/pacman.d/chaotic-mirrorlist
 EOF
 }
 
+enable_sudo_insults() {
+  if ! sudo grep -q "^Defaults\s\+insults" /etc/sudoers; then
+    info "Enabling sudo insults."
+    sudo sh -c \
+      'sed -e "/^# Defaults!REBOOT !log_output$/a Defaults insults" /etc/sudoers |
+       EDITOR="tee -p" visudo > /dev/null'
+  else
+    info "Insults already enabled, you masochist."
+  fi
+}
+
 pacman_setup() {
   s_pac_ed
   chaotic_repo
   pacman -Sy
+  enable_sudo_insults
 }
