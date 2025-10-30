@@ -45,7 +45,7 @@ GPU_VENDOR=""
 ISO=""
 USB_MNT="/mnt/usb"
 EFI_SIZE="${DEFAULT_EFI_SIZE:-512MiB}"
-TMP_CONF="/tmp/tmp_conf"
+TMP_CONF="$SCRIPT_D/tmp_conf"
 
 #######################################
 # Main

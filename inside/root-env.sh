@@ -19,7 +19,7 @@ USER_D="$SCRIPT_D/user"
 LOG_FILE="$SCRIPT_D/log"
 USER_CONF="$SCRIPT_D/user-config"
 SHARED_UTILS="$SCRIPT_D/helper-functions"
-TMP_CONF="/tmp/tmp_conf"
+TMP_CONF="$SCRIPT_D/tmp_conf"
 
 #######################################
 # Sourcing
