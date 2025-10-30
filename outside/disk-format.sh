@@ -8,20 +8,20 @@
 check_disk() {
   local disk="$1" reply
 
-  if blkid -p "/dev/$disk" &>/dev/null; then
-    read -rp "Partition scheme exists on /dev/$disk. Wipe it? (y/N) " reply
+  if blkid -p "$disk" &>/dev/null; then
+    read -rp "Partition scheme exists on $disk. Wipe it? (y/N) " reply
     if [[ "$reply" =~ ^[Yy]$ ]]; then
 
-      umount -R "/dev/$disk"* 2>/dev/null ||
+      umount -R "$disk"* 2>/dev/null ||
         warning "Failed to unmount some partitions"
 
-      info "Wiping partition table on /dev/$disk..."
-      sgdisk -Z "/dev/$disk" ||
+      info "Wiping partition table on $disk..."
+      sgdisk -Z "$disk" ||
         warning "Failed to wipe partition table"
-      partprobe "/dev/$disk"
-      success "Partition table wiped on /dev/$disk."
+      partprobe "$disk"
+      success "Partition table wiped on $disk."
     else
-      warning "User chose not to wipe /dev/$disk."
+      warning "User chose not to wipe $disk."
       return 1
     fi
   fi
