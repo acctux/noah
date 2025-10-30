@@ -55,7 +55,6 @@ pass_files_to_sys() {
 
   rsync -a /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/
   rsync -a /etc/pacman.conf /mnt/etc/
-  rsync -a "$HOME/${INSTALL_SCRIPT}/etc/" /mnt/etc/
 
   rsync -a "$HOME/${INSTALL_SCRIPT}/" "/mnt/root/${INSTALL_SCRIPT}/"
   rsync -a "$HOME/${KEY_DIR}/" "/mnt/root/${KEY_DIR}/"
