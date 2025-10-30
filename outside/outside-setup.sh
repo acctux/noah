@@ -12,19 +12,20 @@
 # --------------------------------------------------------------------------------------
 set -euo pipefail
 
+#######################################
+# Variable
+#######################################
 SCRIPT_D="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
-PKG_D="$SCRIPT_D/pkg"
 IN_D="$SCRIPT_D/inside"
-OUT_D="$SCRIPT_D/outside"
-USER_D="$SCRIPT_D/user"
 LOG_FILE="$SCRIPT_D/log"
 USER_CONF="$SCRIPT_D/user-config"
+TMP_CONF="${SCRIPT_D}/tmp_conf"
 SHARED_UTILS="$SCRIPT_D/helper-functions"
+. "$USER_CONF"
 
 #######################################
-# Sourcing
+# Script Sourcing
 #######################################
-. "$USER_CONF"
 . "$SHARED_UTILS"
 . "$OUT_D/cp-sensitive.sh"
 . "$OUT_D/gather-necessary.sh"
@@ -45,7 +46,6 @@ GPU_VENDOR=""
 ISO=""
 USB_MNT="/mnt/usb"
 EFI_SIZE="${DEFAULT_EFI_SIZE:-512MiB}"
-TMP_CONF="${SCRIPT_D}/tmp_conf"
 
 #######################################
 # Main

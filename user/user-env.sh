@@ -17,11 +17,17 @@ set -euo pipefail
 #######################################
 # # Sourcing # # # # # # # # # # # # #
 #######################################
-CURRENT_DIR="$(dirname "$0")"
-LOG_FILE="$CURRENT_DIR/fresh_log"
+SCRIPT_D="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
+PKG_D="$SCRIPT_D/pkg"
+LOG_FILE="$SCRIPT_D/log"
+USER_CONF="$SCRIPT_D/user-config"
+SHARED_UTILS="$SCRIPT_D/helper-functions"
 
-. "$CURRENT_DIR/conf/conf_user.sh"
-. "$CURRENT_DIR/utils.sh"
+#######################################
+# Sourcing
+#######################################
+. "$USER_CONF"
+. "$SHARED_UTILS"
 
 mapfile -t system_units < <(
 	systemctl --user list-unit-files \

@@ -25,7 +25,6 @@ rsync_files_sys() {
   info "Passing configuration files to target system..."
 
   rsync -a /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/
-  rsync -a /etc/pacman.conf /mnt/etc/
   rsync -a "$HOME/${INSTALL_SCRIPT}/" "/mnt/root/${INSTALL_SCRIPT}/"
   rsync -a "$HOME/${KEY_DIR}/" "/mnt/root/${KEY_DIR}/"
 
