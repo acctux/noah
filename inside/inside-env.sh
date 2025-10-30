@@ -32,6 +32,7 @@ TMP_CONF="$SCRIPT_D/tmp_conf"
 . "$IN_SCRIPTS/groups-and-user.sh"
 . "$IN_SCRIPTS/pacman-setup.sh"
 . "$IN_SCRIPTS/unbound-setup.sh"
+. "$IN_SCRIPTS/post-reboot-setup.sh"
 
 if [[ -z "${USER_NAME}" ]]; then
   error "USER_NAME not defined in $USER_CONF."
