@@ -77,8 +77,6 @@ GPU_VENDOR=${GPU_VENDOR}
 ISO=${ISO}
 ROOT_UUID=${ROOT_UUID}
 EOF
-
-  echo "Sensitive globals written to $SECRET_CONF"
 }
 
 #######################################
