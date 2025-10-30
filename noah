@@ -24,9 +24,13 @@ set -euo pipefail
 #  9. Add "hide-apps"
 #
 #############################################################################
+set -a
 SCRIPT_D="$(dirname "${BASH_SOURCE[0]}")"
+OUT_D="$SCRIPT_D/outside"
+set +a
 
 . "$SCRIPT_D/user-config"
+. "$SCRIPT_D/utils"
 
 #######################################
 # Main
