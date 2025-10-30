@@ -44,8 +44,8 @@ set +a
 noah() {
   bash "${OUT_D}/outside-setup.sh"
   arch-chroot /mnt $HOME/${INSTALL_SCRIPT}/inside/root-env.sh
-  arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- /home/$USER_NAME/${INSTALL_SCRIPT}/user/user-env.sh
-  arch-chroot /mnt $HOME/ArchTitus/scripts/3-post-setup.sh
+  # (arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- /home/$USER_NAME/${INSTALL_SCRIPT}/user/user-env.sh)
+  # arch-chroot /mnt $HOME/ArchTitus/scripts/3-post-setup.sh
 }
 noah
 trap 'error_trap ${LINENO} "$BASH_COMMAND"' ERR
