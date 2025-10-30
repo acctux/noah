@@ -149,6 +149,7 @@ EOF
 # Main
 #######################################
 bigger_boat() {
+  pkg_install "${PKG_D}/essentials.txt"
   config_sys_locality
 
   generate_intramfs

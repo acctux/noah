@@ -1,6 +1,5 @@
 git
 iwd
-btrfs-progs
 networkmanager
 pacman-contrib
 reflector
