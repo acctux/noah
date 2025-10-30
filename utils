@@ -180,13 +180,13 @@ pkg_list_multiple_install() {
   for list_name in "${list_of_lists[@]}"; do
     local pkglist="${PKG_D}/${list_name}.list"
     if [[ -f "$pkglist" ]]; then
-      mapfile -t pkgs < <(load_packages "$pkglist")
+      mapfile -t pkgs < <(pkg_list_load "$pkglist")
       packages_to_install+=("${pkgs[@]}")
     else
       warn "Missing package list: $pkglist"
     fi
   done
 
-  pkg_install "${packages_to_install[@]}"
+  pkg_list_install "${packages_to_install[@]}"
 }
 export -f pkg_list_multiple_install
