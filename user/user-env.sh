@@ -69,6 +69,33 @@ set_folders() {
     fi
   done
 }
+install_icons() {
+  local usr_icons
+  usr_icons="/usr/share/icons"
+  ti_dir="/tmp/whitesur-icons"
+
+  git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git "$ti_dir"
+  cd "$ti_dir"
+  ./install.sh -t grey -d "$usr_icons"
+  cd ~
+  rm -rf "$ti_dir" "${usr_icons}/WhiteSur-grey-light" "${usr_icons}/capitaine-cursors"
+  rm -f "${usr_icons}/WhiteSur-grey/apps/scalable/preferences-system.svg"
+
+  local old_color="#dedede"
+  local new_color="#d3dae3"
+  local -a files
+  mapfile -t files < <(
+    fd --type f --extension svg --exclude '*/scalable/*' . "$usr_icons/WhiteSur-grey-dark"
+  )
+  local -a matches=()
+  info "Changing icon colors"
+
+  for f in "${files[@]}"; do
+    rg --quiet "$old_color" "$f" && matches+=("$f")
+  done
+  parallel --jobs 4 "sd '$old_color' '$new_color' {}" ::: "${matches[@]}"
+}
+
 
 init_db() {
 	if [[ ! -d /var/lib/mysql/mysql ]]; then
@@ -229,6 +256,7 @@ main() {
 	set -eEuo pipefail
 
 	xdg-user-dirs-update
+  install_icons
 
 	paru -S ayugram-desktop-bin surfshark-client
 	sudo firewall-cmd --set-default-zone=block
