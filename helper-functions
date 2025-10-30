@@ -217,7 +217,7 @@ function pkg_install() {
   mapfile -t packages < <(load_packages "$pkgfile")
 
   for attempt in {1..5}; do
-    info "Installing packages using $pkgmgr (attempt $attempt)..."
+    info "Installing packages (attempt $attempt)..."
     if pacman -Syu --noconfirm --needed "${packages[@]}"; then
       success "All packages installed successfully."
       return 0
