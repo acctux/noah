@@ -180,7 +180,7 @@ export -f pkg_list_install
 # Arguments:
 #   $1 = path to package list file
 #######################################
-function paru_list_install() {
+paru_list_install() {
   local pkgfile="$1"
 
   if [[ ! -f "$pkgfile" ]]; then
@@ -203,7 +203,6 @@ function paru_list_install() {
   info "Installation failed after 5." >&2
   exit 1
 }
-export -f pkg_list_install
 
 multi_list_install() {
   local -a list_of_lists=("$@")
@@ -221,4 +220,4 @@ multi_list_install() {
 
   pkg_list_install "${packages_to_install[@]}"
 }
-export -f pkg_list_multiple_install
+export -f multi_list_install
