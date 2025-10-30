@@ -23,7 +23,6 @@ SHARED_UTILS="$SCRIPT_D/helper-functions"
 #######################################
 # Sourcing
 #######################################
-. "$TMP_CONF"
 . "$USER_CONF"
 . "$SCRIPT_D/helper-functions"
 . "$IN_D/sys-settings.sh"
@@ -36,6 +35,7 @@ if [[ -z "${USER_NAME}" ]]; then
   exit 1
 fi
 USER_HOME="/home/$USER_NAME"
+. "$TMP_CONF"
 
 #######################################
 # Functions
