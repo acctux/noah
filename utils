@@ -189,4 +189,4 @@ pkg_list_multiple_install() {
 
   pkg_install "${packages_to_install[@]}"
 }
-export -f pkg_list_of_lists_install
+export -f pkg_list_multiple_install
