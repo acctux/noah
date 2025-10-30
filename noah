@@ -14,7 +14,9 @@ set -euo pipefail
 
 #############################################################################
 #  TODO:
-#  1. bootloaders needs research
+#  1. figure out what to do about wifi/internet
+#     it's commented out
+#  2. bootloaders needs research
 #  3. GPU drivers NVIDIA
 #  4. add etckeeper init
 #  5. ensure correct chmod
