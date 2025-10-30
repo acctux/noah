@@ -35,7 +35,6 @@ LOG_FILE="$SCRIPT_D/log"
 . "$IN_SCRIPTS/bootloaders.sh"
 . "$IN_SCRIPTS/hardware.sh"
 . "$IN_SCRIPTS/groups-and-user.sh"
-. "$IN_SCRIPTS/pacman-setup.sh"
 . "$IN_SCRIPTS/unbound-setup.sh"
 . "$IN_SCRIPTS/sys-services.sh"
 . "$IN_SCRIPTS/post-reboot-setup.sh"
@@ -52,7 +51,8 @@ POST_SCRIPT="$USER_HOME/$INSTALL_SCRIPT/user/user-env.sh"
 #######################################
 bigger_boat() {
   pkg_install "${PKG_D}/essentials.txt"
-  config_sys_locality
+
+  locality_and_pacman
 
   generate_intramfs
   configure_bootloader
@@ -60,7 +60,6 @@ bigger_boat() {
   config_hardware
 
   create_user
-  pacman_setup
   pkg_install "${PKG_D}/desktop.txt"
   setup_unbound
 
