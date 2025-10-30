@@ -173,7 +173,39 @@ function pkg_list_install() {
 }
 export -f pkg_list_install
 
-pkg_list_multiple_install() {
+#######################################
+# Robust Package Installer
+# Description:
+#   Installs packages from a list using the specified package manager with retries.
+# Arguments:
+#   $1 = path to package list file
+#######################################
+function paru_list_install() {
+  local pkgfile="$1"
+
+  if [[ ! -f "$pkgfile" ]]; then
+    error "Package list file not found: $pkgfile" >&2
+    exit 1
+  fi
+
+  local -a packages
+  mapfile -t packages < <(pkg_list_load "$pkgfile")
+  for attempt in {1..5}; do
+    info "Installing packages (attempt $attempt)..."
+    if pacman -Syu --noconfirm --needed "${packages[@]}"; then
+      success "All packages installed successfully."
+      return 0
+    else
+      sleep 5
+    fi
+  done
+
+  info "Installation failed after 5." >&2
+  exit 1
+}
+export -f pkg_list_install
+
+multi_list_install() {
   local -a list_of_lists=("$@")
   local -a packages_to_install=()
 

@@ -30,7 +30,7 @@ LOG_FILE="$SCRIPT_D/log"
 # Script Sourcing
 #######################################
 . "$SCRIPT_D/utils"
-. "$IN_SCRIPTS/sys-settings.sh"
+. "$IN_SCRIPTS/etc-files.sh"
 . "$IN_SCRIPTS/ucode-mkinit.sh"
 . "$IN_SCRIPTS/bootloaders.sh"
 . "$IN_SCRIPTS/hardware.sh"
@@ -51,7 +51,7 @@ POST_SCRIPT="$USER_HOME/$INSTALL_SCRIPT/user/user-env.sh"
 bigger_boat() {
   pkg_list_install "${PKG_D}/dependencies.list"
 
-  locality_and_pacman
+  etc_files_config
 
   generate_intramfs
   configure_bootloader
@@ -60,7 +60,7 @@ bigger_boat() {
 
   user_create
 
-  pkg_list_multiple_install "${PKG_LISTS[@]}"
+  multi_list_install "${PKG_LISTS[@]}"
 
   handle_system_services
 

@@ -32,7 +32,6 @@ MOUNT_OPTIONS="noatime,compress=zstd"
 # Groups/Services
 #######################################
 PKG_LISTS=(
-  aur
   business
   chaotic
   cli-tools

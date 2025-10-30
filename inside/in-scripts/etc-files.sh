@@ -1,3 +1,23 @@
+#######################################
+# Configure system settings: fstab, timezone, locale, hostname, keymap
+# Globals:
+#   TIMEZONE, LOCALE, HOST_NAME
+#######################################
+sys_locality() {
+  info "Configuring system..."
+
+  info "Setting timezone, locale, and hostname..."
+  ln -sf "/usr/share/zoneinfo/${TIMEZONE}" /etc/localtime
+  hwclock --systohc
+  echo "${LOCALE} UTF-8" >>/etc/locale.gen
+  locale-gen
+  echo "LANG=${LOCALE}" >/etc/locale.conf
+  echo "KEYMAP=us" >/etc/vconsole.conf
+  echo "${HOST_NAME}" >"/etc/hostname"
+
+  success "System configuration completed successfully."
+}
+
 reflector_regdom_conf() {
   info "Writing reflector configuration."
 
@@ -21,35 +41,6 @@ EOF
   success "Wireless regulatory domain set to ${ISO}"
 }
 
-#######################################
-# Configure system settings: fstab, timezone, locale, hostname, keymap
-# Globals:
-#   TIMEZONE, LOCALE, HOST_NAME
-#######################################
-sys_locality() {
-  info "Configuring system..."
-
-  info "Setting timezone, locale, and hostname..."
-  ln -sf "/usr/share/zoneinfo/${TIMEZONE}" /etc/localtime
-  hwclock --systohc
-  echo "${LOCALE} UTF-8" >>/etc/locale.gen
-  locale-gen
-  echo "LANG=${LOCALE}" >/etc/locale.conf
-  echo "KEYMAP=us" >/etc/vconsole.conf
-  echo "${HOST_NAME}" >"/etc/hostname"
-
-  success "System configuration completed successfully."
-}
-
-s_pac_ed() {
-  local pac_conf="/etc/pacman.conf"
-  sed -i '/^\s*#\s*Color\s*$/s/^#\s*//' $pac_conf
-  sed -i '/^\s*Color\s*$/a ILoveCandy' $pac_conf
-  sed -i '/^\s*#\s*\[multilib\]/s/^#\s*//' $pac_conf
-  sed -i '/^\[multilib\]/,/^$/{ /^\s*#\s*Include\s*=.*/s/^#\s*// }' $pac_conf
-  sed -i '/ParallelDownloads/c\ParallelDownloads = 10' $pac_conf
-}
-
 chaotic_repo() {
   chaotic_key_id="3056513887B78AEB"
   key_serv="keyserver.ubuntu.com"
@@ -70,6 +61,15 @@ Include = /etc/pacman.d/chaotic-mirrorlist
 EOF
 }
 
+s_pac_ed() {
+  local pac_conf="/etc/pacman.conf"
+  sed -i '/^\s*#\s*Color\s*$/s/^#\s*//' $pac_conf
+  sed -i '/^\s*Color\s*$/a ILoveCandy' $pac_conf
+  sed -i '/^\s*#\s*\[multilib\]/s/^#\s*//' $pac_conf
+  sed -i '/^\[multilib\]/,/^$/{ /^\s*#\s*Include\s*=.*/s/^#\s*// }' $pac_conf
+  sed -i '/ParallelDownloads/c\ParallelDownloads = 10' $pac_conf
+}
+
 enable_sudo_insults() {
   if ! sudo grep -q "^Defaults\s\+insults" /etc/sudoers; then
     info "Enabling sudo insults."
@@ -81,11 +81,11 @@ enable_sudo_insults() {
   fi
 }
 
-locality_and_pacman() {
-  reflector_regdom_conf
+etc_files_config() {
   sys_locality
-  s_pac_ed
+  reflector_regdom_conf
   chaotic_repo
+  s_pac_ed
   pacman -Sy
   enable_sudo_insults
 }
