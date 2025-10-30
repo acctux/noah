@@ -9,9 +9,6 @@ install_grub() {
 
 install_gummiboot() {
   local arch_conf="/boot/loader/entries/arch.conf"
-  local root_uuid
-  root_uuid=$(blkid -s UUID -o value "$ROOT_PARTITION") ||
-    fatal "Failed to get root UUID."
 
   bootctl --path=/boot install
 
@@ -43,7 +40,7 @@ EOF
   echo "initrd /$CPU_VENDOR-ucode.img" >>"$arch_conf"
 
   echo "initrd /initramfs-linux.img" >>"$arch_conf"
-  echo "options root=UUID=$root_uuid rw rootflags=subvol=@ quiet" >>"$arch_conf"
+  echo "options root=UUID=$ROOT_UUID rw rootflags=subvol=@ quiet" >>"$arch_conf"
 }
 
 nvidia_blacklist_entry() {
