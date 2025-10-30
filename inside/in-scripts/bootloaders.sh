@@ -13,6 +13,7 @@ install_gummiboot() {
   bootctl --path=/boot install
 
   # hook to update after systemd-boot update
+  mkdir -p /etc/pacman.d/hooks
   cat >"/etc/pacman.d/hooks/95-systemd-boot.hook" <<EOF
 [Trigger]
 Type = Package
@@ -22,7 +23,7 @@ Target = systemd
 [Action]
 Description = Gracefully upgrading systemd-boot...
 When = PostTransaction
-Exec = /usr/bin/systemctl restart systemd-boot-update.serviceEOF
+Exec = /usr/bin/systemctl restart systemd-boot-update.service
 EOF
 
   # @saved in order to remember the last picked entry on startup.
@@ -38,7 +39,6 @@ linux   /vmlinuz-linux
 EOF
 
   echo "initrd /$CPU_VENDOR-ucode.img" >>"$arch_conf"
-
   echo "initrd /initramfs-linux.img" >>"$arch_conf"
   echo "options root=UUID=$ROOT_UUID rw rootflags=subvol=@ quiet" >>"$arch_conf"
 }
