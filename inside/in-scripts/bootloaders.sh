@@ -1,4 +1,5 @@
 install_grub() {
+  pacman -S --needed grub efibootmgr
   grub-install --target=x86_64-efi \
     --efi-directory=/boot \
     --bootloader-id=GRUB ||
