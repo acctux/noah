@@ -12,21 +12,27 @@
 # --------------------------------------------------------------------------------------
 set -euo pipefail
 
+SCRIPT_D="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
+PKG_D="$SCRIPT_D/pkg"
+IN_D="$SCRIPT_D/inside"
+USER_D="$SCRIPT_D/user"
+LOG_FILE="$SCRIPT_D/log"
+USER_CONF="$SCRIPT_D/user-config"
+SHARED_UTILS="$SCRIPT_D/helper-functions"
+
 #######################################
 # Sourcing
 #######################################
-SECRET_CONF="/root/secret_conf"
-
-. "$SECRET_CONF"
+. "$TMP_CONF"
 . "$USER_CONF"
-. "$CURRENT_D/shared-utils"
+. "$SCRIPT_D/helper-functions"
 . "$IN_D/sys-settings.sh"
 . "$IN_D/ucode-mkinit.sh"
 . "$IN_D/bootloaders.sh"
 . "$IN_D/disk-setup.sh"
 
 if [[ -z "${USER_NAME}" ]]; then
-  show_error "USER_NAME not defined in $USER_CONF."
+  error "USER_NAME not defined in $USER_CONF."
   exit 1
 fi
 USER_HOME="/home/$USER_NAME"

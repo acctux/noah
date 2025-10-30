@@ -20,11 +20,10 @@ rsync_files_sys() {
 # Append all globals to sensitive_conf
 #######################################
 write_secret_conf() {
-  tmp_conf="/mnt/tmp/temp_conf"
   if [[ "$BOOTLOADER" == "systemd-boot" ]]; then
     ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PARTITION")
   fi
-  cat >"$tmp_conf" <<EOF
+  cat >"/mnt${TMP_CONF}" <<EOF
 SWORDPAS=${SWORDPAS}
 CPU_VENDOR=${CPU_VENDOR}
 GPU_VENDOR=${GPU_VENDOR}
