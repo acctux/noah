@@ -107,7 +107,7 @@ copy_sensitive_files() {
       fatal "Failed to mount $USB_PARTITION at $USB_MNT."
     fi
     copy_missing_keys
-    cp_wifi_pass
+    # cp_wifi_pass
     unmount_partition
     success "Keys and WiFi passwords copied successfully."
   else
