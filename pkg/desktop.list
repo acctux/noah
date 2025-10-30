@@ -1,0 +1,24 @@
+######## PACKAGE MANAGEMENT ###########
+rebuild-detector
+expac
+ccache
+pkgdiff
+pkgfile
+
+####### DESKTOP #########
+alacritty
+baobab
+capitaine-cursors
+cdrtools
+keepassxc
+ktimer
+logrotate
+ly
+man-db
+man-pages
+nemo-fileroller
+starship
+unrar
+zsh-autocomplete
+zsh-completions
+zsh-syntax-highlighting

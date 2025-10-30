@@ -1,8 +1,0 @@
-git
-iwd
-networkmanager
-pacman-contrib
-reflector
-rsync
-zsh
-zsh-completions

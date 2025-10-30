@@ -35,7 +35,6 @@ LOG_FILE="$SCRIPT_D/log"
 . "$IN_SCRIPTS/bootloaders.sh"
 . "$IN_SCRIPTS/hardware.sh"
 . "$IN_SCRIPTS/groups-and-user.sh"
-. "$IN_SCRIPTS/unbound-setup.sh"
 . "$IN_SCRIPTS/sys-services.sh"
 . "$IN_SCRIPTS/post-reboot-setup.sh"
 
@@ -50,7 +49,7 @@ POST_SCRIPT="$USER_HOME/$INSTALL_SCRIPT/user/user-env.sh"
 # Main
 #######################################
 bigger_boat() {
-  pkg_install "${PKG_D}/essentials.txt"
+  pkg_install "${PKG_D}/dependencies.list"
 
   locality_and_pacman
 
@@ -59,9 +58,9 @@ bigger_boat() {
 
   config_hardware
 
-  create_user
-  pkg_install "${PKG_D}/desktop.txt"
-  setup_unbound
+  user_create
+
+  pkg_list_multiple_install "${PKG_LISTS[@]}"
 
   handle_system_services
 

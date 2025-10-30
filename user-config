@@ -24,8 +24,27 @@ BOOTLOADER="systemd-boot"
 ROOT_LABEL="Arch"
 KEY_DIR=".ssh"
 WIFI_PASS_DIR="$KEY_DIR"
+ICON_GIT="https://github.com/vinceliuice/WhiteSur-icon-theme.git"
 KEYMAP="us"
 MOUNT_OPTIONS="noatime,compress=zstd"
+
+#######################################
+# Groups/Services
+#######################################
+PKG_LISTS=(
+  aur
+  business
+  chaotic
+  cli-tools
+  coding
+  desktop
+  gaming
+  hardware
+  hyprland
+  language-fonts
+  multimedia
+  networking
+)
 
 #######################################
 # Groups/Services
@@ -57,6 +76,7 @@ SYSD_ENABLE=(
   ntpd.service
   tlp.service
   unbound.service
+  write-tlp-config.service
   fstrim.timer
   logrotate.timer
   man-db.timer
@@ -85,42 +105,14 @@ USER_SERV_ENABLE=(
 )
 
 #######################################
-# Dotfiles
-#######################################
-DOT_URL="https://github.com/acctux/dots.git"
-DOT_DIRECTORIES=(
-  "$HOME/Polka/dots"
-  "$HOME/Polka/secretdots"
-)
-
-declare -A DIRECT_LINKS=(
-  ["$HOME/Polka/bin"]="$HOME/.local/bin"
-  ["$HOME/Polka/"]="$HOME/.local/bin"
-)
-readonly -A DIRECT_LINKS
-SKIP_PATTERNS=(
-  ".git"
-  "__pycache__"
-  "*.pyc"
-  "*.log"
-)
-
-#######################################
 # Git
 #######################################
+DOT_URL="https://github.com/acctux/polka.git"
 GIT_USER="acctux"
 LIT_DIR="Lit"
 LIT_REPOS=(
   "docs"
   "noah"
-  "modules"
-)
-POLKA_DIR="Polka"
-POLKA_REPOS=(
-  "bin"
-  "dots"
-  "etc"
-  "secretdots"
 )
 
 #######################################
@@ -138,11 +130,12 @@ KEY_FILES=(
 #######################################
 # Folders
 #######################################
-ICON_DIR="/usr/share/icons/WhiteSur-grey-dark"
+ICON_DIR="$HOME/.local/share/icons/WhiteSur-grey-dark"
 declare -A CUSTOM_FOLDERS=(
   ["$HOME/Games"]="$ICON_DIR/places/scalable/folder-games.svg"
   ["$HOME/Lit"]="$ICON_DIR/places/scalable/folder-github.svg"
   ["$HOME/Polka"]="$ICON_DIR/places/scalable/folder-html.svg"
+  ["$HOME/Overload"]="$ICON_DIR/places/scalable/folder-root.svg"
 )
 readonly -A CUSTOM_FOLDERS
 REMOVE_XDG_DIRS=(

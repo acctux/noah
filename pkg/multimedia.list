@@ -1,0 +1,20 @@
+######## MULTIMEDIA #########
+alsa-firmware
+playerctl
+alsa-utils
+cheese
+gimp
+gst-plugin-pipewire
+gthumb
+handbrake
+haruna
+ocrmypdf
+qt6-multimedia-ffmpeg
+wireplumber
+yt-dlp
+pavucontrol
+pipewire-alsa
+pipewire-jack
+pipewire-pulse
+
+

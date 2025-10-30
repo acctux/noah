@@ -1,0 +1,25 @@
+######## Networking ########
+iwd
+networkmanager
+avahi
+blueman
+bluez-tools
+openresolv
+unbound
+sshfs
+scrcpy
+ldns
+ntp
+nss-mdns
+kdeconnect
+qt5-tools
+network-manager-applet
+qbittorrent
+dbeaver
+firejail
+firewalld
+localsend
+mariadb
+protonmail-bridge
+
+

@@ -1,0 +1,19 @@
+########## CODING #############
+bc
+pv
+shellcheck
+shfmt
+tree-sitter-bash
+tree-sitter-python
+clang
+diffuse
+eslint
+git-delta
+github-cli
+lazygit
+luarocks
+lua-sec
+neovim-lspconfig
+uv
+jre-openjdk
+rust-analyzer

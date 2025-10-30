@@ -130,7 +130,7 @@ update_reflector() {
 # Outputs:
 #   stdout = list of packages
 #######################################
-load_packages() {
+pkg_list_load() {
   local pkg_file="$1"
   if [[ ! -r "$pkg_file" ]]; then
     echo "Error: package list '$pkg_file' not found or unreadable." >&2
@@ -138,6 +138,7 @@ load_packages() {
   fi
   grep -vE '^\s*#|^\s*$' "$pkg_file"
 }
+export -f pkg_list_load
 
 #######################################
 # Robust Package Installer
@@ -147,16 +148,16 @@ load_packages() {
 #   $1 = package manager (default: pacman)
 #   $2 = path to package list file
 #######################################
-function pkg_install() {
+function pkg_list_install() {
   local pkgfile="$1"
 
   if [[ ! -f "$pkgfile" ]]; then
     error "Package list file not found: $pkgfile" >&2
     exit 1
   fi
-  local -a packages
-  mapfile -t packages < <(load_packages "$pkgfile")
 
+  local -a packages
+  mapfile -t packages < <(pkg_list_load "$pkgfile")
   for attempt in {1..5}; do
     info "Installing packages (attempt $attempt)..."
     if pacman -Syu --noconfirm --needed "${packages[@]}"; then
@@ -170,4 +171,22 @@ function pkg_install() {
   info "Installation failed after 5." >&2
   exit 1
 }
-export -f pkg_install
+export -f pkg_list_install
+
+pkg_list_multiple_install() {
+  local -a list_of_lists=("$@")
+  local -a packages_to_install=()
+
+  for list_name in "${list_of_lists[@]}"; do
+    local pkglist="${PKG_D}/${list_name}.list"
+    if [[ -f "$pkglist" ]]; then
+      mapfile -t pkgs < <(load_packages "$pkglist")
+      packages_to_install+=("${pkgs[@]}")
+    else
+      warn "Missing package list: $pkglist"
+    fi
+  done
+
+  pkg_install "${packages_to_install[@]}"
+}
+export -f pkg_list_of_lists_install

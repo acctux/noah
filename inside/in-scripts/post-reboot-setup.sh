@@ -1,7 +1,6 @@
 pass_files_to_user() {
-  rsync -a "$HOME/$INSTALL_SCRIPT/" "$USER_HOME/$INSTALL_SCRIPT/"
-  rsync -a "$HOME/$KEY_DIR/" "$USER_HOME/$KEY_DIR/"
-
+  rsync -a --no-owner --no-group "$HOME/$INSTALL_SCRIPT/" "$USER_HOME/$INSTALL_SCRIPT/"
+  rsync -a --no-owner --no-group "$HOME/$KEY_DIR/" "$USER_HOME/$KEY_DIR/"
   chmod 600 "$USER_HOME/$KEY_DIR/$SSH_KEYFILE"
   chmod 600 "$USER_HOME/$KEY_DIR/$GPG_KEYFILE"
   chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/$INSTALL_SCRIPT" "$USER_HOME/$KEY_DIR"

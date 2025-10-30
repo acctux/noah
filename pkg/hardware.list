@@ -1,0 +1,18 @@
+######## HARDWARE ########
+acpi
+acpid
+ananicy-cpp
+bolt
+brightnessctl
+rocm-smi-lib
+dosfstools
+exfatprogs
+hdparm
+hwdetect
+logiops
+ntfs-3g
+smartmontools
+sof-firmware
+tlp
+udisks2-btrfs
+

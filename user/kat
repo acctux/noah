@@ -17,41 +17,17 @@ set -euo pipefail
 #######################################
 # # Sourcing # # # # # # # # # # # # #
 #######################################
-CURRENT_DIR="$(dirname "$0")"
-LOG_FILE="$CURRENT_DIR/fresh_log"
+SCRIPT_D="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
+PKG_D="$SCRIPT_D/pkg"
+LOG_FILE="$SCRIPT_D/log"
+USER_CONF="$SCRIPT_D/user-config"
+SHARED_UTILS="$SCRIPT_D/helper-functions"
 
-. "$CURRENT_DIR/conf/conf_user.sh"
-. "$CURRENT_DIR/utils.sh"
-
-DBEAVER_DELAY=120
-
-init_db() {
-	if [[ ! -d /var/lib/mysql/mysql ]]; then
-		info "Initializing MariaDB data directory..."
-		sudo mariadb-install-db \
-			--basedir=/usr \
-			--datadir=/var/lib/mysql \
-			--auth-root-authentication-method=socket \
-			--skip-test-db \
-			--user=mysql || \
-				error "Database initialization failed."
-	else
-		info "MariaDB data directory already initialized."
-	fi
-}
-
-set_db_password() {
-	sudo systemctl start mariadb
-
-	if sudo mariadb -e "SELECT 1;" >/dev/null 2>&1; then
-		info "Switching root authentication from socket to password..."
-		sudo mariadb -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${SWORDPAS}');"
-		info "Reloading privileges..."
-		sudo mariadb -e "FLUSH PRIVILEGES;"
-	else
-		info "Root already requires a password or database inaccessible."
-	fi
-}
+#######################################
+# Sourcing
+#######################################
+. "$USER_CONF"
+. "$SHARED_UTILS"
 
 mapfile -t system_units < <(
 	systemctl --user list-unit-files \
@@ -81,45 +57,85 @@ enable_user_services() {
 }
 
 create_custom_folders() {
-	for folder in "${!CUSTOM_FOLDERS[@]}"; do
-		mkdir -p "$folder"
-		echo -e "[Desktop Entry]\nIcon=${CUSTOM_FOLDERS[$folder]}" >"$folder/.directory"
-	done
+  for folder in "${!CUSTOM_FOLDERS[@]}"; do
+    mkdir -p "$folder"
+    local icon="${CUSTOM_FOLDERS[$folder]}"
+
+    if [[ -d "$folder" ]] && [[ -f "$icon" ]]; then
+      gio set "$folder" metadata::custom-icon "file://$icon"
+      info "Set icon '$icon' for folder '$folder'"
+    else
+      info "Skipping '$folder': folder or icon not found"
+    fi
+  done
 }
 
-remove_xdg_dirs() {
-	for xdg_var in "${REMOVE_XDG_DIRS[@]}"; do
-		path=$(
-			grep "^$xdg_var=" "$HOME/.config/user-dirs.dirs" | \
-				cut -d '=' -f2 | \
-				tr -d '"'
-		)
+install_icons() {
+  local usr_icons
+  usr_icons="/usr/share/icons"
+  ti_dir="/tmp/whitesur-icons"
 
-		if [[ -n "$path" ]]; then
-			rm -rf "$path"
-		fi
-		sed -i "/^$xdg_var=/d" "$HOME/.config/user-dirs.dirs"
-	done
+  git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git "$ti_dir"
+  cd "$ti_dir"
+  ./install.sh -t grey -d "$usr_icons"
+  cd ~
+  rm -rf "$ti_dir" "${usr_icons}/WhiteSur-grey-light" "${usr_icons}/capitaine-cursors"
+  rm -f "${usr_icons}/WhiteSur-grey/apps/scalable/preferences-system.svg"
+
+  local old_color="#dedede"
+  local new_color="#d3dae3"
+  local -a files
+  mapfile -t files < <(
+    fd --type f --extension svg --exclude '*/scalable/*' . "$usr_icons/WhiteSur-grey-dark"
+  )
+  local -a matches=()
+  info "Changing icon colors"
+
+  for f in "${files[@]}"; do
+    rg --quiet "$old_color" "$f" && matches+=("$f")
+  done
+  parallel --jobs 4 "sd '$old_color' '$new_color' {}" ::: "${matches[@]}"
 }
 
-add_xdg_dirs() {
-	for entry in "${CUSTOM_XDG_ENTRIES[@]}"; do
-		local key="${entry%%=*}"
-		if ! grep -q "^$key=" "$HOME/.config/user-dirs.dirs"; then
-			echo "$entry" >>"$HOME/.config/user-dirs.dirs"
-		fi
-	done
+
+init_db() {
+	if [[ ! -d /var/lib/mysql/mysql ]]; then
+		info "Initializing MariaDB data directory..."
+		sudo mariadb-install-db \
+			--basedir=/usr \
+			--datadir=/var/lib/mysql \
+			--auth-root-authentication-method=socket \
+			--skip-test-db \
+			--user=mysql || \
+				error "Database initialization failed."
+	else
+		info "MariaDB data directory already initialized."
+	fi
+}
+
+set_db_password() {
+	sudo systemctl start mariadb
+
+	if sudo mariadb -e "SELECT 1;" >/dev/null 2>&1; then
+		info "Switching root authentication from socket to password..."
+		sudo mariadb -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${SWORDPAS}');"
+		info "Reloading privileges..."
+		sudo mariadb -e "FLUSH PRIVILEGES;"
+	else
+		info "Root already requires a password or database inaccessible."
+	fi
 }
 
 import_ssh_keys() {
   ssh_path="$HOME/${KEY_DIR}/${SSH_KEYFILE}"
+  local socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ssh-agent.socket"
 
   if [[ -z "${SSH_AUTH_SOCK:-}" ]]; then
-	  export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gcr/ssh"
+	  export SSH_AUTH_SOCK="$socket"
   fi
 
   if [[ ! -S "${SSH_AUTH_SOCK}" ]]; then
-  	systemctl --user start gcr-ssh-agent.socket
+  	systemctl --user enable --now ssh-agent.socket
   fi
 
   local key_fingerprint
@@ -240,22 +256,17 @@ main() {
 	trap 'error_trap $LINENO "$BASH_COMMAND"' ERR
 	set -eEuo pipefail
 
-	sudo -v 
-	install_aur_packages "${AUR[@]}"
-	init_db
-	set_db_password
+	xdg-user-dirs-update
+  install_icons
+
+	paru -S ayugram-desktop-bin surfshark-client
 	sudo firewall-cmd --set-default-zone=block
-	sudo firewall-cmd --reload
+	
+	set_folders
+	info "cloning dotfiles"
+	git clone "$DOT_URL" "$HOME/$DOT_DIR"
 
 	enable_user_services
-
-	xdg-user-dirs-update
-	info "Creating folders on disk."
-	create_custom_folders
-	info "Configuring XDG folders."
-	remove_xdg_dirs
-	add_xdg_dirs
-	xdg-user-dirs-update
 
 	import_ssh_keys
 	import_gpg_key
@@ -263,11 +274,8 @@ main() {
 
 	refresh_caches
 
-	decrypt_and_source_secrets
-	launch_applications
-	unset MY_PASS
-	success "Script completed successfully."
-
+	init_db
+	set_db_password
 	echo -ne "
    -------------------------------------------------------------------------------------
    ███╗   ██╗  ██████╗   █████╗  ██╗  ██╗  ██████╗     █████╗  ██████╗   ██████╗ ██╗  ██╗

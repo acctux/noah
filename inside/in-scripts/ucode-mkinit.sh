@@ -6,7 +6,7 @@ install_ucode() {
   fi
 }
 
-set_mkinitcpio() {
+configure_and_set_mkinitcpio() {
   mkinit_conf=/etc/mkinitcpio.conf
 
   sed -i 's/^HOOKS=.*/HOOKS=(base systemd autodetect microcode modconf kms sd-vconsole block filesystems)/' \
@@ -20,7 +20,8 @@ set_mkinitcpio() {
 
   mkinitcpio -P
 }
+
 generate_intramfs() {
   install_ucode
-  set_mkinitcpio
+  configure_and_set_mkinitcpio
 }
