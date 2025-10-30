@@ -37,8 +37,8 @@ set +a
 # Main
 #######################################
 noah() {
-  (bash $SCRIPT_D/outside/chroot-env.sh) |& tee $LOG_FILE
-  (arch-chroot /mnt $HOME/${INSTALL_SCRIPT}/inside/root-env.sh) |& tee $LOG_FILE
+  bash $SCRIPT_D/outside/chroot-env.sh
+  arch-chroot /mnt $HOME/${INSTALL_SCRIPT}/inside/root-env.sh
   (arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- /home/$USER_NAME/${INSTALL_SCRIPT}/user/user-env.sh) |& tee $LOG_FILE
   (arch-chroot /mnt $HOME/ArchTitus/scripts/3-post-setup.sh) |& tee 3-post-setup.log
 }
