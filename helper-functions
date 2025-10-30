@@ -207,8 +207,7 @@ load_packages() {
 #   $2 = path to package list file
 #######################################
 function pkg_install() {
-  local pkgmgr="${1:-pacman}"
-  local pkgfile="$2"
+  local pkgfile="$1"
 
   if [[ ! -f "$pkgfile" ]]; then
     error "Package list file not found: $pkgfile" >&2
@@ -219,11 +218,11 @@ function pkg_install() {
 
   for attempt in {1..5}; do
     info "Installing packages using $pkgmgr (attempt $attempt)..."
-    if "$pkgmgr" -Syu --noconfirm --needed "${packages[@]}"; then
+    if pacman -Syu --noconfirm --needed "${packages[@]}"; then
       success "All packages installed successfully."
       return 0
     else
-      sleep 10
+      sleep 5
     fi
   done
 
