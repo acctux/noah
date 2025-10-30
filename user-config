@@ -55,8 +55,6 @@ SYSD_ENABLE=(
   ly.service
   NetworkManager.service
   ntpd.service
-  personal-powertop.service
-  restart-logid.service
   tlp.service
   unbound.service
   fstrim.timer

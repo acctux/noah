@@ -53,8 +53,9 @@ bigger_boat() {
   create_user
   pacman_setup
   pkg_install "${PKG_D}/desktop.txt"
+  setup_unbound
   enable_sysd_units SYSD_ENABLE
-  disable_services SYSD_DISABLE
+  disable_sysd_services SYSD_DISABLE
 
   pass_files_to_user
   create_autostart
