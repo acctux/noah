@@ -97,11 +97,11 @@ chroot_env() {
 
   update_reflector
   pacstrap /mnt base base-devel linux linux-firmware
+  pass_files_to_sys
+  write_secret_conf
   arch-chroot /mnt bash -c "pkg_install '${PKG_D}/essentials.txt'"
   genfstab -U /mnt >"/mnt/etc/fstab" || fatal "Failed to generate fstab."
 
-  pass_files_to_sys
-  write_secret_conf
 }
 chroot_env
 trap 'error_trap ${LINENO} "$BASH_COMMAND"' ERR
