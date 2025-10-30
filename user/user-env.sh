@@ -15,6 +15,7 @@ LOG_FILE="$SCRIPT_D/log"
 #######################################
 # Variable Sourcing
 #######################################
+. "$SCRIPT_D/utils"
 . "$USER_SCRIPTS/user-icons.sh"
 . "$USER_SCRIPTS/user-services.sh"
 . "$USER_SCRIPTS/security-keys.sh"

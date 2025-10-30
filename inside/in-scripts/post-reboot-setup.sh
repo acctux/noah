@@ -1,8 +1,8 @@
 pass_files_to_user() {
-  rsync -a --no-owner --no-group "$HOME/$INSTALL_SCRIPT/" "$USER_HOME/$INSTALL_SCRIPT/"
-  rsync -a --no-owner --no-group "$HOME/$KEY_DIR/" "$USER_HOME/$KEY_DIR/"
-  chmod 600 "$USER_HOME/$KEY_DIR/$SSH_KEYFILE"
-  chmod 600 "$USER_HOME/$KEY_DIR/$GPG_KEYFILE"
+  rsync -ac --no-owner --no-group "$HOME/$INSTALL_SCRIPT/" "$USER_HOME/$INSTALL_SCRIPT/"
+  # rsync -ac --no-owner --no-group "$HOME/$KEY_DIR/" "$USER_HOME/$KEY_DIR/"
+  # chmod 600 "$USER_HOME/$KEY_DIR/$SSH_KEYFILE"
+  # chmod 600 "$USER_HOME/$KEY_DIR/$GPG_KEYFILE"
   chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/$INSTALL_SCRIPT" "$USER_HOME/$KEY_DIR"
 }
 
@@ -28,5 +28,5 @@ EOF
 
 userfiles_and_autostart() {
   pass_files_to_user
-  create_autostart
+  # create_autostart
 }
