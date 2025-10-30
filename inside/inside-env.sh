@@ -49,7 +49,7 @@ POST_SCRIPT="$USER_HOME/$INSTALL_SCRIPT/user/user-env.sh"
 # Main
 #######################################
 bigger_boat() {
-  pkg_install "${PKG_D}/dependencies.list"
+  pkg_list_install "${PKG_D}/dependencies.list"
 
   locality_and_pacman
 
