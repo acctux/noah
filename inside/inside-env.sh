@@ -19,20 +19,17 @@ SCRIPT_D="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
 PKG_D="$SCRIPT_D/pkg"
 IN_SCRIPTS="$SCRIPT_D/inside/in-scripts"
 LOG_FILE="$SCRIPT_D/log"
-USER_CONF="$SCRIPT_D/user-config"
-SHARED_UTILS="$SCRIPT_D/helper-functions"
-TMP_CONF="$SCRIPT_D/tmp_conf"
 
 #######################################
 # Variable Sourcing
 #######################################
-. "$USER_CONF"
-. "$TMP_CONF"
+. "$SCRIPT_D/user-config"
+. "$SCRIPT_D/tmp_conf"
 
 #######################################
 # Script Sourcing
 #######################################
-. "$SCRIPT_D/helper-functions"
+. "$SCRIPT_D/utils"
 . "$IN_SCRIPTS/sys-settings.sh"
 . "$IN_SCRIPTS/ucode-mkinit.sh"
 . "$IN_SCRIPTS/bootloaders.sh"
