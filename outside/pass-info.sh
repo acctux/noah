@@ -23,7 +23,7 @@ write_secret_conf() {
   if [[ "$BOOTLOADER" == "systemd-boot" ]]; then
     ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PARTITION")
   fi
-  cat >"/mnt${TMP_CONF}" <<EOF
+  cat >"${TMP_CONF}" <<EOF
 SWORDPAS=${SWORDPAS}
 CPU_VENDOR=${CPU_VENDOR}
 GPU_VENDOR=${GPU_VENDOR}
