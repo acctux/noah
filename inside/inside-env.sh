@@ -51,18 +51,18 @@ POST_SCRIPT="$USER_HOME/$INSTALL_SCRIPT/user/user-env.sh"
 # Main
 #######################################
 bigger_boat() {
-  pkg_install "${PKG_D}/essentials.txt"
-  config_sys_locality
-
-  generate_intramfs
-
-  config_hardware
-
-  create_user
-  pacman_setup
-  pkg_install "${PKG_D}/desktop.txt"
-  setup_unbound
-
+  # pkg_install "${PKG_D}/essentials.txt"
+  # config_sys_locality
+  #
+  # generate_intramfs
+  #
+  # config_hardware
+  #
+  # create_user
+  # pacman_setup
+  # pkg_install "${PKG_D}/desktop.txt"
+  # setup_unbound
+  #
   handle_system_services
 
   userfiles_and_autostart

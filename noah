@@ -36,7 +36,7 @@ set +a
 # Main
 #######################################
 noah() {
-  bash "${OUT_D}/outside-env.sh"
+  # bash "${OUT_D}/outside-env.sh"
   arch-chroot /mnt $HOME/${INSTALL_SCRIPT}/inside/inside-env.sh
   # (arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- /home/$USER_NAME/${INSTALL_SCRIPT}/user/user-env.sh)
   # arch-chroot /mnt $HOME/ArchTitus/scripts/3-post-setup.sh

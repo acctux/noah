@@ -64,7 +64,7 @@ disable_sysd_units() {
   done
 }
 
-handle_system_service() {
+handle_system_services() {
   mapfile -t system_units < <(
     systemctl list-unit-files --type=service,timer,socket --no-legend |
       awk '{print $1}'
