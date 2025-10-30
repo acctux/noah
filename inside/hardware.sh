@@ -23,6 +23,11 @@ install_gpu_drivers() {
       libva-utils \
       libvdpau-va-gl
     ;;
+  *)
+    pacman -S --noconfirm --needed \
+      mesa \
+      vulkan-radeon
+    ;;
   esac
 }
 
@@ -43,9 +48,6 @@ EOF
 }
 
 config_hardware() {
-  install_ucode
-  set_mkinitcpio
-  configure_bootloader
-  determine_gpu_drivers
+  install_gpu_drivers
   zram_config
 }

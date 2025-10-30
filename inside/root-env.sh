@@ -29,7 +29,7 @@ TMP_CONF="/tmp/tmp_conf"
 . "$IN_D/sys-settings.sh"
 . "$IN_D/ucode-mkinit.sh"
 . "$IN_D/bootloaders.sh"
-. "$IN_D/disk-setup.sh"
+. "$IN_D/hardware.sh"
 
 if [[ -z "${USER_NAME}" ]]; then
   error "USER_NAME not defined in $USER_CONF."
