@@ -1,4 +1,4 @@
-key_check() {
+usb_files_check() {
   local need_copy=0
 
   if [[ -n "${KEY_DIR}" && ${#KEY_FILES[@]} -gt 0 ]]; then

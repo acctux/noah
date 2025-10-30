@@ -93,10 +93,12 @@ DOT_DIRECTORIES=(
   "$HOME/Polka/dots"
   "$HOME/Polka/secretdots"
 )
-readonly DIRECT_LINKS=(
+
+declare -A DIRECT_LINKS=(
   ["$HOME/Polka/bin"]="$HOME/.local/bin"
   ["$HOME/Polka/"]="$HOME/.local/bin"
 )
+readonly -A DIRECT_LINKS
 SKIP_PATTERNS=(
   ".git"
   "__pycache__"
