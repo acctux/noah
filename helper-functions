@@ -226,7 +226,7 @@ function pkg_install() {
     fi
   done
 
-  info "Installation failed after 5 attempts with $pkgmgr." >&2
+  info "Installation failed after 5." >&2
   exit 1
 }
 export -f pkg_install

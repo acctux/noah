@@ -50,6 +50,7 @@ bigger_boat() {
   config_hardware
 
   create_user
+  pacman_setup
   pkg_install "${PKG_D}/desktop.txt"
   enable_sysd_units SYSD_ENABLE
   disable_services SYSD_DISABLE
