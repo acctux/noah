@@ -64,4 +64,5 @@ outside_env() {
   genfstab -U /mnt >"/mnt/etc/fstab" || fatal "Failed to generate fstab."
   pass_files_to_sys
 }
+outside_env
 trap 'error_trap ${LINENO} "$BASH_COMMAND"' ERR
