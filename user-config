@@ -14,19 +14,19 @@
 #######################################
 # Groups/Services
 #######################################
-INSTALL_SCRIPT="noah"
-TIMEZONE="US/Eastern"
-HOST_NAME="yulia"
-USER_NAME="nick"
-LOCALE="en_US.UTF-8"
-DEFAULT_EFI_SIZE="512MiB"
+readonly INSTALL_SCRIPT="noah"
+readonly TIMEZONE="US/Eastern"
+readonly HOST_NAME="yulia"
+readonly USER_NAME="nick"
+readonly LOCALE="en_US.UTF-8"
+readonly DEFAULT_EFI_SIZE="512MiB"
+readonly ROOT_LABEL="Arch"
+readonly KEY_DIR=".ssh"
+readonly WIFI_PASS_DIR="$KEY_DIR"
+readonly ICON_GIT="https://github.com/vinceliuice/WhiteSur-icon-theme.git"
+readonly KEYMAP="us"
+readonly MOUNT_OPTIONS="noatime,compress=zstd"
 BOOTLOADER="systemd-boot"
-ROOT_LABEL="Arch"
-KEY_DIR=".ssh"
-WIFI_PASS_DIR="$KEY_DIR"
-ICON_GIT="https://github.com/vinceliuice/WhiteSur-icon-theme.git"
-KEYMAP="us"
-MOUNT_OPTIONS="noatime,compress=zstd"
 
 #######################################
 # Groups/Services
@@ -106,9 +106,9 @@ USER_SERV_ENABLE=(
 #######################################
 # Git
 #######################################
-DOT_URL="https://github.com/acctux/polka.git"
-GIT_USER="acctux"
-LIT_DIR="Lit"
+readonly DOT_URL="https://github.com/acctux/polka.git"
+readonly GIT_USER="acctux"
+readonly LIT_DIR="Lit"
 LIT_REPOS=(
   "docs"
   "noah"
@@ -117,9 +117,9 @@ LIT_REPOS=(
 #######################################
 # Keys
 #######################################
-SSH_KEYFILE="id_ed25519"
-GPG_KEYFILE="my-private-key.asc"
-MY_PASS="pass.asc"
+readonly SSH_KEYFILE="id_ed25519"
+readonly GPG_KEYFILE="my-private-key.asc"
+readonly MY_PASS="pass.asc"
 KEY_FILES=(
   "$SSH_KEYFILE"
   "$GPG_KEYFILE"
@@ -129,8 +129,8 @@ KEY_FILES=(
 #######################################
 # Folders
 #######################################
+readonly ICON_DIR="$HOME/.local/share/icons"
 declare -A CUSTOM_FOLDERS=(
-  ICON_DIR="$HOME/.local/share/icons"
   ["$HOME/Games"]="$ICON_DIR/places/scalable/folder-games.svg"
   ["$HOME/Lit"]="$ICON_DIR/places/scalable/folder-github.svg"
   ["$HOME/Polka"]="$ICON_DIR/places/scalable/folder-html.svg"
@@ -138,7 +138,7 @@ declare -A CUSTOM_FOLDERS=(
 )
 readonly -A CUSTOM_FOLDERS
 
-REMOVE_XDG_DIRS=(
+readonly REMOVE_XDG_DIRS=(
   "XDG_PUBLICSHARE_DIR"
   "XDG_DESKTOP_DIR"
 )
