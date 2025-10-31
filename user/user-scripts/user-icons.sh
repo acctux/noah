@@ -1,7 +1,6 @@
 install_icons() {
-  usr_icons="$HOME/.local/share/icons/WhiteSur-grey-dark"
-  local usr_icons
   ti_dir="$HOME/whitesur-icons"
+  usr_icons="$HOME/.local/share/icons"
 
   git clone $ICON_GIT "$ti_dir"
   pushd "$ti_dir" >/dev/null
