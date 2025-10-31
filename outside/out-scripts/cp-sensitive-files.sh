@@ -26,7 +26,6 @@ usb_files_check() {
 # USB scan + selection
 # ---------------------------
 get_usb_device() {
-  local blacklist="$1"
   local -a devices=()
   local line dev
 
