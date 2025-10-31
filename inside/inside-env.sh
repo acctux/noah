@@ -36,7 +36,7 @@ LOG_FILE="$SCRIPT_D/log"
 . "$IN_SCRIPTS/hardware.sh"
 . "$IN_SCRIPTS/groups-and-user.sh"
 . "$IN_SCRIPTS/sys-services.sh"
-. "$IN_SCRIPTS/post-reboot-setup.sh"
+. "$IN_SCRIPTS/pass-user-files.sh"
 
 if [[ -z "${USER_NAME}" ]]; then
   error "USER_NAME not defined in $USER_CONF."
@@ -65,7 +65,6 @@ bigger_boat() {
   handle_system_services
 
   userfiles_and_autostart
-
   # disable root
   # passwd -l root
 }

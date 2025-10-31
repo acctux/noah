@@ -27,6 +27,7 @@ EOF
 }
 
 userfiles_and_autostart() {
+  rm -rf /usr/share/icons/capitaine-cursors
   pass_files_to_user
   create_autostart
 }

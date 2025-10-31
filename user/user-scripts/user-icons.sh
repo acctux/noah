@@ -1,13 +1,13 @@
 install_icons() {
+  usr_icons="$HOME/.local/share/icons/WhiteSur-grey-dark"
   local usr_icons
-  usr_icons="/usr/share/icons"
-  ti_dir="/tmp/whitesur-icons"
+  ti_dir="$HOME/whitesur-icons"
 
   git clone $ICON_GIT "$ti_dir"
   pushd "$ti_dir" >/dev/null
-  ./install.sh -t grey -d "$usr_icons"
+  ./install.sh -t grey
   popd >/dev/null
-  rm -rf "$ti_dir" "${usr_icons}/WhiteSur-grey-light" "${usr_icons}/capitaine-cursors"
+  rm -rf "$ti_dir" "${usr_icons}/WhiteSur-grey-light"
   rm -f "${usr_icons}/WhiteSur-grey/apps/scalable/preferences-system.svg"
 
   local old_color="#dedede"

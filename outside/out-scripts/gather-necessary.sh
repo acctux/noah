@@ -1,3 +1,32 @@
+ensure_variables_nonzero() {
+  local required_vars=(
+    INSTALL_SCRIPT
+    TIMEZONE
+    HOST_NAME
+    USER_NAME
+    LOCALE
+    BOOTLOADER
+    ROOT_LABEL
+    KEYMAP
+    MOUNT_OPTIONS
+  )
+
+  local missing=()
+  for var in "${required_vars[@]}"; do
+    if [ -z "${!var}" ]; then
+      missing+=("$var")
+    fi
+  done
+
+  if ((${#missing[@]})); then
+    error "Following variables required:"
+    printf '  %s\n' "${missing[@]}"
+    exit 1
+  fi
+
+  info "All required variables are set."
+}
+
 #######################################
 # Detect country ISO
 #######################################
@@ -39,6 +68,7 @@ detect_gpu() {
 }
 
 get_necessary_info() {
+  ensure_variables_nonzero
   detect_cpu
   detect_gpu
   get_country_iso

@@ -129,14 +129,15 @@ KEY_FILES=(
 #######################################
 # Folders
 #######################################
-ICON_DIR="$HOME/.local/share/icons/WhiteSur-grey-dark"
 declare -A CUSTOM_FOLDERS=(
+  ICON_DIR="$HOME/.local/share/icons"
   ["$HOME/Games"]="$ICON_DIR/places/scalable/folder-games.svg"
   ["$HOME/Lit"]="$ICON_DIR/places/scalable/folder-github.svg"
   ["$HOME/Polka"]="$ICON_DIR/places/scalable/folder-html.svg"
   ["$HOME/Overload"]="$ICON_DIR/places/scalable/folder-root.svg"
 )
 readonly -A CUSTOM_FOLDERS
+
 REMOVE_XDG_DIRS=(
   "XDG_PUBLICSHARE_DIR"
   "XDG_DESKTOP_DIR"

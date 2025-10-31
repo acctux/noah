@@ -22,6 +22,43 @@ usb_files_check() {
   return $need_copy
 }
 
+# ---------------------------
+# USB scan + selection
+# ---------------------------
+get_usb_device() {
+  local blacklist="$1"
+  local -a devices=()
+  local line dev
+
+  while true; do
+    devices=()
+
+    while read -r line; do
+      eval "$line" # sets $NAME $SIZE $FSTYPE $TYPE $MOUNTPOINT $RM
+      dev="/dev/$NAME"
+
+      if [[ "$RM" != 1 ]]; then
+        continue
+      elif [[ -n "$MOUNTPOINT" ]]; then
+        continue
+      else
+        devices+=("$dev")
+      fi
+
+      devices+=("$dev")
+      printf "%3d) %-12s  Size:%-8s  FS:%-8s  [%s]\n" \
+        "${#devices[@]}" "$dev" "$SIZE" "$FSTYPE" "${TYPE^}"
+    done < <(lsblk -P -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,RM)
+
+    ((${#devices[@]})) && break
+    warning "No USB devices found. Insert media and press Enter…"
+    read -r
+  done
+
+  select_device "Select USB device" USB_PARTITION "${devices[@]}"
+  printf '%s\n' "$USB_PARTITION"
+}
+
 #######################################
 # Copy key files from USB to target directory
 # Globals:
@@ -101,7 +138,7 @@ unmount_partition() {
 copy_sensitive_files() {
   if ! usb_files_check; then
     info "Missing keys. Proceeding to mount USB and copy."
-    select_device "Select keys and WIFI pass partition." "part" USB_PARTITION
+    get_usb_device
     mkdir -p "$USB_MNT"
     if ! mount "$USB_PARTITION" "$USB_MNT"; then
       fatal "Failed to mount $USB_PARTITION at $USB_MNT."

@@ -223,3 +223,47 @@ multi_list_install() {
   done
 }
 export -f multi_list_install
+
+# ---------------------------
+# Generic selection
+# ---------------------------
+select_device() {
+  local title="$1" result_var="$2"
+  shift 2
+  local -a candidates=("$@")
+  local choice
+
+  [[ -z "$result_var" ]] && fatal "select_device: result variable name required."
+  ((${#candidates[@]})) || {
+    warning "No devices to select."
+    return 1
+  }
+
+  info "$title"
+
+  for i in "${!candidates[@]}"; do
+    printf "%3d) %s\n" "$((i + 1))" "${candidates[i]}"
+  done
+
+  while true; do
+    read -rp "Select (1-${#candidates[@]}): " choice
+    [[ "$choice" =~ ^[0-9]+$ ]] || {
+      warning "Not a number."
+      continue
+    }
+    ((choice >= 1 && choice <= ${#candidates[@]})) || {
+      warning "Out of range."
+      continue
+    }
+
+    local selected="${candidates[$((choice - 1))]}"
+    [[ -b "$selected" ]] || {
+      error "Not a block device: $selected"
+      return 1
+    }
+
+    printf -v "$result_var" '%s' "$selected"
+    success "Selected: $selected"
+    return 0
+  done
+}
