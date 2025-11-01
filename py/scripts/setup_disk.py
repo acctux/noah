@@ -101,7 +101,7 @@ def find_install_partition(data):
 
         for child in dev["children"]:
             # Check if child fstype is in the allowed list
-            if child.get("fstype") in FS_TYPES and child.get("mountpoint") is None:
+            if child.get("fstype") in FS_TYPES:
                 return True
 
             # Recursive check for nested children
