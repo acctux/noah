@@ -38,8 +38,6 @@ def check_disk(disk):
         return subprocess.run(
             cmd,
             shell=True,
-            stdout=subprocess.PIPE,  # capture stdout
-            stderr=subprocess.PIPE,  # capture stderr
             text=True,  # decode bytes to str
             check=check,
         )
