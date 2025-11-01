@@ -193,10 +193,11 @@ def unmount_partition():
 
 # -------------------- Example Usage -------------------- #
 if __name__ == "__main__":
-    if not check_usb_files(KEY_DIR, KEY_FILES):
-        print(get_unmounted_partitions())
-        mount_selected(prompt_user_selection())
-        copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT)
-        unmount_partition()
-    else:
-        log.info("All required files present.")
+    unmount_partition()
+    # if not check_usb_files(KEY_DIR, KEY_FILES):
+    #     print(get_unmounted_partitions())
+    #     mount_selected(prompt_user_selection())
+    #     copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT)
+    #     unmount_partition()
+    # else:
+    #     log.info("All required files present.")
