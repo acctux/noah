@@ -53,10 +53,9 @@ def get_lsblk_json():
     return json.loads(output)
 
 
-def find_usb_partitions():
+def find_keys_partition(data):
     """Return list of USB_FS_TYPE partitions larger than MIN_SIZE as /dev/<name>."""
     candidates = []
-    data = get_lsblk_json()
 
     def recurse(devices):
         for dev in devices:
@@ -82,10 +81,9 @@ def find_usb_partitions():
     return candidates
 
 
-def prompt_user_selection():
+def prompt_user_selection(candidates):
     """Prompt the user to select from a list of candidate devices."""
     while True:
-        candidates = find_usb_partitions()
         print(f"{'No.':<5} {'Name':<8} {'Size':<8} {'FS Type':>8}")
         print("-" * 45)
 
@@ -170,7 +168,7 @@ def unmount_partition():
 # -------------------- Example Usage -------------------- #
 if __name__ == "__main__":
     if not check_usb_files(KEY_DIR, KEY_FILES):
-        mount_selected(prompt_user_selection())
+        mount_selected(prompt_user_selection(find_keys_partition(get_lsblk_json())))
         copy_keys(KEY_DIR, KEY_FILES)
         unmount_partition()
     else:
