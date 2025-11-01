@@ -39,8 +39,8 @@ def generate_fstab():
     target = "/mnt"
     print("Generating fstab...")
     try:
-        with open(f"{target}/etc/fstab", "w"):
-            subprocess.run(["genfstab", "-U", target], check=True)
+        with open(f"{target}/etc/fstab", "w") as fstab_file:
+            subprocess.run(["genfstab", "-U", target], check=True, stdout=fstab_file)
     except subprocess.CalledProcessError:
         print("Failed to generate fstab.", file=sys.stderr)
         sys.exit(1)
