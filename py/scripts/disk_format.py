@@ -21,24 +21,10 @@ def run(cmd, check=True):
         return False
 
 
-def fatal(msg):
-    print(f"[FAIL] {msg}")
-    sys.exit(1)
-
-
 def check_disk(device_path):
     """Check if a partition scheme exists on the given disk, and optionally wipe it."""
 
     log.info(f"Checking disk: {device_path}")
-
-    def run(cmd, check=False):
-        return subprocess.run(
-            cmd,
-            shell=True,
-            check=check,
-        )
-
-    # Check if a partition table exists
     if run(f"blkid -p {device_path}").returncode in (0, 2):
         reply = input(
             f"Partition scheme exists on {device_path}. Wipe it? (y/N) "
@@ -103,7 +89,8 @@ def format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL):
     if run(f"mkfs.btrfs -f -L {ROOT_LABEL} {ROOT_PARTITION}"):
         log.info(f"Root partition formatted as Btrfs with label {ROOT_LABEL}")
     else:
-        fatal(f"Root partition not found: {ROOT_PARTITION}")
+        log.error(f"Root partition not found: {ROOT_PARTITION}")
+        sys.exit(1)
     os.sync()
 
 
@@ -118,7 +105,7 @@ def create_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION):
         run(f"btrfs subvolume create /mnt/{subvol_name}")
 
 
-def mount_volumes(SUBVOLUME_NAMES, ROOT_PARTITION, MOUNT_OPTIONS):
+def mount_volumes(EFI_PARTITION, ROOT_PARTITION, SUBVOLUME_NAMES, MOUNT_OPTIONS):
     efi_mount_point = "/mnt/boot"
     print("Mounting subvolumes.")
     run(f"mount -o {MOUNT_OPTIONS},subvol=@ {ROOT_PARTITION} /mnt")
@@ -137,7 +124,7 @@ def mount_install(EFI_PARTITION, ROOT_PARTITION, MOUNT_OPTIONS):
     """Mount partitions and create subvolumes."""
     create_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION)
     run("umount /mnt")
-    mount_volumes(SUBVOLUME_NAMES, ROOT_PARTITION, MOUNT_OPTIONS)
+    mount_volumes(EFI_PARTITION, ROOT_PARTITION, SUBVOLUME_NAMES, MOUNT_OPTIONS)
 
     log.info("All partitions mounted.")
 

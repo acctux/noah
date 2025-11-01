@@ -6,7 +6,9 @@ import scripts.utils as utils
 from scripts.my_log import log
 import getpass
 import subprocess
+import os
 import sys
+from pathlib import Path
 
 # -------------------- CONFIG -------------------- #
 FS_TYPES = ["ext4", "btrfs"]
@@ -14,15 +16,80 @@ MIN_SIZE = "20G"
 EFI_DEFAULT = "512M"
 ROOT_LABEL = "Arch"
 MOUNT_OPTIONS = "noatime,compress=zstd"
+BOOTLOADER = "systemd-boot"
+INSTALL_SCRIPT = "noah"
+KEY_DIR = ".ssh"
 
 
-def run_or_fatal(cmd, error_msg):
-    """Run a shell command and exit on failure."""
+#######################################
+# Append all globals to sensitive_conf
+#######################################
+def write_secret_conf(
+    bootloader, root_partition, user_password, cpu_vendor, gpu_vendor, iso
+):
+    """Write sensitive configuration data to a temporary file."""
+    root_uuid = ""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    tmp_conf = os.path.join(script_dir, "grandmas_recipes")
+    if bootloader == "systemd-boot":
+        try:
+            result = subprocess.run(
+                ["blkid", "-s", "UUID", "-o", "value", root_partition],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            root_uuid = result.stdout.strip()
+        except subprocess.CalledProcessError:
+            log.error("Failed to retrieve blkid UUID for systemd-boot")
+            sys.exit(1)
+
+    conf_content = (
+        f"SWORDPAS={user_password}\n"
+        f"CPU_VENDOR={cpu_vendor}\n"
+        f"GPU_VENDOR={gpu_vendor}\n"
+        f"COUNTRY_ISO={iso}\n"
+        f"ROOT_UUID={root_uuid}\n"
+    )
+
+    with open(tmp_conf, "w") as f:
+        f.write(conf_content)
+    log.info(f"Wrote configuration to {tmp_conf}")
+
+
+#######################################
+# Copy configuration and key files to the target system
+#######################################
+def rsync_files_sys(install_script, key_dir):
+    """Copy configuration and key files to target system (/mnt)."""
+    log.info("Passing configuration files to target system...")
+
     try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError:
-        print(error_msg, file=sys.stderr)
+        # Mirrorlist
+        subprocess.run(
+            ["rsync", "-a", "/etc/pacman.d/mirrorlist", "/mnt/etc/pacman.d/"],
+            check=True,
+        )
+        # Installer script
+        subprocess.run(
+            [
+                "rsync",
+                "-ac",
+                f"{Path.home()}/{install_script}/",
+                f"/mnt/root/{install_script}/",
+            ],
+            check=True,
+        )
+        # Key directory
+        subprocess.run(
+            ["rsync", "-ac", f"{Path.home()}/{key_dir}/", f"/mnt/root/{key_dir}/"],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        log.error(f"{e}")
         sys.exit(1)
+
+    log.info("Configuration files transferred successfully.")
 
 
 def pacstrap_base(packages=[]):
@@ -31,7 +98,11 @@ def pacstrap_base(packages=[]):
 
     log.info(f"Installing packages to {target}: {' '.join(packages)}")
     cmd = ["pacstrap", target] + packages
-    run_or_fatal(cmd, "Failed to install packages.")
+    try:
+        subprocess.run(cmd, check=True)
+    except Exception as e:
+        log.error(f"{e}")
+        sys.exit(1)
 
 
 def generate_fstab():
@@ -72,8 +143,7 @@ def main():
     COUNTRY_ISO, CPU_VENDOR, GPU_VENDOR = gn.get_necessary()
     log.info(f"Detected: {COUNTRY_ISO} {GPU_VENDOR} {CPU_VENDOR}")
 
-    user_password = ask_password()
-    log.info(f"Your pass: {user_password}")
+    SWORDPAS = ask_password()
 
     sd.umount_recursive()
     try:
@@ -98,6 +168,16 @@ def main():
     pacstrap_base(packages=pacstrap_pkgs)
 
     generate_fstab()
+
+    write_secret_conf(
+        BOOTLOADER,
+        ROOT_PARTITION,
+        SWORDPAS,
+        CPU_VENDOR,
+        GPU_VENDOR,
+        COUNTRY_ISO,
+    )
+    rsync_files_sys(INSTALL_SCRIPT, KEY_DIR)
 
 
 if __name__ == "__main__":
