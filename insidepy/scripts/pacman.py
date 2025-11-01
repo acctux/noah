@@ -47,7 +47,3 @@ def install_pkg_list(pkg_list: str, pkg_dir: Path):
             time.sleep(5)
 
     log.error("Failed to install packages after multiple attempts.")
-
-
-log.info(f"{PKG_D}")
-install_pkg_list("dependencies", PKG_D)
