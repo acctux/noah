@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import subprocess
-from scripts.my_log import log
+from pyutils.my_log import log
 import sys
 import os
 
