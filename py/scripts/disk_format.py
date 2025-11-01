@@ -38,14 +38,14 @@ def check_disk(disk):
         return subprocess.run(
             cmd,
             shell=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,  # capture stdout
+            stderr=subprocess.PIPE,  # capture stderr
+            text=True,  # decode bytes to str
             check=check,
         )
 
     # Check if a partition table exists
     if run(f"blkid -p {disk}").returncode == 0:
-        log.info(f"Checking disk: {disk}")
         reply = input(f"Partition scheme exists on {disk}. Wipe it? (y/N) ").strip()
         if reply.lower() == "y":
             # Attempt to unmount partitions
