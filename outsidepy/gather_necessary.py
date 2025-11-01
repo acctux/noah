@@ -4,7 +4,7 @@ import subprocess
 import os
 import re
 import requests
-from my_log import log
+from pyutils.my_log import log
 
 
 def get_country_iso():
