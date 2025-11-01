@@ -3,6 +3,7 @@ import json
 import subprocess
 from pyutils.my_log import log
 import re
+import sys
 
 
 def umount_recursive():
@@ -22,6 +23,7 @@ def umount_recursive():
     except (subprocess.CalledProcessError, OSError) as e:
         # ignore errors
         log.info(f"Could not unmount {target} (ignored): {e}")
+        sys.exit(0)
 
 
 def sanitize_size_input(input_str):
