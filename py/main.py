@@ -27,7 +27,7 @@ def main():
     except Exception as e:
         print(f"Error: {e}")
 
-        df.check_disk(device_path)
+    df.check_disk(device_path)
 
 
 if __name__ == "__main__":
