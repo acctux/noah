@@ -91,28 +91,9 @@ def get_lsblk_json():
 def find_install_partition(data):
     """Return list of top-level disks where children match allowed FS types & MIN_SIZE."""
     candidates = []
-
-    def disk_matches(dev):
-        """
-        Return True if this disk should be selected based on children criteria.
-        """
-        if "children" not in dev:
-            return False
-
-        for child in dev["children"]:
-            # Check if child fstype is in the allowed list
-            if child.get("fstype") in FS_TYPES:
-                return True
-
-            # Recursive check for nested children
-            if "children" in child and disk_matches(child):
-                return True
-
-        return False
-
     # Only iterate top-level blockdevices
     for dev in data["blockdevices"]:
-        if dev["type"] == "disk" and disk_matches(dev):
+        if dev["type"] == "disk":
             candidates.append((dev["name"], dev["size"]))
 
     return candidates
