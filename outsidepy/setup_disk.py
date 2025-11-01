@@ -9,13 +9,23 @@ def umount_recursive():
     """
     Recursively unmount all mount points under the target directory.
     Equivalent to: umount -A --recursive /mnt
+    This function will never raise an exception if the unmount fails.
     """
     target = "/mnt"
     try:
-        subprocess.run(["umount", "-A", "--recursive", target], check=True, text=True)
-        log.info(f"Successfully unmounted recursively: {target}")
-    except OSError:
-        pass
+        # Don't use check=True; capture returncode instead
+        result = subprocess.run(
+            ["umount", "-A", "--recursive", target], text=True, capture_output=True
+        )
+        if result.returncode == 0:
+            log.info(f"Successfully unmounted recursively: {target}")
+        else:
+            log.warning(
+                f"Failed to unmount {target}, exit code: {result.returncode}\n"
+                f"stderr: {result.stderr.strip()}"
+            )
+    except OSError as e:
+        log.error(f"OSError during unmount: {e}")
 
 
 def sanitize_size_input(input_str):
