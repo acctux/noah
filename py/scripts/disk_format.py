@@ -65,7 +65,7 @@ def check_disk(device_path):
 
 def set_partitions(device_path, EFI_SIZE):
     """Partition the given DEVICE with EFI and root."""
-    log.info(f"Partitioning {DEVICE}...")
+    log.info(f"Partitioning {device_path}...")
 
     run(f"sgdisk -Z {device_path}")
     run(f"sgdisk -a 2048 -o {device_path}")
