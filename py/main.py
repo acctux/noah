@@ -13,6 +13,7 @@ def main():
     """
     Entry point for running disk setup interaction.
     """
+    device_path = ""
     print("=== Disk Setup Utility ===")
     try:
         EFI_SIZE = sd.ask_efi_size()
