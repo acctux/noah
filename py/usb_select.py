@@ -137,7 +137,7 @@ def mount_selected(selected_path):
     Path(USB_MNT).mkdir(parents=True, exist_ok=True)
     try:
         subprocess.run(["mount", str(selected_path), str(USB_MNT)], check=True)
-        log.success(f"Mounted {selected_path} to {USB_MNT}")
+        log.info(f"Mounted {selected_path} to {USB_MNT}")
     except subprocess.CalledProcessError as e:
         print(f"Failed to mount {selected_path}: {e}")
 
@@ -163,7 +163,7 @@ def copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT):
         if not dest.exists():
             try:
                 shutil.copy2(src, dest)
-                log.success(f"Copied {key_file} to {dest}")
+                log.info(f"Copied {key_file} to {dest}")
             except FileNotFoundError:
                 log.warning(f"Source file {src} not found on USB.")
             except Exception as e:
@@ -178,7 +178,7 @@ def unmount_partition():
         if result.returncode == 0:
             try:
                 subprocess.run(["umount", USB_MNT], check=True)
-                log.success(f"Unmounted USB from {USB_MNT}.")
+                log.info(f"Unmounted USB from {USB_MNT}.")
             except subprocess.CalledProcessError:
                 log.warning(f"Failed to unmount USB from {USB_MNT}.")
     except Exception as e:
@@ -197,5 +197,6 @@ if __name__ == "__main__":
         print(get_unmounted_partitions())
         mount_selected(prompt_user_selection())
         copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT)
+        unmount_partition()
     else:
-        log.success("All required files present.")
+        log.info("All required files present.")
