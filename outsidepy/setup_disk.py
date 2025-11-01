@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json
 import subprocess
-from scripts.my_log import log
+from pyutils.my_log import log
 import re
 
 
