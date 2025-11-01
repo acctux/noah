@@ -1,5 +1,5 @@
 from pathlib import Path
-import outsidepy.outside as out
+import outsidepy.outside_env as out
 
 import insidepy.scripts.pacman as pac
 
