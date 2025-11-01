@@ -1,7 +1,13 @@
 import subprocess
 import time
 from pathlib import Path
-from my_log import log
+from pyutils.my_log import log
+import sys
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent
+SRC_DIR = ROOT_DIR / "pyutils"
+sys.path.insert(0, str(SRC_DIR))
 
 
 def resolve_pkgs(pkg_dir: Path, pkg_list: str) -> list[str]:
