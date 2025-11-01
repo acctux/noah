@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json
 import subprocess
-from py.main import EFI_DEFAULT, FS_TYPES
+from main import EFI_DEFAULT, FS_TYPES
 from scripts.my_log import log
 import re
 
