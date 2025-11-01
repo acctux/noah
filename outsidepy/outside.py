@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-import scripts.setup_disk as sd
-import scripts.disk_format as df
-import scripts.gather_necessary as gn
-import scripts.usb_select as usb
-import scripts.utils as utils
-from scripts.my_log import log
+import outsidepy.usb_select as usb
+import outsidepy.setup_disk as sd
+import outsidepy.disk_format as df
+import outsidepy.gather_necessary as gn
+import pyutils.utils as utils
+from pyutils.my_log import log
 import getpass
 import subprocess
 import sys
@@ -137,7 +137,7 @@ def ask_password():
             print("Passwords do not match. Please try again.")
 
 
-def outside_env():
+def inside_env():
     """
     Entry point for running disk setup interaction.
     """
