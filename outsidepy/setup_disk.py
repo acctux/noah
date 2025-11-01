@@ -8,18 +8,20 @@ import re
 def umount_recursive():
     """
     Recursively unmount all mount points under /mnt.
-    Will never raise an exception or stop the program,
-    even if nothing is mounted.
+    Never stops the script, even if /mnt is not mounted.
     """
     target = "/mnt"
     try:
-        # Run without check=True, ignore errors
         subprocess.run(
-            ["umount", "-A", "--recursive", target], text=True, capture_output=True
+            ["umount", "-A", "--recursive", target],
+            text=True,
+            capture_output=True,
+            check=True,  # we can catch CalledProcessError below
         )
-        log.info(f"Tried to unmount recursively: {target}")
-    except OSError as e:
-        log.error(f"OSError during unmount: {e}")
+        log.info(f"Successfully unmounted: {target}")
+    except (subprocess.CalledProcessError, OSError) as e:
+        # ignore errors
+        log.info(f"Could not unmount {target} (ignored): {e}")
 
 
 def sanitize_size_input(input_str):
