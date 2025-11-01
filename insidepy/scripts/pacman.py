@@ -4,7 +4,7 @@ from pathlib import Path
 from pyutils.my_log import log
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT_DIR = SCRIPT_DIR.parent
+ROOT_DIR = SCRIPT_DIR.parent.parent
 PKG_D = ROOT_DIR / "pkg"
 
 
