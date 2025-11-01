@@ -10,7 +10,7 @@ from scripts.my_log import log
 USB_FS_TYPE = "exfat"
 MIN_SIZE = "20G"
 KEY_DIR = ".ssh"
-KEY_FILES = ["id_rsa", "config.json"]
+KEY_FILES = ["id_ed25519", "my-private-key.asc", "pass.asc"]
 USB_MNT = "/mnt/usb"
 
 
