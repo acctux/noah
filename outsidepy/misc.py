@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
-import scripts.usb_select as usb
-import scripts.setup_disk as sd
-import scripts.disk_format as df
-import scripts.gather_necessary as gn
-import pyutils.utils as utils
 from pyutils.my_log import log
+import pyutils.utils as utils
 import getpass
 import subprocess
 import sys
@@ -22,15 +18,6 @@ KEY_DIR = ".ssh"
 KEY_FILES = ["id_ed25519", "my-private-key.asc", "pass.asc"]
 SCRIPT_DIR = Path(__file__).resolve().parent
 PKG_D = SCRIPT_DIR / "pkg"
-
-
-def run_or_fatal(cmd):
-    """Run a shell command and exit on failure."""
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        log.error(f"{e}")
-        sys.exit(1)
 
 
 #######################################
@@ -108,7 +95,7 @@ def pacstrap_base(packages=[]):
 
     log.info(f"Installing packages to {target}: {' '.join(packages)}")
     cmd = ["pacstrap", target] + packages
-    run_or_fatal(cmd)
+    utils.run_or_fatal(cmd)
 
 
 def generate_fstab():
@@ -135,53 +122,3 @@ def ask_password():
             return pass1
         else:
             print("Passwords do not match. Please try again.")
-
-
-def outside_env():
-    """
-    Entry point for running disk setup interaction.
-    """
-    device_path = ""
-    DEVICE = ""
-    EFI_SIZE = ""
-    print("=== Disk Setup Utility ===")
-
-    COUNTRY_ISO, CPU_VENDOR, GPU_VENDOR = gn.get_necessary()
-    log.info(f"Detected: {COUNTRY_ISO} {GPU_VENDOR} {CPU_VENDOR}")
-
-    user_password = ask_password()
-    log.info(f"Your pass: {user_password}")
-    usb.mnt_cp_keys(KEY_DIR, KEY_FILES)
-    sd.umount_recursive()
-    try:
-        EFI_SIZE = sd.ask_efi_size(EFI_DEFAULT)
-        DEVICE = sd.prompt_user_selection(
-            sd.find_install_partition(sd.get_lsblk_json())
-        )
-        device_path = f"/dev/{DEVICE}"
-        log.info(f"{DEVICE} {EFI_SIZE} {device_path}")
-    except KeyboardInterrupt:
-        print("\nAborted by user.")
-    except Exception as e:
-        print(f"Error: {e}")
-
-    df.check_disk(device_path)
-    EFI_PARTITION, ROOT_PARTITION = df.set_partitions(device_path, EFI_SIZE)
-    df.format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
-    df.mount_install(EFI_PARTITION, ROOT_PARTITION, MOUNT_OPTIONS)
-
-    utils.update_reflector(COUNTRY_ISO)
-    pacstrap_pkgs = ["base", "base-devel", "btrfs-progs", "linux", "linux-firmware"]
-    pacstrap_base(packages=pacstrap_pkgs)
-
-    generate_fstab()
-
-    write_secret_conf(
-        BOOTLOADER,
-        ROOT_PARTITION,
-        user_password,
-        CPU_VENDOR,
-        GPU_VENDOR,
-        COUNTRY_ISO,
-    )
-    rsync_files_sys(INSTALL_SCRIPT, KEY_DIR)
