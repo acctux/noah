@@ -31,7 +31,7 @@ def main():
         print(f"Error: {e}")
 
     df.check_disk(device_path)
-    df.set_partitions(DEVICE, EFI_SIZE)
+    df.set_partitions(device_path, EFI_SIZE)
 
 
 if __name__ == "__main__":

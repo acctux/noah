@@ -29,10 +29,10 @@ def fatal(msg):
     sys.exit(1)
 
 
-def check_disk(disk):
+def check_disk(device_path):
     """Check if a partition scheme exists on the given disk, and optionally wipe it."""
 
-    log.info(f"Checking disk: {disk}")
+    log.info(f"Checking disk: {device_path}")
 
     def run(cmd, check=False):
         return subprocess.run(
@@ -42,52 +42,52 @@ def check_disk(disk):
         )
 
     # Check if a partition table exists
-    if run(f"blkid -p {disk}").returncode in (0, 2):
-        reply = input(f"Partition scheme exists on {disk}. Wipe it? (y/N) ").strip()
+    if run(f"blkid -p {device_path}").returncode in (0, 2):
+        reply = input(
+            f"Partition scheme exists on {device_path}. Wipe it? (y/N) "
+        ).strip()
         if reply.lower() == "y":
             # Attempt to unmount partitions
-            if run(f"umount -R {disk}*").returncode != 0:
+            if run(f"umount -R {device_path}*").returncode != 0:
                 log.warning("Failed to unmount some partitions")
 
-            log.info(f"Wiping partition table on {disk}...")
-            if run(f"sgdisk -Z {disk}").returncode != 0:
+            log.info(f"Wiping partition table on {device_path}...")
+            if run(f"sgdisk -Z {device_path}").returncode != 0:
                 log.warning("Failed to wipe partition table")
             else:
-                run(f"partprobe {disk}")
-                log.info(f"Partition table wiped on {disk}.")
+                run(f"partprobe {device_path}")
+                log.info(f"Partition table wiped on {device_path}.")
         else:
-            log.warning(f"User chose not to wipe {disk}.")
+            log.warning(f"User chose not to wipe {device_path}.")
             return 1
     return 0
 
 
-def set_partitions(DEVICE, EFI_SIZE):
+def set_partitions(device_path, EFI_SIZE):
     """Partition the given DEVICE with EFI and root."""
     log.info(f"Partitioning {DEVICE}...")
 
-    run(f"sgdisk -Z {DEVICE}")
-    run(f"sgdisk -a 2048 -o {DEVICE}")
+    run(f"sgdisk -Z {device_path}")
+    run(f"sgdisk -a 2048 -o {device_path}")
 
     part_count = 1
-    device_name = os.path.basename(DEVICE)
-    part_suffix = "p" if "nvme" in device_name else ""
 
     # EFI partition
     log.info("Creating EFI system partition...")
     run(
-        f"sgdisk -n {part_count}:0:+{EFI_SIZE} -t {part_count}:ef00 -c {part_count}:EFIBOOT {DEVICE}"
+        f"sgdisk -n {part_count}:0:+{EFI_SIZE} -t {part_count}:ef00 -c {part_count}:EFIBOOT {device_path}"
     )
-    EFI_PARTITION = f"{DEVICE}{part_suffix}{part_count}"
+    EFI_PARTITION = f"{device_path}{part_count}"
     part_count += 1
 
     # Root partition
     log.info("Creating root partition...")
     run(
-        f"sgdisk -n {part_count}:0:0 -t {part_count}:8300 -c {part_count}:ROOT {DEVICE}"
+        f"sgdisk -n {part_count}:0:0 -t {part_count}:8300 -c {part_count}:ROOT {device_path}"
     )
-    ROOT_PARTITION = f"{DEVICE}{part_suffix}{part_count}"
+    ROOT_PARTITION = f"{device_path}{part_count}"
 
-    run(f"partprobe {DEVICE}", check=False)
+    run(f"partprobe {device_path}", check=False)
     os.sync()
     log.info(f"Partitions created: EFI={EFI_PARTITION}, ROOT={ROOT_PARTITION}")
     return EFI_PARTITION, ROOT_PARTITION

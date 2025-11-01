@@ -121,5 +121,7 @@ def prompt_user_selection(candidates):
             continue
 
         selected_partition = candidates[choice_num - 1]
-        DEVICE = selected_partition[0]
+        selected_name = selected_partition[0]
+        part_suffix = "p" if "nvme" in selected_name else ""
+        DEVICE = f"{selected_name}{part_suffix}"
         return DEVICE
