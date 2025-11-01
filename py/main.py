@@ -29,7 +29,7 @@ def pacstrap_base(packages=[]):
     """Install base packages to the target system."""
     target = "/mnt"
 
-    print(f"Installing packages to {target}: {' '.join(packages)}")
+    log.info(f"Installing packages to {target}: {' '.join(packages)}")
     cmd = ["pacstrap", target] + packages
     run_or_fatal(cmd, "Failed to install packages.")
 
@@ -37,12 +37,15 @@ def pacstrap_base(packages=[]):
 def generate_fstab():
     """Generate fstab for the installed system."""
     target = "/mnt"
-    print("Generating fstab...")
+    log.info("Generating fstab...")
     try:
         with open(f"{target}/etc/fstab", "w") as fstab_file:
-            subprocess.run(["genfstab", "-U", target], check=True, stdout=fstab_file)
+            if subprocess.run(
+                ["genfstab", "-U", target], check=True, stdout=fstab_file
+            ):
+                log.info("fstab generated.")
     except subprocess.CalledProcessError:
-        print("Failed to generate fstab.", file=sys.stderr)
+        log.error("Failed to generate fstab.")
         sys.exit(1)
 
 
