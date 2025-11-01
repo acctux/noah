@@ -134,8 +134,9 @@ def prompt_user_selection():
 
 
 def mount_selected(selected_path):
+    Path(USB_MNT).mkdir(parents=True, exist_ok=True)
     try:
-        subprocess.run(["sudo", "mount", str(selected_path), str(USB_MNT)], check=True)
+        subprocess.run(["mount", str(selected_path), str(USB_MNT)], check=True)
         log.success(f"Mounted {selected_path} to {USB_MNT}")
     except subprocess.CalledProcessError as e:
         print(f"Failed to mount {selected_path}: {e}")
@@ -154,7 +155,6 @@ def copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT):
     log.info("Preparing to copy key files from USB...")
     dest_dir = Path.home() / KEY_DIR
     dest_dir.mkdir(parents=True, exist_ok=True)
-    USB_MNT.mkdir(parents=True, exist_ok=True)
 
     for key_file in KEY_FILES:
         src = Path(USB_MNT) / KEY_DIR / key_file
