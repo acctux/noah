@@ -35,6 +35,7 @@ def check_disk(disk):
     def run(cmd, check=False):
         return subprocess.run(
             cmd,
+            check=check,
         )
 
     # Check if a partition table exists
