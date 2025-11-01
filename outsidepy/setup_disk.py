@@ -3,7 +3,6 @@ import json
 import subprocess
 from pyutils.my_log import log
 import re
-import sys
 
 
 def umount_recursive():
@@ -12,7 +11,6 @@ def umount_recursive():
     Completely ignores errors and never exits non-zero.
     """
     target = "/mnt"
-    # Run without check=True; ignore return code and errors
     subprocess.run(
         ["umount", "-A", "--recursive", target], text=True, capture_output=True
     )
