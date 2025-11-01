@@ -9,21 +9,14 @@ import sys
 def umount_recursive():
     """
     Recursively unmount all mount points under /mnt.
-    Never stops the script, even if /mnt is not mounted.
+    Completely ignores errors and never exits non-zero.
     """
     target = "/mnt"
-    try:
-        subprocess.run(
-            ["umount", "-A", "--recursive", target],
-            text=True,
-            capture_output=True,
-            check=True,  # we can catch CalledProcessError below
-        )
-        log.info(f"Successfully unmounted: {target}")
-    except (subprocess.CalledProcessError, OSError) as e:
-        # ignore errors
-        log.info(f"Could not unmount {target} (ignored): {e}")
-        sys.exit(0)
+    # Run without check=True; ignore return code and errors
+    subprocess.run(
+        ["umount", "-A", "--recursive", target], text=True, capture_output=True
+    )
+    log.info(f"Tried to unmount recursively: {target} (errors ignored)")
 
 
 def sanitize_size_input(input_str):
