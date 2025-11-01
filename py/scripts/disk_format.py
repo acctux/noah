@@ -45,6 +45,7 @@ def check_disk(disk):
 
     # Check if a partition table exists
     if run(f"blkid -p {disk}").returncode == 0:
+        log.info(f"Checking disk: {disk}")
         reply = input(f"Partition scheme exists on {disk}. Wipe it? (y/N) ").strip()
         if reply.lower() == "y":
             # Attempt to unmount partitions
