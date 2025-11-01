@@ -71,4 +71,5 @@ setup_environment
 clone_repo
 cd $CLONE_DIR
 git checkout -b py
+git branch --set-upstream-to=origin/py py
 echo "Welcome to Noah's Arch, you'll be swept away."
