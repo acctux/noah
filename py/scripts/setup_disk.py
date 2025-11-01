@@ -6,6 +6,20 @@ from scripts.my_log import log
 import re
 
 
+def umount_recursive(target="/mnt"):
+    """
+    Recursively unmount all mount points under the target directory.
+    Equivalent to: umount -A --recursive /mnt
+    """
+    try:
+        subprocess.run(["umount", "-A", "--recursive", target], check=True, text=True)
+        log.info(f"Successfully unmounted recursively: {target}")
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed to unmount {target}: {e}")
+    except FileNotFoundError:
+        log.error("umount command not found. Is util-linux installed?")
+
+
 def sanitize_size_input(input_str):
     """
     Convert a size string using first-letter (K, M, G, T, P) to megabytes for sgdisk.

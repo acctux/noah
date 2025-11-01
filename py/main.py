@@ -15,6 +15,7 @@ def main():
     """
     Entry point for running disk setup interaction.
     """
+    sd.umount_recursive()
     device_path = ""
     print("=== Disk Setup Utility ===")
     try:
