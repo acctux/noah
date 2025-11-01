@@ -75,3 +75,30 @@ launch_applications() {
 
   run_temp_app dbeaver "$DBEAVER_DELAY"
 }
+
+#######################################
+# Copy wifi password files from USB
+# Globals:
+#   USB_MNT - USB mount point
+#   WIFI_PASS_DIR - relative directory on USB for wifi passwords
+#######################################
+copy_wifi_pass() {
+  if [[ -z "$WIFI_PASS_DIR" ]]; then
+    info "No WiFi password directory specified. Skipping WiFi password copy."
+    return
+  fi
+  local src="$USB_MNT/$WIFI_PASS_DIR"
+  local dest="$HOME/WIFI"
+
+  info "Copying WiFi password files from USB..."
+  if [[ ! -d "$src" ]]; then
+    error "WiFi password directory $src not found on USB."
+    return
+  fi
+  mkdir -p "$dest" || {
+    error "Failed to create $dest"
+    return
+  }
+  find "$src" -type f -name '*.nmconnection' -exec cp -p {} "$dest" \;
+  success "WiFi password files copied to $dest."
+}
