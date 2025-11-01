@@ -21,9 +21,6 @@ INSTALL_SCRIPT = "noah"
 KEY_DIR = ".ssh"
 KEY_FILES = ["id_ed25519", "my-private-key.asc", "pass.asc"]
 SCRIPT_DIR = Path(__file__).resolve().parent
-PKG_D = SCRIPT_DIR / "pkg"
-
-SCRIPT_DIR = Path(__file__).resolve()
 PKG_D = Path(SCRIPT_DIR / "pkg")
 PKG_LISTS = ["business", "chaotic", "cli-tools", "coding", "dependencies"]
 
