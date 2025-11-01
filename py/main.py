@@ -25,9 +25,7 @@ def run_or_fatal(cmd, error_msg):
         sys.exit(1)
 
 
-def pacstrap_base(
-    packages=["base", "base-devel", "btrfs-progs", "linux", "linux-firmware"]
-):
+def pacstrap_base(packages=[]):
     """Install base packages to the target system."""
     target = "/mnt"
 
@@ -36,12 +34,13 @@ def pacstrap_base(
     run_or_fatal(cmd, "Failed to install packages.")
 
 
-def generate_fstab(target="/mnt"):
+def generate_fstab():
     """Generate fstab for the installed system."""
+    target = "/mnt"
     print("Generating fstab...")
     try:
-        with open(f"{target}/etc/fstab", "w") as fstab_file:
-            subprocess.run(["genfstab", "-U", target], check=True, stdout=fstab_file)
+        with open(f"{target}/etc/fstab", "w"):
+            subprocess.run(["genfstab", "-U", target], check=True)
     except subprocess.CalledProcessError:
         print("Failed to generate fstab.", file=sys.stderr)
         sys.exit(1)
@@ -89,7 +88,11 @@ def main():
     EFI_PARTITION, ROOT_PARTITION = df.set_partitions(device_path, EFI_SIZE)
     df.format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
     df.mount_install(EFI_PARTITION, ROOT_PARTITION, MOUNT_OPTIONS)
+
     utils.update_reflector(COUNTRY_ISO)
+    pacstrap_pkgs = ["base", "base-devel", "btrfs-progs", "linux", "linux-firmware"]
+    pacstrap_base(packages=pacstrap_pkgs)
+    generate_fstab()
 
 
 if __name__ == "__main__":
