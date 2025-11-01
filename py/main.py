@@ -7,6 +7,8 @@ from scripts.my_log import log
 FS_TYPES = ["ext4", "btrfs"]
 MIN_SIZE = "20G"
 EFI_DEFAULT = "512M"
+ROOT_LABEL = "Arch"
+MOUNT_OPTIONS = "noatime,compress=zstd"
 
 
 def main():
@@ -16,7 +18,7 @@ def main():
     device_path = ""
     print("=== Disk Setup Utility ===")
     try:
-        EFI_SIZE = sd.ask_efi_size()
+        EFI_SIZE = sd.ask_efi_size(EFI_DEFAULT)
         DEVICE = sd.prompt_user_selection(
             sd.find_install_partition(sd.get_lsblk_json())
         )

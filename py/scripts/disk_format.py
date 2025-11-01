@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 import subprocess
+from main import MOUNT_OPTIONS
 from scripts.my_log import log
 import sys
 import os
-from pathlib import Path
 
 DEVICE = "/dev/sda"  # Example, replace or pass dynamically
-EFI_SIZE = "512M"  # Example EFI partition size
-ROOT_LABEL = "ROOT"
-MOUNT_OPTIONS = "defaults,noatime,compress=zstd"
-
-EFI_PARTITION = Path
+EFI_SIZE = ""  # Example EFI partition size
+EFI_PARTITION = None
 ROOT_PARTITION = None
+ROOT_LABEL = "Arch"
 
 
 def run(cmd, check=True):
@@ -63,10 +61,8 @@ def check_disk(disk):
     return 0
 
 
-def set_partitions():
+def set_partitions(DEVICE, EFI_SIZE):
     """Partition the given DEVICE with EFI and root."""
-    global EFI_PARTITION, ROOT_PARTITION
-
     log.info(f"Partitioning {DEVICE}...")
 
     run(f"sgdisk -Z {DEVICE}")
@@ -94,9 +90,10 @@ def set_partitions():
     run(f"partprobe {DEVICE}", check=False)
     os.sync()
     log.info(f"Partitions created: EFI={EFI_PARTITION}, ROOT={ROOT_PARTITION}")
+    return EFI_PARTITION, ROOT_PARTITION
 
 
-def format_partitions():
+def format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL):
     """Format EFI and root partitions."""
     log.info("Formatting partitions...")
 
@@ -134,10 +131,10 @@ def mount_install():
 
 def format_disk():
     """Main entry point."""
-    if check_disk(DEVICE) == 1:
-        sys.exit(1)
-    set_partitions()
-    format_partitions()
+    # if check_disk(DEVICE) == 1:
+    #     sys.exit(1)
+    set_partitions(DEVICE, EFI_SIZE)
+    format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
     mount_install()
 
 

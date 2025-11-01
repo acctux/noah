@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json
 import subprocess
-from main import EFI_DEFAULT, FS_TYPES
+from main import FS_TYPES
 from scripts.my_log import log
 import re
 
@@ -43,14 +43,14 @@ def sanitize_size_input(input_str):
     return f"{final_value}M"
 
 
-def ask_efi_size():
+def ask_efi_size(default_efi_size):
     """
     Prompt the user for EFI partition size and sanitize input.
     Returns the size in KiB as a string (e.g., '524288k').
     """
     try:
-        efi_size = sanitize_size_input(EFI_DEFAULT)
-        return efi_size
+        sanitized = sanitize_size_input(default_efi_size)
+        return sanitized
 
     except Exception:
         while True:
