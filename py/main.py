@@ -8,6 +8,7 @@ FS_TYPES = ["ext4", "btrfs"]
 MIN_SIZE = "20G"
 EFI_DEFAULT = "512M"
 ROOT_LABEL = "Arch"
+MOUNT_OPTIONS = "noatime,compress=zstd"
 
 
 def main():
@@ -34,6 +35,7 @@ def main():
     df.check_disk(device_path)
     EFI_PARTITION, ROOT_PARTITION = df.set_partitions(device_path, EFI_SIZE)
     df.format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
+    df.mount_install(EFI_PARTITION, ROOT_PARTITION, MOUNT_OPTIONS)
 
 
 if __name__ == "__main__":

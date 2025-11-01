@@ -8,7 +8,6 @@ DEVICE = "/dev/sda"  # Example, replace or pass dynamically
 EFI_SIZE = ""  # Example EFI partition size
 EFI_PARTITION = None
 ROOT_PARTITION = None
-MOUNT_OPTIONS = "noatime,compress=zstd"
 
 
 def run(cmd, check=True):
@@ -108,7 +107,7 @@ def format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL):
     os.sync()
 
 
-def mount_install():
+def mount_install(EFI_PARTITION, ROOT_PARTITION, MOUNT_OPTIONS):
     """Mount partitions and create subvolumes."""
     log.info("Mounting partitions...")
 
