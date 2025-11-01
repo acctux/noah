@@ -4,7 +4,7 @@ import subprocess
 import os
 import shutil
 from pathlib import Path
-from scripts.my_log import log
+from pyutils.my_log import log
 
 # -------------------- Constants -------------------- #
 USB_FS_TYPE = "exfat"
