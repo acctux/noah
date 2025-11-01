@@ -53,31 +53,10 @@ def get_lsblk_json():
     return json.loads(output)
 
 
-def get_unmounted_partitions():
-    """Return a list of tuples (name, size, fstype) for partitions that are unmounted."""
-    data = get_lsblk_json()  # your function returning lsblk -J JSON
-    unmounted = []
-
-    def recurse(devices):
-        for dev in devices:
-            if dev["type"] == "part" and dev.get("mountpoint") is None:
-                unmounted.append(
-                    (
-                        dev["name"],
-                        dev.get("size"),
-                        dev.get("fstype"),
-                    )
-                )
-            if "children" in dev:
-                recurse(dev["children"])
-
-    recurse(data["blockdevices"])
-    return unmounted
-
-
-def find_usb_partitions(data):
+def find_usb_partitions():
     """Return list of USB_FS_TYPE partitions larger than MIN_SIZE as /dev/<name>."""
     candidates = []
+    data = get_lsblk_json()
 
     def recurse(devices):
         for dev in devices:
@@ -106,7 +85,7 @@ def find_usb_partitions(data):
 def prompt_user_selection():
     """Prompt the user to select from a list of candidate devices."""
     while True:
-        candidates = find_usb_partitions(get_lsblk_json())
+        candidates = find_usb_partitions()
         print(f"{'No.':<5} {'Name':<8} {'Size':<8} {'FS Type':>8}")
         print("-" * 45)
 
@@ -142,15 +121,12 @@ def mount_selected(selected_path):
         print(f"Failed to mount {selected_path}: {e}")
 
 
-def copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT):
+def copy_keys(KEY_DIR, KEY_FILES):
     """
-    Copy key files from a USB mount to the user's home directory if they don't exist yet.
-
     Parameters:
+        USB_MNT (str): Path to the mounted USB.
         KEY_DIR (str): Subdirectory under home and USB mount where keys are stored.
         KEY_FILES (list of str): List of key filenames to copy.
-        USB_MNT (str): Path to the mounted USB.
-        info, success, warning (callables): Logging functions.
     """
     log.info("Preparing to copy key files from USB...")
     dest_dir = Path.home() / KEY_DIR
@@ -193,11 +169,9 @@ def unmount_partition():
 
 # -------------------- Example Usage -------------------- #
 if __name__ == "__main__":
-    unmount_partition()
-    # if not check_usb_files(KEY_DIR, KEY_FILES):
-    #     print(get_unmounted_partitions())
-    #     mount_selected(prompt_user_selection())
-    #     copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT)
-    #     unmount_partition()
-    # else:
-    #     log.info("All required files present.")
+    if not check_usb_files(KEY_DIR, KEY_FILES):
+        mount_selected(prompt_user_selection())
+        copy_keys(KEY_DIR, KEY_FILES)
+        unmount_partition()
+    else:
+        log.info("All required files present.")
