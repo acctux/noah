@@ -136,7 +136,3 @@ def format_disk():
     set_partitions(DEVICE, EFI_SIZE)
     format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
     mount_install()
-
-
-if __name__ == "__main__":
-    format_disk()

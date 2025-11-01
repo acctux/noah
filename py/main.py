@@ -15,6 +15,8 @@ def main():
     """
     sd.umount_recursive()
     device_path = ""
+    DEVICE = ""
+    EFI_SIZE = ""
     print("=== Disk Setup Utility ===")
     try:
         EFI_SIZE = sd.ask_efi_size(EFI_DEFAULT)
@@ -29,6 +31,7 @@ def main():
         print(f"Error: {e}")
 
     df.check_disk(device_path)
+    df.set_partitions(DEVICE, EFI_SIZE)
 
 
 if __name__ == "__main__":
