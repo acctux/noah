@@ -39,7 +39,7 @@ def check_usb_files(KEY_DIR, KEY_FILES):
                 missing_files += file_path
                 log.info(f"Needed: {file_path}")
 
-    return False  # Files don't exist
+    return missing_files
 
 
 # ----------- SELECTION LOGIC ----------
@@ -165,9 +165,11 @@ def unmount_partition():
 
 # -------------------- Example Usage -------------------- #
 def mnt_cp_keys(KEY_DIR, KEY_FILES):
-    if not check_usb_files(KEY_DIR, KEY_FILES):
-        mount_selected(prompt_user_selection(find_keys_partition(get_lsblk_json())))
-        copy_keys(KEY_DIR, KEY_FILES)
-        unmount_partition()
+    if KEY_DIR and KEY_FILES:
+        missing_files = check_usb_files(KEY_DIR, KEY_FILES)
+        if missing_files:
+            mount_selected(prompt_user_selection(find_keys_partition(get_lsblk_json())))
+            copy_keys(KEY_DIR, KEY_FILES)
+            unmount_partition()
     else:
         log.info("All required files present.")

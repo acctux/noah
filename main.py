@@ -44,47 +44,49 @@ def outside_env():
     log.info(f"Your pass: {user_password}")
     usb.mnt_cp_keys(KEY_DIR, KEY_FILES)
     sd.umount_recursive()
-    try:
-        EFI_SIZE = sd.ask_efi_size(EFI_DEFAULT)
-        DEVICE = sd.prompt_user_selection(
-            sd.find_install_partition(sd.get_lsblk_json())
-        )
-        device_path = f"/dev/{DEVICE}"
-        log.info(f"{DEVICE} {EFI_SIZE} {device_path}")
-    except KeyboardInterrupt:
-        print("\nAborted by user.")
-    except Exception as e:
-        print(f"Error: {e}")
-
-    df.check_disk(device_path)
-    EFI_PARTITION, ROOT_PARTITION = df.set_partitions(device_path, EFI_SIZE)
-    df.format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
-    df.mount_install(EFI_PARTITION, ROOT_PARTITION, MOUNT_OPTIONS)
-
-    utils.update_reflector(COUNTRY_ISO)
-    pacstrap_pkgs = ["base", "base-devel", "btrfs-progs", "linux", "linux-firmware"]
-    misc.pacstrap_base(packages=pacstrap_pkgs)
-
-    misc.generate_fstab()
-
-    misc.write_secret_conf(
-        BOOTLOADER,
-        ROOT_PARTITION,
-        user_password,
-        CPU_VENDOR,
-        GPU_VENDOR,
-        COUNTRY_ISO,
-    )
-    misc.rsync_files_sys(INSTALL_SCRIPT, KEY_DIR)
 
 
-def inside_env():
-    pac.install_pkg_list("dependencies", PKG_D)
+#     try:
+#         EFI_SIZE = sd.ask_efi_size(EFI_DEFAULT)
+#         DEVICE = sd.prompt_user_selection(
+#             sd.find_install_partition(sd.get_lsblk_json())
+#         )
+#         device_path = f"/dev/{DEVICE}"
+#         log.info(f"{DEVICE} {EFI_SIZE} {device_path}")
+#     except KeyboardInterrupt:
+#         print("\nAborted by user.")
+#     except Exception as e:
+#         print(f"Error: {e}")
+#
+#     df.check_disk(device_path)
+#     EFI_PARTITION, ROOT_PARTITION = df.set_partitions(device_path, EFI_SIZE)
+#     df.format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
+#     df.mount_install(EFI_PARTITION, ROOT_PARTITION, MOUNT_OPTIONS)
+#
+#     utils.update_reflector(COUNTRY_ISO)
+#     pacstrap_pkgs = ["base", "base-devel", "btrfs-progs", "linux", "linux-firmware"]
+#     misc.pacstrap_base(packages=pacstrap_pkgs)
+#
+#     misc.generate_fstab()
+#
+#     misc.write_secret_conf(
+#         BOOTLOADER,
+#         ROOT_PARTITION,
+#         user_password,
+#         CPU_VENDOR,
+#         GPU_VENDOR,
+#         COUNTRY_ISO,
+#     )
+#     misc.rsync_files_sys(INSTALL_SCRIPT, KEY_DIR)
+#
+#
+# def inside_env():
+#     pac.install_pkg_list("dependencies", PKG_D)
 
 
 def main():
     outside_env()
-    inside_env()
+    # inside_env()
 
 
 main()
