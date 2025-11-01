@@ -25,6 +25,15 @@ def check_disk(device_path):
     """Check if a partition scheme exists on the given disk, and optionally wipe it."""
 
     log.info(f"Checking disk: {device_path}")
+
+    def run(cmd, check=False):
+        return subprocess.run(
+            cmd,
+            shell=True,
+            check=check,
+        )
+
+    # Check if a partition table exists
     if run(f"blkid -p {device_path}").returncode in (0, 2):
         reply = input(
             f"Partition scheme exists on {device_path}. Wipe it? (y/N) "

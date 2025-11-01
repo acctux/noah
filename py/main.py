@@ -151,7 +151,7 @@ def main():
         DEVICE = sd.prompt_user_selection(
             sd.find_install_partition(sd.get_lsblk_json())
         )
-        device_path = f"/dev/{DEVICE}"
+        device_path = Path("/dev/{DEVICE}")
         log.info(f"{DEVICE} {EFI_SIZE} {device_path}")
     except KeyboardInterrupt:
         print("\nAborted by user.")
