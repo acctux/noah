@@ -137,7 +137,7 @@ def ask_password():
             print("Passwords do not match. Please try again.")
 
 
-def inside_env():
+def outside_env():
     """
     Entry point for running disk setup interaction.
     """
