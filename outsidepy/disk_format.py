@@ -42,11 +42,10 @@ def check_disk(device_path):
             f"Partition scheme exists on {device_path}. Wipe it? (y/N) "
         ).strip()
         if reply.lower() == "y":
-            # Attempt to unmount partitions
             if run(f"umount -R {device_path}*").returncode != 0:
                 log.warning("Failed to unmount some partitions")
 
-            log.info(f"Wiping partition table on {device_path}...")
+            log.info(f"Wiping partition table on {device_path}.")
             if run(f"sgdisk -Z {device_path}").returncode != 0:
                 log.warning("Failed to wipe partition table")
             else:
