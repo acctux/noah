@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import subprocess
-from main import MOUNT_OPTIONS
 from scripts.my_log import log
 import sys
 import os
@@ -10,6 +9,7 @@ EFI_SIZE = ""  # Example EFI partition size
 EFI_PARTITION = None
 ROOT_PARTITION = None
 ROOT_LABEL = "Arch"
+MOUNT_OPTIONS = "noatime,compress=zstd"
 
 
 def run(cmd, check=True):

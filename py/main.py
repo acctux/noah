@@ -7,8 +7,6 @@ from scripts.my_log import log
 FS_TYPES = ["ext4", "btrfs"]
 MIN_SIZE = "20G"
 EFI_DEFAULT = "512M"
-ROOT_LABEL = "Arch"
-MOUNT_OPTIONS = "noatime,compress=zstd"
 
 
 def main():
