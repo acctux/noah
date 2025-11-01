@@ -4,6 +4,7 @@ import subprocess
 import os
 import re
 import requests
+from my_log import log
 
 
 def get_country_iso():
@@ -11,8 +12,8 @@ def get_country_iso():
     try:
         response = requests.get("https://ifconfig.co/country-iso", timeout=3)
         iso = response.text.strip()
+        log.info(f"found {iso}")
     except requests.RequestException:
-        # Fallback: try to use locale environment variable
         locale = os.environ.get("LOCALE", "")
         iso = locale.split("_")[1] if "_" in locale else "US"
     return iso
@@ -47,9 +48,6 @@ def detect_gpu():
     except subprocess.SubprocessError:
         pass
     return gpu_vendor
-
-
-# Example usage
 
 
 def get_necessary():

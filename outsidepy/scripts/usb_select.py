@@ -9,8 +9,6 @@ from scripts.my_log import log
 # -------------------- Constants -------------------- #
 USB_FS_TYPE = "exfat"
 MIN_SIZE = "20G"
-KEY_DIR = ".ssh"
-KEY_FILES = ["id_ed25519", "my-private-key.asc", "pass.asc"]
 USB_MNT = "/mnt/usb"
 
 
@@ -166,7 +164,7 @@ def unmount_partition():
 
 
 # -------------------- Example Usage -------------------- #
-if __name__ == "__main__":
+def mnt_cp_keys(KEY_DIR, KEY_FILES):
     if not check_usb_files(KEY_DIR, KEY_FILES):
         mount_selected(prompt_user_selection(find_keys_partition(get_lsblk_json())))
         copy_keys(KEY_DIR, KEY_FILES)

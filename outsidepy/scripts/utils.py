@@ -25,9 +25,3 @@ def update_reflector(iso, quantity=15, hours=24, seconds=4):
         print("Mirrorlist updated successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Error updating mirrorlist: {e}")
-
-
-# Example usage
-if __name__ == "__main__":
-    ISO = "US"  # Replace with dynamically detected ISO if needed
-    update_reflector(ISO)
