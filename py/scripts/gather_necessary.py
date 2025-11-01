@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import subprocess
 import os
 import re
@@ -48,7 +50,9 @@ def detect_gpu():
 
 
 # Example usage
-if __name__ == "__main__":
+
+
+def get_necessary():
     get_country_iso()
     detect_cpu()
     detect_gpu()

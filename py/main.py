@@ -8,7 +8,7 @@ import getpass
 import subprocess
 import sys
 
-# -------------------- Constants -------------------- #
+# -------------------- CONFIG -------------------- #
 FS_TYPES = ["ext4", "btrfs"]
 MIN_SIZE = "20G"
 EFI_DEFAULT = "512M"
@@ -68,12 +68,13 @@ def main():
     DEVICE = ""
     EFI_SIZE = ""
     print("=== Disk Setup Utility ===")
-    COUNTRY_ISO = gn.get_country_iso()
-    CPU_VENDOR = gn.detect_cpu()
-    GPU_VENDOR = gn.detect_gpu()
+
+    COUNTRY_ISO, CPU_VENDOR, GPU_VENDOR = gn.get_necessary()
     log.info(f"Detected: {COUNTRY_ISO} {GPU_VENDOR} {CPU_VENDOR}")
+
     user_password = ask_password()
     log.info(f"Your pass: {user_password}")
+
     sd.umount_recursive()
     try:
         EFI_SIZE = sd.ask_efi_size(EFI_DEFAULT)
@@ -95,6 +96,7 @@ def main():
     utils.update_reflector(COUNTRY_ISO)
     pacstrap_pkgs = ["base", "base-devel", "btrfs-progs", "linux", "linux-firmware"]
     pacstrap_base(packages=pacstrap_pkgs)
+
     generate_fstab()
 
 

@@ -5,9 +5,8 @@ import sys
 import os
 
 DEVICE = "/dev/sda"  # Example, replace or pass dynamically
-EFI_SIZE = ""  # Example EFI partition size
-EFI_PARTITION = None
-ROOT_PARTITION = None
+EFI_SIZE = ""
+SUBVOLUME_NAMES = ["home", "pacman", "log"]
 
 
 def run(cmd, check=True):
@@ -63,6 +62,7 @@ def check_disk(device_path):
 
 def set_partitions(device_path, EFI_SIZE):
     """Partition the given DEVICE with EFI and root."""
+    global ROOT_PARTITION, EFI_PARTITION
     log.info(f"Partitioning {device_path}...")
 
     run(f"sgdisk -Z {device_path}")
@@ -107,22 +107,37 @@ def format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL):
     os.sync()
 
 
+# -------------- INSTALL MOUNT -------------------
+def create_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION):
+    run(f"mount {ROOT_PARTITION} /mnt")
+    print("Creating subvolumes under /mnt...")
+    run("btrfs subvolume create /mnt/@")
+    for vol in SUBVOLUME_NAMES:
+        subvol_name = f"@{vol}"
+        log.info(f"Creating subvolume {subvol_name}")
+        run(f"btrfs subvolume create /mnt/{subvol_name}")
+
+
+def mount_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION, MOUNT_OPTIONS):
+    print("Mounting subvolumes.")
+    run(f"mount -o {MOUNT_OPTIONS},subvol=@ {ROOT_PARTITION} /mnt")
+    for vol in SUBVOLUME_NAMES:
+        log.info(f"Mounting subvolume {vol}")
+        os.makedirs(f"/mnt/{vol}", exist_ok=True)
+        run(f"mount -o {MOUNT_OPTIONS},subvol=@home {ROOT_PARTITION} /mnt/{vol}")
+
+
 def mount_install(EFI_PARTITION, ROOT_PARTITION, MOUNT_OPTIONS):
     """Mount partitions and create subvolumes."""
-    log.info("Mounting partitions...")
+    efi_mount_point = "/mnt/boot"
 
-    run(f"mount {ROOT_PARTITION} /mnt")
-    run("btrfs subvolume create /mnt/@")
-    run("btrfs subvolume create /mnt/@home")
+    create_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION)
     run("umount /mnt")
 
-    run(f"mount -o {MOUNT_OPTIONS},subvol=@ {ROOT_PARTITION} /mnt")
-    os.makedirs("/mnt/home", exist_ok=True)
-    run(f"mount -o {MOUNT_OPTIONS},subvol=@home {ROOT_PARTITION} /mnt/home")
+    mount_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION, MOUNT_OPTIONS)
 
-    os.makedirs("/mnt/boot", exist_ok=True)
-    run(f"mount {EFI_PARTITION} /mnt/boot")
-    log.info("EFI partition mounted at /mnt/boot")
+    log.info(f"Mounting EFI partition at:{efi_mount_point}")
+    run(f"mount {EFI_PARTITION} {efi_mount_point}")
 
     log.info("All partitions mounted.")
 
