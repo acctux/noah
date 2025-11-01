@@ -85,3 +85,6 @@ def inside_env():
 def main():
     outside_env()
     inside_env()
+
+
+main()
