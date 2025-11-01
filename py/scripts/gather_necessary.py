@@ -53,6 +53,7 @@ def detect_gpu():
 
 
 def get_necessary():
-    get_country_iso()
-    detect_cpu()
-    detect_gpu()
+    COUNTRY_ISO = get_country_iso()
+    CPU_VENDOR = detect_cpu()
+    GPU_VENDOR = detect_gpu()
+    return COUNTRY_ISO, CPU_VENDOR, GPU_VENDOR
