@@ -113,7 +113,7 @@ def inside_env():
 
 def main():
     # outside_env()
-    arch_chroot_run(["pacman", "-S python"])
+    arch_chroot_run(["pacman", "-Sy", "python"])
 
 
 main()
