@@ -70,5 +70,5 @@ clone_repo() {
 setup_environment
 clone_repo
 cd $CLONE_DIR
-git checkout py
+git checkout -b py
 echo "Welcome to Noah's Arch, you'll be swept away."

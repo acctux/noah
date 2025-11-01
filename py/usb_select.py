@@ -103,9 +103,10 @@ def find_usb_partitions(data):
     return candidates
 
 
-def prompt_user_selection(candidates):
+def prompt_user_selection():
     """Prompt the user to select from a list of candidate devices."""
     while True:
+        candidates = find_usb_partitions(get_lsblk_json())
         print(f"{'No.':<5} {'Name':<8} {'Size':<8} {'FS Type':>8}")
         print("-" * 45)
 
@@ -118,12 +119,12 @@ def prompt_user_selection(candidates):
         choice = input(f"Enter 1-{len(candidates)}: ").strip()
 
         if not choice.isdigit():
-            print("Not a number.")
+            log.error("Not a number.")
             continue
 
         choice_num = int(choice)
         if not (1 <= choice_num <= len(candidates)):
-            print("Out of range.")
+            log.error("Out of range.")
             continue
 
         selected_partition = candidates[choice_num - 1]
@@ -174,7 +175,7 @@ def copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT):
 if __name__ == "__main__":
     if not check_usb_files(KEY_DIR, KEY_FILES):
         print(get_unmounted_partitions())
-        mount_selected(prompt_user_selection(find_usb_partitions(get_lsblk_json())))
+        mount_selected(prompt_user_selection())
         copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT)
     else:
         log.success("All required files present.")
