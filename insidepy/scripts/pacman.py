@@ -2,12 +2,10 @@ import subprocess
 import time
 from pathlib import Path
 from pyutils.my_log import log
-import sys
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SCRIPT_DIR.parent
-SRC_DIR = ROOT_DIR / "pyutils"
-sys.path.insert(0, str(SRC_DIR))
+PKG_D = ROOT_DIR / "pkg"
 
 
 def resolve_pkgs(pkg_dir: Path, pkg_list: str) -> list[str]:
@@ -49,3 +47,7 @@ def install_pkg_list(pkg_list: str, pkg_dir: Path):
             time.sleep(5)
 
     log.error("Failed to install packages after multiple attempts.")
+
+
+log.info(f"{PKG_D}")
+install_pkg_list("dependencies", PKG_D)

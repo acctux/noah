@@ -113,7 +113,7 @@ def inside_env():
 
 def main():
     # outside_env()
-    arch_chroot_run(["bash", "/root/noah/inside/inside-env.sh"])
+    arch_chroot_run(["python3", "/root/noah/insidepy/scripts/pacman.py"])
 
 
 main()
