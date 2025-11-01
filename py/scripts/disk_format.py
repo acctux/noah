@@ -108,7 +108,7 @@ def format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL):
 # -------------- INSTALL MOUNT -------------------
 def create_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION):
     run(f"mount {ROOT_PARTITION} /mnt")
-    print("Creating subvolumes under /mnt...")
+    log.info("Creating subvolumes under /mnt...")
     run("btrfs subvolume create /mnt/@")
     for vol in SUBVOLUME_NAMES:
         subvol_name = f"@{vol}"
@@ -118,7 +118,7 @@ def create_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION):
 
 def mount_volumes(EFI_PARTITION, ROOT_PARTITION, SUBVOLUME_NAMES, MOUNT_OPTIONS):
     efi_mount_point = "/mnt/boot"
-    print("Mounting subvolumes.")
+    log.info("Mounting subvolumes.")
     run(f"mount -o {MOUNT_OPTIONS},subvol=@ {ROOT_PARTITION} /mnt")
 
     for vol in SUBVOLUME_NAMES:

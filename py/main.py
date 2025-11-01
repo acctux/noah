@@ -20,17 +20,13 @@ INSTALL_SCRIPT = "noah"
 KEY_DIR = ".ssh"
 
 
-def info(msg):
-    print(f"[INFO] {msg}")
-
-
-def success(msg):
-    print(f"[SUCCESS] {msg}")
-
-
-def fatal(msg):
-    print(f"[FATAL] {msg}", file=sys.stderr)
-    sys.exit(1)
+def run_or_fatal(cmd):
+    """Run a shell command and exit on failure."""
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        log.error(f"{e}")
+        sys.exit(1)
 
 
 #######################################
@@ -50,8 +46,9 @@ def write_secret_conf(
                 check=True,
             )
             root_uuid = result.stdout.strip()
-        except subprocess.CalledProcessError:
-            fatal(f"Failed to get UUID for {root_partition}")
+        except subprocess.CalledProcessError as e:
+            log.error(f"{e}")
+            sys.exit(1)
 
     conf_content = (
         f"SWORDPAS={swordpas}\n"
@@ -63,7 +60,7 @@ def write_secret_conf(
 
     with open(tmp_conf, "w") as f:
         f.write(conf_content)
-    info(f"Wrote configuration to {tmp_conf}")
+    log.info(f"Wrote configuration to {tmp_conf}")
 
 
 #######################################
@@ -71,7 +68,7 @@ def write_secret_conf(
 #######################################
 def rsync_files_sys(install_script, key_dir):
     """Copy configuration and key files to target system (/mnt)."""
-    info("Passing configuration files to target system...")
+    log.info("Passing configuration files to target system...")
 
     try:
         # Mirrorlist
@@ -95,18 +92,10 @@ def rsync_files_sys(install_script, key_dir):
             check=True,
         )
     except subprocess.CalledProcessError as e:
-        fatal(f"File sync failed: {e}")
-
-    success("Configuration files transferred successfully.")
-
-
-def run_or_fatal(cmd, error_msg):
-    """Run a shell command and exit on failure."""
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError:
-        print(error_msg, file=sys.stderr)
+        log.error(f"File sync failed: {e}")
         sys.exit(1)
+
+    log.info("Configuration files transferred successfully.")
 
 
 def pacstrap_base(packages=[]):
@@ -115,7 +104,7 @@ def pacstrap_base(packages=[]):
 
     log.info(f"Installing packages to {target}: {' '.join(packages)}")
     cmd = ["pacstrap", target] + packages
-    run_or_fatal(cmd, "Failed to install packages.")
+    run_or_fatal(cmd)
 
 
 def generate_fstab():
