@@ -5,18 +5,17 @@ from pyutils.my_log import log
 import re
 
 
-def umount_recursive(target="/mnt"):
+def umount_recursive():
     """
     Recursively unmount all mount points under the target directory.
     Equivalent to: umount -A --recursive /mnt
     """
+    target = "/mnt"
     try:
         subprocess.run(["umount", "-A", "--recursive", target], check=True, text=True)
         log.info(f"Successfully unmounted recursively: {target}")
-    except subprocess.CalledProcessError as e:
-        log.error(f"Failed to unmount {target}: {e}")
-    except FileNotFoundError:
-        log.error("umount command not found. Is util-linux installed?")
+    except OSError:
+        pass
 
 
 def sanitize_size_input(input_str):
