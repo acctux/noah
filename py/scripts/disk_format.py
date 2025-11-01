@@ -35,6 +35,9 @@ def check_disk(disk):
     def run(cmd, check=False):
         return subprocess.run(
             cmd,
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             check=check,
         )
 
