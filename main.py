@@ -7,6 +7,7 @@ import outsidepy.misc as misc
 import pyutils.utils as utils
 from pyutils.my_log import log
 from pathlib import Path
+import subprocess
 
 import insidepy.scripts.pacman as pac
 
@@ -23,6 +24,36 @@ KEY_FILES = ["id_ed25519", "my-private-key.asc", "pass.asc"]
 SCRIPT_DIR = Path(__file__).resolve().parent
 PKG_D = Path(SCRIPT_DIR / "pkg")
 PKG_LISTS = ["business", "chaotic", "cli-tools", "coding", "dependencies"]
+
+
+def arch_chroot_run(cmd, check=False):
+    """
+    Run a command inside arch-chroot /mnt.
+
+    Parameters:
+        cmd: list of str
+            The command and arguments to run inside chroot.
+        check: bool
+            If True, raise CalledProcessError on failure.
+            If False, ignore errors.
+
+    Returns:
+        subprocess.CompletedProcess
+    """
+    chroot_cmd = ["arch-chroot", "/mnt"] + cmd
+    try:
+        result = subprocess.run(chroot_cmd, text=True, capture_output=True, check=check)
+        if result.returncode == 0:
+            log.info(f"Command succeeded: {' '.join(cmd)}")
+        else:
+            log.warning(
+                f"Command failed (ignored): {' '.join(cmd)}\n"
+                f"stderr: {result.stderr.strip()}"
+            )
+        return result
+    except OSError as e:
+        log.error(f"OSError running command: {' '.join(cmd)}\n{e}")
+        return None
 
 
 def outside_env():
@@ -82,7 +113,7 @@ def inside_env():
 
 def main():
     # outside_env()
-    inside_env()
+    arch_chroot_run(["python3", "/root/noah/inside/inside_env.sh"])
 
 
 main()
