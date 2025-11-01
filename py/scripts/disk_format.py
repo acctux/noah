@@ -118,26 +118,26 @@ def create_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION):
         run(f"btrfs subvolume create /mnt/{subvol_name}")
 
 
-def mount_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION, MOUNT_OPTIONS):
+def mount_volumes(SUBVOLUME_NAMES, ROOT_PARTITION, MOUNT_OPTIONS):
+    efi_mount_point = "/mnt/boot"
     print("Mounting subvolumes.")
     run(f"mount -o {MOUNT_OPTIONS},subvol=@ {ROOT_PARTITION} /mnt")
+
     for vol in SUBVOLUME_NAMES:
         log.info(f"Mounting subvolume {vol}")
         os.makedirs(f"/mnt/{vol}", exist_ok=True)
         run(f"mount -o {MOUNT_OPTIONS},subvol=@home {ROOT_PARTITION} /mnt/{vol}")
 
+    log.info(f"Mounting EFI partition at:{efi_mount_point}")
+    os.makedirs(f"{efi_mount_point}", exist_ok=True)
+    run(f"mount {EFI_PARTITION} {efi_mount_point}")
+
 
 def mount_install(EFI_PARTITION, ROOT_PARTITION, MOUNT_OPTIONS):
     """Mount partitions and create subvolumes."""
-    efi_mount_point = "/mnt/boot"
-
     create_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION)
     run("umount /mnt")
-
-    mount_subvolumes(SUBVOLUME_NAMES, ROOT_PARTITION, MOUNT_OPTIONS)
-
-    log.info(f"Mounting EFI partition at:{efi_mount_point}")
-    run(f"mount {EFI_PARTITION} {efi_mount_point}")
+    mount_volumes(SUBVOLUME_NAMES, ROOT_PARTITION, MOUNT_OPTIONS)
 
     log.info("All partitions mounted.")
 
