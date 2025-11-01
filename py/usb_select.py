@@ -172,6 +172,25 @@ def copy_missing_keys(KEY_DIR, KEY_FILES, USB_MNT):
             log.info(f"{key_file} already exists in {dest_dir}, skipping copy.")
 
 
+def unmount_partition():
+    try:
+        result = subprocess.run(["mountpoint", "-q", USB_MNT], check=False)
+        if result.returncode == 0:
+            try:
+                subprocess.run(["umount", USB_MNT], check=True)
+                log.success(f"Unmounted USB from {USB_MNT}.")
+            except subprocess.CalledProcessError:
+                log.warning(f"Failed to unmount USB from {USB_MNT}.")
+    except Exception as e:
+        log.warning(f"Error checking mountpoint: {e}")
+
+    if Path(USB_MNT).exists():
+        try:
+            os.rmdir(USB_MNT)
+        except OSError:
+            pass
+
+
 # -------------------- Example Usage -------------------- #
 if __name__ == "__main__":
     if not check_usb_files(KEY_DIR, KEY_FILES):
