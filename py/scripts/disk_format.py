@@ -32,6 +32,8 @@ def fatal(msg):
 def check_disk(disk):
     """Check if a partition scheme exists on the given disk, and optionally wipe it."""
 
+    log.info(f"Checking disk: {disk}")
+
     def run(cmd, check=False):
         return subprocess.run(
             cmd,
