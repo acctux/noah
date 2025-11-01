@@ -37,7 +37,7 @@ def check_disk(disk):
     def run(cmd, check=False):
         return subprocess.run(
             cmd,
-            text=True,  # decode bytes to str
+            shell=True,
             check=check,
         )
 
