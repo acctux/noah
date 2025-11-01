@@ -4,9 +4,12 @@ from scripts.my_log import log
 import sys
 import os
 
-DEVICE = "/dev/sda"  # Example, replace or pass dynamically
+DEVICE = ""  # Example, replace or pass dynamically
 EFI_SIZE = ""
 SUBVOLUME_NAMES = ["home", "pacman", "log"]
+
+ROOT_PARTITION = ""
+EFI_PARTITION = ""
 
 
 def run(cmd, check=True):
@@ -57,7 +60,6 @@ def check_disk(device_path):
 
 def set_partitions(device_path, EFI_SIZE):
     """Partition the given DEVICE with EFI and root."""
-    global ROOT_PARTITION, EFI_PARTITION
     log.info(f"Partitioning {device_path}...")
 
     run(f"sgdisk -Z {device_path}")

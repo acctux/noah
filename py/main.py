@@ -6,7 +6,6 @@ import scripts.utils as utils
 from scripts.my_log import log
 import getpass
 import subprocess
-import os
 import sys
 from pathlib import Path
 
@@ -21,16 +20,27 @@ INSTALL_SCRIPT = "noah"
 KEY_DIR = ".ssh"
 
 
+def info(msg):
+    print(f"[INFO] {msg}")
+
+
+def success(msg):
+    print(f"[SUCCESS] {msg}")
+
+
+def fatal(msg):
+    print(f"[FATAL] {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
 #######################################
 # Append all globals to sensitive_conf
 #######################################
 def write_secret_conf(
-    bootloader, root_partition, user_password, cpu_vendor, gpu_vendor, iso
+    tmp_conf, bootloader, root_partition, swordpas, cpu_vendor, gpu_vendor, iso
 ):
     """Write sensitive configuration data to a temporary file."""
     root_uuid = ""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    tmp_conf = os.path.join(script_dir, "grandmas_recipes")
     if bootloader == "systemd-boot":
         try:
             result = subprocess.run(
@@ -41,20 +51,19 @@ def write_secret_conf(
             )
             root_uuid = result.stdout.strip()
         except subprocess.CalledProcessError:
-            log.error("Failed to retrieve blkid UUID for systemd-boot")
-            sys.exit(1)
+            fatal(f"Failed to get UUID for {root_partition}")
 
     conf_content = (
-        f"SWORDPAS={user_password}\n"
+        f"SWORDPAS={swordpas}\n"
         f"CPU_VENDOR={cpu_vendor}\n"
         f"GPU_VENDOR={gpu_vendor}\n"
-        f"COUNTRY_ISO={iso}\n"
+        f"ISO={iso}\n"
         f"ROOT_UUID={root_uuid}\n"
     )
 
     with open(tmp_conf, "w") as f:
         f.write(conf_content)
-    log.info(f"Wrote configuration to {tmp_conf}")
+    info(f"Wrote configuration to {tmp_conf}")
 
 
 #######################################
@@ -62,7 +71,7 @@ def write_secret_conf(
 #######################################
 def rsync_files_sys(install_script, key_dir):
     """Copy configuration and key files to target system (/mnt)."""
-    log.info("Passing configuration files to target system...")
+    info("Passing configuration files to target system...")
 
     try:
         # Mirrorlist
@@ -86,10 +95,18 @@ def rsync_files_sys(install_script, key_dir):
             check=True,
         )
     except subprocess.CalledProcessError as e:
-        log.error(f"{e}")
-        sys.exit(1)
+        fatal(f"File sync failed: {e}")
 
-    log.info("Configuration files transferred successfully.")
+    success("Configuration files transferred successfully.")
+
+
+def run_or_fatal(cmd, error_msg):
+    """Run a shell command and exit on failure."""
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError:
+        print(error_msg, file=sys.stderr)
+        sys.exit(1)
 
 
 def pacstrap_base(packages=[]):
@@ -98,11 +115,7 @@ def pacstrap_base(packages=[]):
 
     log.info(f"Installing packages to {target}: {' '.join(packages)}")
     cmd = ["pacstrap", target] + packages
-    try:
-        subprocess.run(cmd, check=True)
-    except Exception as e:
-        log.error(f"{e}")
-        sys.exit(1)
+    run_or_fatal(cmd, "Failed to install packages.")
 
 
 def generate_fstab():
@@ -135,6 +148,7 @@ def main():
     """
     Entry point for running disk setup interaction.
     """
+    tmp_conf = "grandmas_recipes"
     device_path = ""
     DEVICE = ""
     EFI_SIZE = ""
@@ -143,7 +157,8 @@ def main():
     COUNTRY_ISO, CPU_VENDOR, GPU_VENDOR = gn.get_necessary()
     log.info(f"Detected: {COUNTRY_ISO} {GPU_VENDOR} {CPU_VENDOR}")
 
-    SWORDPAS = ask_password()
+    user_password = ask_password()
+    log.info(f"Your pass: {user_password}")
 
     sd.umount_recursive()
     try:
@@ -151,7 +166,7 @@ def main():
         DEVICE = sd.prompt_user_selection(
             sd.find_install_partition(sd.get_lsblk_json())
         )
-        device_path = Path("/dev/{DEVICE}")
+        device_path = f"/dev/{DEVICE}"
         log.info(f"{DEVICE} {EFI_SIZE} {device_path}")
     except KeyboardInterrupt:
         print("\nAborted by user.")
@@ -170,9 +185,10 @@ def main():
     generate_fstab()
 
     write_secret_conf(
+        tmp_conf,
         BOOTLOADER,
         ROOT_PARTITION,
-        SWORDPAS,
+        user_password,
         CPU_VENDOR,
         GPU_VENDOR,
         COUNTRY_ISO,
