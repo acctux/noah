@@ -13,6 +13,20 @@ USB_MNT = "/mnt/usb"
 
 
 # -------------------- Utilities -------------------- #
+def check_usb_files(KEY_DIR, KEY_FILES):
+    missing_files = []
+    if not KEY_FILES:
+        return True
+    if KEY_DIR and KEY_FILES:
+        for key_file in KEY_FILES:
+            file_path = os.path.join("/root", KEY_DIR, key_file)
+            if not os.path.isfile(file_path):
+                missing_files += file_path
+                log.info(f"Needed: {file_path}")
+
+        return missing_files
+
+
 def string_to_float_size(size_str):
     """Convert size strings like '512K' or '20G' to bytes."""
     if not size_str:
@@ -26,20 +40,6 @@ def string_to_float_size(size_str):
     size_str = size_str.strip().upper()
     units = {"K": K, "M": M, "G": G, "T": T}
     return float(size_str[:-1]) * units.get(size_str[-1], 1.0)
-
-
-def check_usb_files(KEY_DIR, KEY_FILES):
-    missing_files = []
-    if not KEY_FILES:
-        return True
-    if KEY_DIR and KEY_FILES:
-        for key_file in KEY_FILES:
-            file_path = os.path.join("/root", KEY_DIR, key_file)
-            if not os.path.isfile(file_path):
-                missing_files += file_path
-                log.info(f"Needed: {file_path}")
-
-        return missing_files
 
 
 # ----------- SELECTION LOGIC ----------
@@ -167,7 +167,6 @@ def unmount_partition():
 def mnt_cp_keys(KEY_DIR, KEY_FILES):
     if KEY_DIR and KEY_FILES:
         missing_files = check_usb_files(KEY_DIR, KEY_FILES)
-        log.info(f"{missing_files}")
         if missing_files:
             mount_selected(prompt_user_selection(find_keys_partition(get_lsblk_json())))
             copy_keys(KEY_DIR, KEY_FILES)
