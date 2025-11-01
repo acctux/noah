@@ -8,7 +8,6 @@ DEVICE = "/dev/sda"  # Example, replace or pass dynamically
 EFI_SIZE = ""  # Example EFI partition size
 EFI_PARTITION = None
 ROOT_PARTITION = None
-ROOT_LABEL = "Arch"
 MOUNT_OPTIONS = "noatime,compress=zstd"
 
 
@@ -129,10 +128,10 @@ def mount_install():
     log.info("All partitions mounted.")
 
 
-def format_disk():
-    """Main entry point."""
-    # if check_disk(DEVICE) == 1:
-    #     sys.exit(1)
-    set_partitions(DEVICE, EFI_SIZE)
-    format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
-    mount_install()
+# def format_disk():
+#     """Main entry point."""
+#     if check_disk(DEVICE) == 1:
+#         sys.exit(1)
+#     set_partitions(DEVICE, EFI_SIZE)
+#     format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
+#     mount_install()

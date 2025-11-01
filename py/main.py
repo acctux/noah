@@ -7,6 +7,7 @@ from scripts.my_log import log
 FS_TYPES = ["ext4", "btrfs"]
 MIN_SIZE = "20G"
 EFI_DEFAULT = "512M"
+ROOT_LABEL = "Arch"
 
 
 def main():
@@ -31,7 +32,8 @@ def main():
         print(f"Error: {e}")
 
     df.check_disk(device_path)
-    df.set_partitions(device_path, EFI_SIZE)
+    EFI_PARTITION, ROOT_PARTITION = df.set_partitions(device_path, EFI_SIZE)
+    df.format_partitions(EFI_PARTITION, ROOT_PARTITION, ROOT_LABEL)
 
 
 if __name__ == "__main__":
