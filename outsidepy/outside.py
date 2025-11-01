@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import outsidepy.usb_select as usb
+import usb_select as usb
 import outsidepy.setup_disk as sd
 import outsidepy.disk_format as df
 import outsidepy.gather_necessary as gn
