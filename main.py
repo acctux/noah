@@ -117,6 +117,8 @@ def main():
         [
             "pacman",
             "-Syu",
+            "--noconfirm",
+            "--needed",
             "pacman-contrib",
             "reflector",
             "rsync",
