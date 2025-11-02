@@ -123,18 +123,27 @@ def s_pac_ed():
     pac_conf = Path("/etc/pacman.conf")
     text = pac_conf.read_text()
 
-    text = text.replace("#Color", "Color")
-    if "ILoveCandy" not in text:
-        text = text.replace("Color", "Color\nILoveCandy", 1)
+    # Uncomment "#Color"
+    text = re.sub(r"^\s*#\s*Color\s*$", "Color", text, flags=re.MULTILINE)
+    # Append "ILoveCandy" after "Color"
+    text = re.sub(r"^\s*Color\s*$", "Color\nILoveCandy", text, flags=re.MULTILINE)
 
-    text = text.replace("#[multilib]", "[multilib]")
-    text = text.replace(
-        "#Include = /etc/pacman.d/mirrorlist", "Include = /etc/pacman.d/mirrorlist"
+    # Uncomment "[multilib]" header
+    text = re.sub(r"^\s*#\s*\[multilib\]", "[multilib]", text, flags=re.MULTILINE)
+    # Uncomment "Include = ..." line under [multilib]
+    text = re.sub(
+        r"^\s*#\s*Include\s*=.*",
+        lambda m: m.group(0).lstrip("# ").rstrip(),
+        text,
+        flags=re.MULTILINE,
     )
-    text = re.sub(r"ParallelDownloads\s*=.*", "ParallelDownloads = 10", text)
+
+    # Replace ParallelDownloads line
+    text = re.sub(
+        r"^\s*ParallelDownloads.*$", "ParallelDownloads = 10", text, flags=re.MULTILINE
+    )
 
     pac_conf.write_text(text)
-    log.info("✅ pacman.conf updated.")
 
 
 # ----------------------------------------

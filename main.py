@@ -10,7 +10,7 @@ from pyutils.my_log import log
 from pathlib import Path
 import subprocess
 
-import insidepy.scripts.pacman as pac
+import insidepy.pacman as pac
 
 # -------------------- CONFIG -------------------- #
 FS_TYPES = ["ext4", "btrfs"]

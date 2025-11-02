@@ -5,13 +5,15 @@ from pyutils.my_log import log
 import sys
 
 
-def update_reflector(iso, quantity=15, hours=24, seconds=4):
+def update_reflector(COUNTRY_ISO):
     """Update Pacman mirrorlist using reflector."""
     print("Updating reflector...")
-
+    quantity = 15
+    hours = 24
+    seconds = 4
     cmd = [
         "reflector",
-        f"--country={iso}",
+        f"--country={COUNTRY_ISO}",
         "--protocol=https",
         "--completion-percent=100",
         f"--age={hours}",
