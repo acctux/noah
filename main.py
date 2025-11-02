@@ -113,17 +113,23 @@ def inside_env():
 
 def main():
     # outside_env()
+    # arch_chroot_run(
+    #     [
+    #         "pacman",
+    #         "-Syu",
+    #         "--noconfirm",
+    #         "--needed",
+    #         "pacman-contrib",
+    #         "reflector",
+    #         "rsync",
+    #         "zsh-completions",
+    #         "xdg-user-dirs",
+    #     ]
+    # )
     arch_chroot_run(
         [
-            "pacman",
-            "-Syu",
-            "--noconfirm",
-            "--needed",
-            "pacman-contrib",
-            "reflector",
-            "rsync",
-            "zsh-completions",
-            "xdg-user-dirs",
+            "python3",
+            "/root/noah/insidepy/scripts/pacman.py",
         ]
     )
 
