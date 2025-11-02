@@ -3,6 +3,7 @@ import outsidepy.usb_select as usb
 import outsidepy.setup_disk as sd
 import outsidepy.disk_format as df
 import outsidepy.gather_necessary as gn
+import insidepy.etc_files as ef
 import outsidepy.misc as misc
 import pyutils.utils as utils
 from pyutils.my_log import log
@@ -28,29 +29,17 @@ PKG_LISTS = ["business", "chaotic", "cli-tools", "coding", "dependencies"]
 
 def arch_chroot_run(cmd, check=False):
     """
-    Run a command inside arch-chroot /mnt.
-
-    Parameters:
-        cmd: list of str
-            The command and arguments to run inside chroot.
-        check: bool
-            If True, raise CalledProcessError on failure.
-            If False, ignore errors.
-
-    Returns:
-        subprocess.CompletedProcess
+    Run a command inside arch-chroot /mnt and stream its output live.
     """
     chroot_cmd = ["arch-chroot", "/mnt"] + cmd
     try:
-        result = subprocess.run(chroot_cmd, text=True, capture_output=True, check=check)
-        if result.returncode == 0:
-            log.info(f"Command succeeded: {' '.join(cmd)}")
-        else:
-            log.warning(
-                f"Command failed (ignored): {' '.join(cmd)}\n"
-                f"stderr: {result.stderr.strip()}"
-            )
+        log.info(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(chroot_cmd, text=True, check=check)
+        log.info(f"Command finished with return code {result.returncode}")
         return result
+    except subprocess.CalledProcessError as e:
+        log.error(f"Command failed: {' '.join(cmd)}\nExit code: {e.returncode}")
+        return e
     except OSError as e:
         log.error(f"OSError running command: {' '.join(cmd)}\n{e}")
         return None
@@ -126,12 +115,7 @@ def main():
             "xdg-user-dirs",
         ]
     )
-    arch_chroot_run(
-        [
-            "python3",
-            "/root/noah/insidepy/scripts/pacman.py",
-        ]
-    )
+    ef.etc_files_config()
 
 
 main()
