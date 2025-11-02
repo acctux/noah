@@ -25,6 +25,7 @@ KEY_FILES = ["id_ed25519", "my-private-key.asc", "pass.asc"]
 SCRIPT_DIR = Path(__file__).resolve().parent
 PKG_D = Path(SCRIPT_DIR / "pkg")
 PKG_LISTS = ["business", "chaotic", "cli-tools", "coding", "dependencies"]
+COUNTRY_ISO = ""
 
 
 def arch_chroot_run(cmd, check=False):

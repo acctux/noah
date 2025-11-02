@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import subprocess
 import logging
 from pathlib import Path
+from main import arch_chroot_run as chroot
+from main import COUNTRY_ISO
 import re
 
 log = logging.getLogger(__name__)
@@ -14,17 +15,6 @@ HOST_NAME = "archbox"
 ISO = "US"
 
 
-def run(cmd, check=True):
-    """Run a system command with logging."""
-    log.info(f"→ Running: {' '.join(cmd)}")
-    try:
-        subprocess.run(cmd, check=check)
-    except subprocess.CalledProcessError as e:
-        log.error(f"Command failed: {e}")
-        if check:
-            raise
-
-
 # ----------------------------------------
 # 1. System locality configuration
 # ----------------------------------------
@@ -32,19 +22,19 @@ def sys_locality():
     log.info("Configuring system...")
 
     log.info("Setting timezone, locale, and hostname...")
-    run(["ln", "-sf", f"/usr/share/zoneinfo/{TIMEZONE}", "/etc/localtime"])
-    run(["hwclock", "--systohc"])
+    chroot(["ln", "-sf", f"/mnt/usr/share/zoneinfo/{TIMEZONE}", "/mnt/etc/localtime"])
+    chroot(["hwclock", "--systohc"])
 
     # Append locale to locale.gen
-    locale_gen = Path("/etc/locale.gen")
+    locale_gen = Path("/mnt/etc/locale.gen")
     with locale_gen.open("a") as f:
         f.write(f"{LOCALE} UTF-8\n")
 
-    run(["locale-gen"])
+    chroot(["locale-gen"])
 
-    Path("/etc/locale.conf").write_text(f"LANG={LOCALE}\n")
-    Path("/etc/vconsole.conf").write_text("KEYMAP=us\n")
-    Path("/etc/hostname").write_text(f"{HOST_NAME}\n")
+    Path("/mnt/etc/locale.conf").write_text(f"LANG={LOCALE}\n")
+    Path("/mnt/etc/vconsole.conf").write_text("KEYMAP=us\n")
+    Path("/mnt/etc/hostname").write_text(f"{HOST_NAME}\n")
 
     log.info("✅ System configuration completed successfully.")
 
@@ -55,10 +45,10 @@ def sys_locality():
 def reflector_regdom_conf():
     log.info("Writing reflector configuration...")
 
-    Path("/etc/xdg/reflector").mkdir(parents=True, exist_ok=True)
-    reflector_conf = Path("/etc/xdg/reflector/reflector.conf")
+    Path("/mnt/etc/xdg/reflector").mkdir(parents=True, exist_ok=True)
+    reflector_conf = Path("/mnt/etc/xdg/reflector/reflector.conf")
     reflector_conf.write_text(
-        f"""--country "{ISO}" \\
+        f"""--country "{COUNTRY_ISO}" \\
 --protocol https \\
 --completion-percent 100 \\
 --age 18 \\
@@ -72,9 +62,9 @@ def reflector_regdom_conf():
 
     log.info("✅ Reflector configuration updated successfully.")
 
-    regdom_cfg = Path("/etc/modprobe.d/cfg80211.conf")
-    regdom_cfg.write_text(f"options cfg80211 ieee80211_regdom={ISO}\n")
-    log.info(f"✅ Wireless regulatory domain set to {ISO}.")
+    regdom_cfg = Path("/mnt/etc/modprobe.d/cfg80211.conf")
+    regdom_cfg.write_text(f"options cfg80211 ieee80211_regdom={COUNTRY_ISO}\n")
+    log.info(f"✅ Wireless regulatory domain set to {COUNTRY_ISO}.")
 
 
 # ----------------------------------------
@@ -86,11 +76,11 @@ def chaotic_repo():
     chaotic_key_id = "3056513887B78AEB"
     key_serv = "keyserver.ubuntu.com"
 
-    run(["pacman-key", "--init"])
-    run(["pacman-key", "--recv-key", chaotic_key_id, "--keyserver", key_serv])
-    run(["pacman-key", "--lsign-key", chaotic_key_id])
+    chroot(["pacman-key", "--init"])
+    chroot(["pacman-key", "--recv-key", chaotic_key_id, "--keyserver", key_serv])
+    chroot(["pacman-key", "--lsign-key", chaotic_key_id])
 
-    run(
+    chroot(
         [
             "pacman",
             "-U",
@@ -99,7 +89,7 @@ def chaotic_repo():
             "https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst",
         ]
     )
-    run(
+    chroot(
         [
             "pacman",
             "-U",
@@ -109,7 +99,7 @@ def chaotic_repo():
         ]
     )
 
-    pacman_conf = Path("/etc/pacman.conf")
+    pacman_conf = Path("/mnt/etc/pacman.conf")
     with pacman_conf.open("a") as f:
         f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
 
@@ -120,7 +110,7 @@ def chaotic_repo():
 # 4. pacman.conf tweaks
 # ----------------------------------------
 def s_pac_ed():
-    pac_conf = Path("/etc/pacman.conf")
+    pac_conf = Path("/mnt/etc/pacman.conf")
     text = pac_conf.read_text()
 
     # Uncomment "#Color"
@@ -171,5 +161,5 @@ def etc_files_config():
     reflector_regdom_conf()
     chaotic_repo()
     s_pac_ed()
-    run(["pacman", "-Sy", "--noconfirm"], check=False)
+    chroot(["pacman", "-Sy", "--noconfirm"], check=False)
     enable_sudo_insults()
