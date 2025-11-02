@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import logging
 from pathlib import Path
-from main import arch_chroot_run as chroot
+from main import chroot_run as chroot
 from main import COUNTRY_ISO
 import re
 
