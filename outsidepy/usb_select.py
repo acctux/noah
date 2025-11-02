@@ -171,5 +171,7 @@ def mnt_cp_keys(KEY_DIR, KEY_FILES):
             mount_selected(prompt_user_selection(find_keys_partition(get_lsblk_json())))
             copy_keys(KEY_DIR, KEY_FILES)
             unmount_partition()
+        else:
+            log.info("All required files present.")
     else:
         log.info("All required files present.")
