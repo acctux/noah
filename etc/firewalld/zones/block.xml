@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone target="%%REJECT%%">
+  <short>Block</short>
+  <description>Unsolicited incoming network packets are rejected. Incoming packets that are related to outgoing network connections are accepted. Outgoing network connections are allowed.</description>
+  <service name="kdeconnect"/>
+  <service name="transmission-client"/>
+  <service name="ssh"/>
+  <service name="dhcp"/>
+  <service name="mdns"/>
+  <service name="ntp"/>
+  <service name="bittorrent-lsd"/>
+  <service name="wireguard"/>
+  <service name="dns"/>
+  <service name="imap"/>
+  <service name="smtp"/>
+  <port port="1143" protocol="tcp"/>
+  <port port="1143" protocol="udp"/>
+  <port port="1025" protocol="tcp"/>
+  <port port="1025" protocol="udp"/>
+  <port port="6881-6889" protocol="tcp"/>
+  <port port="6881-6889" protocol="udp"/>
+  <forward/>
+</zone>

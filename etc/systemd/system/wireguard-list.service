@@ -1,0 +1,17 @@
+[Unit]
+Description=Generate WireGuard connection list
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '\
+  install -d -m 0755 /run/wireguard && \
+  ls /etc/wireguard/*.conf 2>/dev/null \
+    | xargs -n1 basename \
+    | sed "s/\.conf$//" \
+    | sort \
+    > /run/wireguard/connections.list \
+'
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=My Custom Daemon
+StartLimitIntervalSec=2
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/loggy.py
+User=root
+
+[Install]
+WantedBy=graphical.target
+
