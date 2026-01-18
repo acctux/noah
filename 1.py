@@ -36,7 +36,7 @@ user_name = "nick"
 my_host = "yulia"
 my_contry = "Spain"
 reflector_cmd = f"reflector --country {my_contry} --protocol http,https --latest 12 --sort rate --number 3 --save /etc/pacman.d/mirrorlist"
-my_locale = LocaleConfiguration("us", "en_US", "UTF-8")
+my_locale = LocaleConfiguration(kb_layout="us", sys_lang="en_US", sys_enc="UTF-8")
 git_name = "acctux"
 user_script = "d.py"
 my_app = ApplicationConfiguration(
