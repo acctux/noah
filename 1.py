@@ -783,8 +783,8 @@ def _minimal() -> None:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         fs_handler.perform_filesystem_operations()
     run_cmd(reflector_cmd)
-    chaotic_repo()
     config_pac_conf()
+    chaotic_repo()
     perform_installation(Path("/mnt"))
 
 
