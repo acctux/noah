@@ -38,7 +38,7 @@ my_contry = "Spain"
 reflector_cmd = f"reflector --country {my_contry} --protocol http,https --latest 12 --sort rate --number 3 --save /etc/pacman.d/mirrorlist"
 my_locale = LocaleConfiguration("us", "en_US", "UTF-8")
 git_name = "acctux"
-user_setup_script = "d.py"
+user_script = "d.py"
 my_app = ApplicationConfiguration(
     BluetoothConfiguration(True), AudioConfiguration(Audio.PIPEWIRE)
 )
@@ -298,13 +298,12 @@ custom_svc = [
 ]
 #################-MOUNT AND COPY KEYS-#################
 wireguard_dir = "wireguard"
-key_files = ["id_ed25519", "my_sec_gpg.asc"]
-keys_dir = ".ssh"
-USB_FS_TYPE = "exfat"
+key_files = ["id_ed25519", "my_sec_gpg.asc", "pass.txt"]
+key_dir = "keys"
+usb_fs_type = "exfat"
 min_size = "20G"
 #################-SET VARS-#################
 my_pass = getpass.getpass(prompt=f"Enter password for {user_name}: ")
-mountpoint = Path("/mnt")
 script_dir = Path(__file__).resolve().parent
 
 
@@ -340,7 +339,7 @@ def string_to_float_size(size_str):
     return float(size_str[:-1]) * units.get(size_str[-1], 1.0)
 
 
-def mnt_keys_partition(usb_mnt: Path, min_size: str):
+def mnt_keys_partition(usb_mnt: Path, min_size: str, usb_fs_type: str):
     output = subprocess.check_output(
         ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
     )
@@ -351,7 +350,7 @@ def mnt_keys_partition(usb_mnt: Path, min_size: str):
         for dev in devices:
             if (
                 dev["type"] == "part"
-                and dev.get("fstype") == USB_FS_TYPE
+                and dev.get("fstype") == usb_fs_type
                 and dev.get("mountpoint") is None
                 and string_to_float_size(dev["size"]) > string_to_float_size(min_size)
             ):
@@ -423,7 +422,7 @@ def usb_cp_folder(usb_mount, folder_name):
 def unmount_partition(usb_mount: Path):
     result = run_cmd(["mountpoint", "-q", f"{usb_mount}"], check=False)
     if result.returncode == 0:
-        run_cmd(["umount", f"{usb_mount}"], check=True)
+        run_cmd(["umount", "-A", "--recursive", "/mnt"], check=True)
         info(f"Unmounted USB from {usb_mount}.")
     if usb_mount.exists():
         try:
@@ -438,10 +437,11 @@ def mnt_cp_keys(
     wireguard_dir: str | None = None,
     usb_mnt=Path("/mnt/usb"),
     min_size=min_size,
+    usb_fs_type=usb_fs_type,
 ):
     if key_dir and key_files or wireguard_dir:
         if check_usb_files(key_dir, key_files):
-            mnt_keys_partition(usb_mnt, min_size)
+            mnt_keys_partition(usb_mnt, min_size, usb_fs_type)
             if key_dir and key_files:
                 usb_cp_keys(usb_mnt, key_dir, key_files)
             if wireguard_dir:
@@ -476,13 +476,12 @@ def run_cc(
 
 
 def setup_alacritty_auto(
-    user_home: str,
     mnt_point: Path,
     script_dir: Path,
     user_name: str,
     user_script: str,
 ) -> None:
-    home = Path(user_home)
+    home = Path(f"home/{user_name}")
     run_script = home / user_script
     service_dir = home / ".config/systemd/user"
     service_name = f"{run_script.stem}.service"
@@ -519,20 +518,16 @@ def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
     for dir_name in sys_dir_cp:
         source_dir = script_dir / dir_name
         target_dir = mnt_point / dir_name
-        if source_dir.exists():
-            target_dir.mkdir(parents=True, exist_ok=True)
-            for item in source_dir.iterdir():
-                dest = target_dir / item.name
-                if item.is_dir():
-                    shutil.copytree(
-                        item, dest, dirs_exist_ok=True, copy_function=shutil.copy2
-                    )
-                    info(f"Copying {item} -> {dest}")
-                else:
-                    shutil.copy2(item, dest)
-                    info(f"Copying {item} -> {dest}")
-        else:
-            error(f"Source directory {source_dir} not found. Skipping.")
+        if not source_dir.exists():
+            error(f"{source_dir} not found.")
+            continue
+        shutil.copytree(
+            source_dir,
+            target_dir,
+            dirs_exist_ok=True,
+            copy_function=shutil.copy2,
+        )
+        info(f"Copying {source_dir} -> {target_dir}")
 
 
 def chaotic_repo(
@@ -671,7 +666,7 @@ def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10)
 
 def mv_usb_files(mnt_point: Path, keys_dir: str, wireguard_dir: str, user_home: str):
     src_dir = Path("/root") / keys_dir
-    dest_dir = mnt_point / user_home / keys_dir
+    dest_dir = mnt_point / user_home / ".ssh"
     if not src_dir.is_dir():
         error(f"{src_dir} does not exist")
     shutil.copytree(src_dir, dest_dir, dirs_exist_ok=True)
@@ -691,7 +686,7 @@ def mv_usb_files(mnt_point: Path, keys_dir: str, wireguard_dir: str, user_home: 
 
 
 ##############################################################
-def perform_installation(mountpoint: Path = mountpoint) -> None:
+def perform_installation(mountpoint=Path("/mnt")) -> None:
     config = arch_config_handler.config
     if not config.disk_config:
         error("No disk configuration provided")
@@ -714,18 +709,17 @@ def perform_installation(mountpoint: Path = mountpoint) -> None:
         run_cc([reflector_cmd], mountpoint)
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config(enable_services=False)
-        user = User(user_name, Password(my_pass), True)
+        installation.add_additional_packages(pkgs)
+        user = User(user_name, Password(my_pass), True, groups)
         installation.create_users(user)
         if app_config := my_app:
             application_handler.install_applications(installation, app_config, [user])
-        installation.add_additional_packages(pkgs)
         installation.set_timezone("US/Eastern")
         installation.enable_service(services)
         installation.genfstab()
         ############################################################
         user_home = f"home/{user_name}"
         svc_cmd = [
-            f"usermod -a -G {','.join(groups)} {user_name}",
             f"systemctl enable {' '.join(custom_svc)}",
             f"systemctl disable {' '.join(disable_svc)}",
         ]
@@ -740,10 +734,8 @@ def perform_installation(mountpoint: Path = mountpoint) -> None:
         systemd_modify(mountpoint)
         run_cc(svc_cmd, mountpoint)
         run_cc(user_cmds, mountpoint, user_name)
-        mv_usb_files(mountpoint, keys_dir, wireguard_dir, user_home)
-        setup_alacritty_auto(
-            user_home, mountpoint, script_dir, user_name, user_setup_script
-        )
+        mv_usb_files(mountpoint, key_dir, wireguard_dir, user_home)
+        setup_alacritty_auto(mountpoint, script_dir, user_name, user_script)
         cmd = [f"chown -R {user_name}:{user_name} /{user_home}"]
         run_cc(cmd, mountpoint)
         modify_fstab(mountpoint)
@@ -764,7 +756,7 @@ def perform_installation(mountpoint: Path = mountpoint) -> None:
 
 
 def _minimal() -> None:
-    mnt_cp_keys(keys_dir, key_files, wireguard_dir)
+    mnt_cp_keys(key_dir, key_files, wireguard_dir)
     with Tui():
         disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
         arch_config_handler.config.disk_config = disk_config
@@ -784,7 +776,7 @@ def _minimal() -> None:
         fs_handler.perform_filesystem_operations()
     run_cmd(reflector_cmd)
     config_pac_conf()
-    perform_installation(mountpoint)
+    perform_installation(Path("/mnt"))
 
 
 _minimal()

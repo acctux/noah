@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import getpass
+import pyperclip
 
 HOME = Path.home()
 GIT_USER = "acctux"
@@ -13,26 +14,27 @@ SSH_KEY = KEYS_DIR / "id_ed25519"
 GPG_KEY = KEYS_DIR / "my_sec_gpg.asc"
 ENC_DIR = HOME / "Documents" / "Encrypted"
 GIT_DIR = HOME / "Lit"
-DOTFILES_DIR = HOME / "Polka"
-CUSTOM_FOLDERS = [HOME / "Games", GIT_DIR]
+DOT_DIR = HOME / "Polka"
 GIT_REPOS = [["Docs", GIT_DIR], ["Noah", GIT_DIR], ["Polka", HOME]]
 CUSTOM_ICONS = [
     [HOME / "Games", "folder-games.svg"],
-    [GIT_DIR / "Noah", "folder-root.svg"],
-    [HOME / "Polka", "folder-html.svg"],
     [GIT_DIR, "folder-github.svg"],
+    [GIT_DIR / "Noah", "folder-root.svg"],
+    [GIT_DIR / "Docs", "folder-bookmark.svg"],
+    [DOT_DIR, "folder-html.svg"],
     [ENC_DIR, "folder-locked.svg"],
 ]
 CONFIG_DIR = HOME / ".config"
 SHARE_DIR = HOME / ".local" / "share"
-DIRECTORIES_TO_LINK = ["config/systemd/user", "config/nvim", "local/bin"]
+DIR_TO_LINK = ["config/systemd/user", "config/nvim", "local/bin"]
 BASE_DIR = GIT_DIR / "Docs/base"
-INDIVIDUAL_DIRS = [
+SEC_DOTS = [
     (BASE_DIR / "fonts", SHARE_DIR / "fonts"),
     (BASE_DIR / "task", CONFIG_DIR / "task"),
     (BASE_DIR / "zsh", CONFIG_DIR / "zsh"),
 ]
-
+PASSWORD_FILE = KEYS_DIR / "pass.txt"
+CLEAR_AFTER_SECONDS = 120
 # gh auth login -h github.com -s delete_repo
 
 
@@ -93,18 +95,9 @@ def run_sudo_commands():
         "sudo firewall-cmd --set-default-zone=block",
     ]
     for cmd in commands:
-        result = run_cmd(cmd.split())
+        result = run_cmd(cmd.split(), True)
         if result and result.returncode != 0:
             log.error(f"Command failed: {cmd}")
-
-
-def safe_remove(path: Path):
-    if path.exists():
-        if path.is_dir() and not path.is_symlink():
-            shutil.rmtree(path)
-        else:
-            path.unlink(missing_ok=True)
-        log.info(f"Removed: {path}")
 
 
 def link_path(src: Path, dst: Path) -> bool:
@@ -112,7 +105,12 @@ def link_path(src: Path, dst: Path) -> bool:
     rel = os.path.relpath(src, dst.parent)
     if dst.is_symlink() and dst.readlink() == Path(rel):
         return False
-    safe_remove(dst)
+    if dst.exists():
+        if dst.is_dir() and not dst.is_symlink():
+            shutil.rmtree(dst)
+        else:
+            dst.unlink(missing_ok=True)
+        log.info(f"Removed: {dst}")
     dst.symlink_to(rel, target_is_directory=src.is_dir())
     log.info(f"Linked: {dst} → {rel}")
     return True
@@ -123,66 +121,48 @@ def dotted_destination(src: Path, source_root: Path, target_root: Path) -> Path:
     return target_root / Path("." + parts[0], *parts[1:])
 
 
-def should_skip(path: Path, dirs_to_link) -> bool:
-    return path.as_posix().startswith(".git") or any(
-        path.is_relative_to(Path(d)) for d in dirs_to_link
-    )
-
-
-def link_dotfiles(dotfiles_dir, home_dir, dirs_to_link):
-    linked = skipped = 0
-    for src in dotfiles_dir.rglob("*"):
-        if not src.is_file() or should_skip(
-            src.relative_to(dotfiles_dir), dirs_to_link
-        ):
-            skipped += 1
-            continue
-        if link_path(src, dotted_destination(src, dotfiles_dir, home_dir)):
-            linked += 1
-        else:
-            skipped += 1
-    return linked, skipped
-
-
-def link_directories(dotfiles_dir, home_dir, dirs_to_link):
-    linked = skipped = 0
-    for d in dirs_to_link:
-        src = dotfiles_dir / d
-        if src.is_dir():
-            if link_path(src, dotted_destination(src, dotfiles_dir, home_dir)):
-                linked += 1
-            else:
-                skipped += 1
-        else:
-            skipped += 1
-    return linked, skipped
-
-
-def link_individual_dirs(individual_dirs):
-    linked = skipped = 0
-    for src_dir, dst_dir in individual_dirs:
-        if not src_dir.is_dir():
-            log.error(f"Directory does not exist: {src_dir}")
-            skipped += 1
-            continue
-        for src_file in src_dir.rglob("*"):
-            if src_file.is_file():
-                dst_file = dst_dir / src_file.relative_to(src_dir)
-                if link_path(src_file, dst_file):
-                    linked += 1
-                else:
-                    skipped += 1
-    return linked, skipped
-
-
 def deploy_dotfiles(dotfiles_dir, home_dir, dirs_to_link, individual_dirs):
+    linked = skipped = 0
     if not dotfiles_dir.is_dir():
         log.error(f"Dotfiles directory does not exist: {dotfiles_dir}")
         return
-    lc, sc = link_dotfiles(dotfiles_dir, home_dir, dirs_to_link)
-    lc2, sc2 = link_directories(dotfiles_dir, home_dir, dirs_to_link)
-    lc3, sc3 = link_individual_dirs(individual_dirs)
-    log.info(f"Linked: {lc + lc2 + lc3} | Skipped: {sc + sc2 + sc3}")
+    for src in dotfiles_dir.rglob("*"):
+        if not src.is_file():
+            skipped += 1
+            continue
+        if src.relative_to(dotfiles_dir).as_posix().startswith(".git") or any(
+            src.relative_to(dotfiles_dir).is_relative_to(Path(d)) for d in dirs_to_link
+        ):
+            skipped += 1
+            continue
+        dst = dotted_destination(src, dotfiles_dir, home_dir)
+        if link_path(src, dst):
+            linked += 1
+        else:
+            skipped += 1
+    for d in dirs_to_link:
+        src = dotfiles_dir / d
+        if not src.is_dir():
+            log.error(f"{src} not found.")
+            continue
+        dst = dotted_destination(src, dotfiles_dir, home_dir)
+        if link_path(src, dst):
+            linked += 1
+        else:
+            skipped += 1
+    for src_dir, dst_dir in individual_dirs:
+        if not src_dir.is_dir():
+            log.error(f"Directory does not exist: {src_dir}")
+            continue
+        for src_file in src_dir.rglob("*"):
+            if not src_file.is_file():
+                continue
+            dst_file = dst_dir / src_file.relative_to(src_dir)
+            if link_path(src_file, dst_file):
+                linked += 1
+            else:
+                skipped += 1
+    log.info(f"Linked: {linked} | Skipped: {skipped}")
     if shutil.which("hyprctl"):
         run_cmd(["hyprctl", "reload"])
 
@@ -261,8 +241,8 @@ def initialize_gocrypt(enc_dir: Path):
     )
 
 
-def check_knownhosts():
-    kh = KEYS_DIR / "known_hosts"
+def clone_repos(git_repos, keys_dir):
+    kh = keys_dir / "known_hosts"
     kh.parent.mkdir(parents=True, exist_ok=True)
     if not kh.exists():
         kh.touch()
@@ -271,9 +251,6 @@ def check_knownhosts():
         scan = run_cmd(["ssh-keyscan", "-H", "github.com"], True)
         if scan and scan.stdout:
             kh.write_text(content + scan.stdout)
-
-
-def clone_repos(git_repos):
     for name, path in git_repos:
         repo_dir = path / name / ".git"
         if not repo_dir.exists():
@@ -307,6 +284,7 @@ def install_icon_theme(
 def set_folder_icons(custom_icons):
     folder_icon_dir = HOME / ".local/share/icons/WhiteSur-dark/places/scalable"
     for folder, icon in custom_icons:
+        folder.mkdir(parents=True, exist_ok=True)
         path = folder_icon_dir / icon
         if path.exists():
             run_cmd(
@@ -315,10 +293,20 @@ def set_folder_icons(custom_icons):
             )
 
 
+def pass_and_launch():
+    password = PASSWORD_FILE.read_text().strip()
+    os.environ["CLIPBOARD_STATE"] = "sensitive"
+    pyperclip.copy(password)
+    log.info("Password copied to clipboard (not saved to history).")
+    subprocess.Popen(["firedragon"]).wait()
+    subprocess.Popen(["protonmail-bridge"]).wait()
+    pyperclip.copy("")
+    log.info("Clipboard cleared.")
+    os.environ.pop("CLIPBOARD_STATE", None)
+
+
 def main():
     run_sudo_commands()
-    for f in CUSTOM_FOLDERS:
-        f.mkdir(parents=True, exist_ok=True)
     if SSH_KEY.exists():
         import_ssh_key(SSH_KEY)
     if GPG_KEY.exists():
@@ -326,15 +314,14 @@ def main():
     initialize_gocrypt(ENC_DIR)
     if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
         install_icon_theme()
-    check_knownhosts()
-    clone_repos(GIT_REPOS)
     set_folder_icons(CUSTOM_ICONS)
-    log.info("Environment setup complete!")
-    deploy_dotfiles(DOTFILES_DIR, HOME, DIRECTORIES_TO_LINK, INDIVIDUAL_DIRS)
-    if input("Do you want to reboot the system? [y/N]: ").strip().lower() == "y":
-        run_cmd(["systemctl", "reboot"], True)
-    else:
+    clone_repos(GIT_REPOS, KEYS_DIR)
+    deploy_dotfiles(DOT_DIR, HOME, DIR_TO_LINK, SEC_DOTS)
+    pass_and_launch()
+    if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
         log.info("Reboot cancelled.")
+    else:
+        run_cmd(["systemctl", "reboot"], True)
 
 
 if __name__ == "__main__":

@@ -51,4 +51,4 @@ clone_repo() {
 
 setup_environment
 clone_repo
-echo "Download complete. Run 'python archinstall/scripts/mine.py'"
+echo "Download complete. Run 'python archinstall/1.py'"
