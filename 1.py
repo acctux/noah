@@ -240,6 +240,18 @@ pkgs = [
     "python-systemd",  # loggy
     "python-tasklib",
     "python-wand",  # wallpaper script
+    ###########-CHAOTIC PKGS-############
+    "anki",
+    "ayugram-desktop-git",
+    "dxvk-mingw-git",
+    "firedragon",
+    "logiops",
+    "neovim-symlinks",
+    "ocrmypdf",
+    "octopi",
+    "paru",
+    "proton-ge-custom-bin",
+    "rpcs3-git",
 ]
 #############-SERVICES-##############
 services = [
@@ -275,20 +287,6 @@ groups = [
     "realtime",
     "storage",
     "video",
-]
-###########-CHAOTIC PKGS-############
-chaos_pkgs = [
-    "anki",
-    "ayugram-desktop-git",
-    "dxvk-mingw-git",
-    "firedragon",
-    "logiops",
-    "neovim-symlinks",
-    "ocrmypdf",
-    "octopi",
-    "paru",
-    "proton-ge-custom-bin",
-    "rpcs3-git",
 ]
 ###########-CUSTOM SVCS-############
 custom_svc = [
@@ -718,8 +716,6 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.create_users(user)
         if app_config := my_app:
             application_handler.install_applications(installation, app_config, [user])
-        chaotic_repo(mountpoint)
-        installation.add_additional_packages(chaos_pkgs)
         installation.add_additional_packages(pkgs)
         installation.set_timezone("US/Eastern")
         installation.enable_service(services)
@@ -737,7 +733,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         ]
         configure_sudo(user_name, mountpoint, no_password=False)
         config_pac_conf(mountpoint)
-        # chaotic_repo(mountpoint)
+        chaotic_repo(mountpoint)
         sys_dots(mountpoint, script_dir, sys_dir_cp)
         systemd_modify(mountpoint)
         run_cc(svc_cmd, mountpoint)
