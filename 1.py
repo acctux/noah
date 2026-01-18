@@ -5,9 +5,7 @@ from pathlib import Path
 import shlex
 import shutil
 import textwrap
-from archinstall.lib.applications.application_handler import application_handler
 from archinstall.lib.args import (
-    ApplicationConfiguration,
     LocaleConfiguration,
     Password,
     User,
@@ -22,25 +20,19 @@ from archinstall.lib.interactions.general_conf import (
     PostInstallationAction,
     ask_post_installation,
 )
-from archinstall.lib.models.application import (
-    Audio,
-    AudioConfiguration,
-    BluetoothConfiguration,
-)
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.output import debug, error, info
 from archinstall.tui import Tui
 
+# Write reflector.conf
+
 #################-CONF-#################
 user_name = "nick"
 my_host = "yulia"
-my_contry = "Spain"
-reflector_cmd = f"reflector --country {my_contry} --protocol http,https --latest 12 --sort rate --number 3 --save /etc/pacman.d/mirrorlist"
+contry = "Spain"
+reflector_cmd = f"reflector --country {contry} --protocol https --latest 12 --sort rate --number 3 --save /etc/pacman.d/mirrorlist"
 my_locale = LocaleConfiguration("us", "en_US", "UTF-8")
 user_script = "d.py"
-my_app = ApplicationConfiguration(
-    BluetoothConfiguration(True), AudioConfiguration(Audio.PIPEWIRE)
-)
 sys_dir_cp = ["etc", "usr"]
 groups = [
     "audio",
@@ -52,6 +44,13 @@ groups = [
     "video",
 ]
 pkgs = [
+    "pipewire",
+    "pipewire-alsa",
+    "pipewire-jack",
+    "pipewire-pulse",
+    "gst-plugin-pipewire",
+    "libpulse",
+    "wireplumber",
     #################-AMD-#################
     "mesa",
     "xf86-video-amdgpu",
@@ -255,6 +254,7 @@ pkgs = [
     "dxvk-mingw-git",
     "firedragon",
     "logiops",
+    "nchat-git",
     "neovim-symlinks",
     "ocrmypdf",
     "octopi",
@@ -265,6 +265,7 @@ pkgs = [
 #############-SERVICES-##############
 services = [
     "ananicy-cpp",
+    "bluetooth",
     "tlp",
     "iwd",
     "ly@tty1",
@@ -281,14 +282,13 @@ services = [
     "man-db.timer",
     "paccache.timer",
     "reflector.timer",
+    ###########-Custom-############
+    "loggy",
+    "wireguard-list",
 ]
 disable_svc = [
     "getty@tty1",
     "systemd-networkd-wait-online",
-]
-custom_svc = [
-    "loggy",
-    "wireguard-list",
 ]
 ###########-MOUNT AND COPY KEYS-###########
 wireguard_dir = "wireguard"
@@ -303,6 +303,7 @@ while True:
     confirm_pass = getpass.getpass(prompt="Re-enter password: ")
     if my_pass == confirm_pass:
         break
+user_home = f"home/{user_name}"
 
 
 def run_cmd(cmd, check=False):
@@ -511,6 +512,18 @@ WantedBy=graphical-session.target
     )
 
 
+def inst_pipewire(mnt_point: Path, user_name: str):
+    source_dir = "usr/lib/systemd/user"
+    dest_dir = f"home/{user_name}/.config/systemd/user/default.target.wants"
+    service = "pipewire-pulse.service"
+    socket = "pipewire-pulse.socket"
+    (mnt_point / dest_dir).mkdir(parents=True, exist_ok=True)
+    cmd = [f"ln -sf /{source_dir}/{service} /{dest_dir}/{service}"]
+    run_cc(cmd, mnt_point, user_name)
+    cmd = [f"ln -sf /{source_dir}/{socket} /{dest_dir}/{socket}"]
+    run_cc(cmd, mnt_point, user_name)
+
+
 def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
     for dir_name in sys_dir_cp:
         source_dir = script_dir / dir_name
@@ -709,38 +722,34 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         run_cc([reflector_cmd], mountpoint)
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config(enable_services=False)
-        user = User(user_name, Password(my_pass), True)
-        installation.create_users(user)
-        if app_config := my_app:
-            application_handler.install_applications(installation, app_config, [user])
         installation.add_additional_packages(pkgs)
+        user = User(user_name, Password(my_pass), True, groups)
+        installation.create_users(user)
         installation.set_timezone("US/Eastern")
-        installation.enable_service(services)
-        installation.genfstab()
         ############################################################
-        user_home = f"home/{user_name}"
-        svc_cmd = [
-            f"usermod -a -G {','.join(groups)} {user_name}",
-            f"systemctl enable {' '.join(custom_svc)}",
-            f"systemctl disable {' '.join(disable_svc)}",
-        ]
-        user_cmds = [
-            "xdg-user-dirs-update",
-            f"mkdir -p /home/{user_name}/.cache/mpd/playlists /home/{user_name}/.cache/mpd/state",
-        ]
+        inst_pipewire(mountpoint, user_name)
         configure_sudo(user_name, mountpoint, no_password=False)
         config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
         sys_dots(mountpoint, script_dir, sys_dir_cp)
         systemd_modify(mountpoint)
-        run_cc(svc_cmd, mountpoint)
-        run_cc(user_cmds, mountpoint, user_name)
+        run_cc([f"systemctl disable {' '.join(disable_svc)}"], mountpoint)
+        run_cc(
+            [
+                "xdg-user-dirs-update",
+                f"mkdir -p /home/{user_name}/.cache/mpd/playlists /home/{user_name}/.cache/mpd/state",
+            ],
+            mountpoint,
+            user_name,
+        )
         mv_usb_files(mountpoint, key_dir, wireguard_dir, user_home)
         setup_alacritty_auto(mountpoint, script_dir, user_name, user_script)
         cmd = [f"chown -R {user_name}:{user_name} /{user_home}"]
         run_cc(cmd, mountpoint)
         modify_fstab(mountpoint)
         ############################################################
+        installation.enable_service(services)
+        installation.genfstab()
         if not arch_config_handler.args.silent:
             with Tui():
                 action = ask_post_installation()
@@ -758,7 +767,6 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
 def _minimal() -> None:
     mnt_cp_keys(key_dir, key_files, wireguard_dir)
-
     with Tui():
         disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
         arch_config_handler.config.disk_config = disk_config
