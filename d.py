@@ -86,9 +86,23 @@ def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
         return e
 
 
+def run_cmd_interactive(cmd: list[str], check: bool = False) -> int:
+    log.info(f"Running (interactive): {' '.join(cmd)}")
+    proc = subprocess.Popen(
+        cmd,
+        stdin=sys.stdin,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        text=True,
+    )
+    returncode = proc.wait()
+    if check and returncode != 0:
+        raise subprocess.CalledProcessError(returncode, cmd)
+    return returncode
+
+
 def run_sudo_commands():
     commands = [
-        "chsh -s /usr/bin/zsh",
         "sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql",
         "sudo resolvconf -u",
         "sudo firewall-cmd --set-default-zone=block",
@@ -267,11 +281,11 @@ def install_icon_theme(
     old="#ffffff", new="#F4F5F6", repo="vinceliuice/WhiteSur-icon-theme.git"
 ):
     icon_dir = HOME / ".local/share/icons/WhiteSur-dark"
-    tmp = Path("/tmp/whitesur-icons")
-    if tmp.exists():
+    tmp = "/tmp/whitesur-icons"
+    if Path(tmp).exists():
         shutil.rmtree(tmp)
-    run_cmd(["git", "clone", "--depth=1", f"https://github.com/{repo}", str(tmp)], True)
-    run_cmd(["bash", str(tmp / "install.sh")], True)
+    run_cmd(["git", "clone", "--depth=1", f"https://github.com/{repo}", tmp], True)
+    run_cmd(["bash", f"{tmp}/install.sh"], True)
     for svg in [p for p in icon_dir.rglob("*.svg") if "scalable" not in p.parts]:
         text = svg.read_text()
         if old in text:
@@ -303,6 +317,8 @@ def pass_and_launch():
 
 
 def main():
+    cmd = ["chsh", "-s", "/usr/bin/zsh"]
+    run_cmd_interactive(cmd)
     run_sudo_commands()
     if SSH_KEY.exists():
         import_ssh_key(SSH_KEY)
@@ -315,7 +331,7 @@ def main():
     clone_repos(GIT_REPOS, KEYS_DIR)
     deploy_dotfiles(DOT_DIR, HOME, DIR_TO_LINK, SEC_DOTS)
     cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
-    run_cmd(cmd)
+    run_cmd_interactive(cmd)
     pass_and_launch()
     if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
         log.info("Reboot cancelled.")
