@@ -710,11 +710,11 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         run_cc([reflector_cmd], mountpoint)
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config(enable_services=False)
-        installation.add_additional_packages(pkgs)
         user = User(user_name, Password(my_pass), True, groups)
         installation.create_users(user)
         if app_config := my_app:
             application_handler.install_applications(installation, app_config, [user])
+        installation.add_additional_packages(pkgs)
         installation.set_timezone("US/Eastern")
         installation.enable_service(services)
         installation.genfstab()
