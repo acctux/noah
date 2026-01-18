@@ -173,7 +173,6 @@ pkgs = [
     "less",
     "man-pages",
     "mcfly",
-    "pacman-contrib",
     "rebuild-detector",
     "ripgrep-all",
     "sd",

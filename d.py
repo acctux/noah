@@ -35,6 +35,7 @@ SEC_DOTS = [
     (BASE_DIR / "zsh", CONFIG_DIR / "zsh"),
 ]
 PASSWORD_FILE = KEYS_DIR / "pass.txt"
+CACHE_FILE = HOME / ".cache" / "user_first_run_done"
 
 
 class ColorFormatter(logging.Formatter):
@@ -304,7 +305,7 @@ def set_folder_icons(custom_icons):
             )
 
 
-def pass_and_launch():
+def pass_and_input():
     password = PASSWORD_FILE.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
@@ -316,27 +317,40 @@ def pass_and_launch():
     os.environ.pop("CLIPBOARD_STATE", None)
 
 
+def launch_apps():
+    apps = ["firedragon", "protonmail-bridge", "betterbird", "steam"]
+    processes = []
+    for app in apps:
+        processes.append(subprocess.Popen(app))
+    for process in processes:
+        process.wait()
+
+
 def main():
-    cmd = ["chsh", "-s", "/usr/bin/zsh"]
-    run_cmd_interactive(cmd)
-    run_sudo_commands()
-    if SSH_KEY.exists():
-        import_ssh_key(SSH_KEY)
-    if GPG_KEY.exists():
-        import_gpg_key(GPG_KEY)
-    initialize_gocrypt(ENC_DIR)
-    if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
-        install_icon_theme()
-    set_folder_icons(CUSTOM_ICONS)
-    clone_repos(GIT_REPOS, KEYS_DIR)
-    deploy_dotfiles(DOT_DIR, HOME, DIR_TO_LINK, SEC_DOTS)
-    cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
-    run_cmd_interactive(cmd)
-    pass_and_launch()
-    if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
-        log.info("Reboot cancelled.")
+    if not CACHE_FILE.exists():
+        cmd = ["chsh", "-s", "/usr/bin/zsh"]
+        run_cmd_interactive(cmd)
+        run_sudo_commands()
+        if SSH_KEY.exists():
+            import_ssh_key(SSH_KEY)
+        if GPG_KEY.exists():
+            import_gpg_key(GPG_KEY)
+        initialize_gocrypt(ENC_DIR)
+        if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
+            install_icon_theme()
+        set_folder_icons(CUSTOM_ICONS)
+        clone_repos(GIT_REPOS, KEYS_DIR)
+        deploy_dotfiles(DOT_DIR, HOME, DIR_TO_LINK, SEC_DOTS)
+        CACHE_FILE.touch()
+        if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
+            log.info("Reboot cancelled.")
+        else:
+            run_cmd(["systemctl", "reboot"], True)
     else:
-        run_cmd(["systemctl", "reboot"], True)
+        pass_and_input()
+        launch_apps()
+        cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
+        run_cmd_interactive(cmd)
 
 
 if __name__ == "__main__":
