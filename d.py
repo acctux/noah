@@ -35,7 +35,7 @@ SEC_DOTS = [
     (BASE_DIR / "zsh", CONFIG_DIR / "zsh"),
 ]
 PASSWORD_FILE = KEYS_DIR / "pass.txt"
-CACHE_FILE = HOME / ".cache" / "user_first_run_done"
+CACHE_FILE = HOME / ".cache" / "first_done"
 
 
 class ColorFormatter(logging.Formatter):
