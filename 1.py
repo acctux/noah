@@ -36,13 +36,12 @@ user_name = "nick"
 my_host = "yulia"
 my_contry = "Spain"
 reflector_cmd = f"reflector --country {my_contry} --protocol http,https --latest 12 --sort rate --number 3 --save /etc/pacman.d/mirrorlist"
-my_locale = LocaleConfiguration(kb_layout="us", sys_lang="en_US", sys_enc="UTF-8")
-git_name = "acctux"
+my_locale = LocaleConfiguration("us", "en_US", "UTF-8")
 user_script = "d.py"
 my_app = ApplicationConfiguration(
     BluetoothConfiguration(True), AudioConfiguration(Audio.PIPEWIRE)
 )
-sys_dir_cp = ["etc", "usr", "root"]
+sys_dir_cp = ["etc", "usr"]
 #################-PKGS-#################
 pkgs = [
     #################-AMD-#################
@@ -531,33 +530,38 @@ def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
 
 
 def chaotic_repo(
-    mnt_point: Path,
-    chaos_pkgs: list[str],
+    mnt_point: Path | None = None,
 ):
     info("Setting up Chaotic-AUR repository.")
     chaotic_key_id = "3056513887B78AEB"
     key_serv = "keyserver.ubuntu.com"
-    chaotic_web = " https://cdn-mirror.chaotic.cx/chaotic-aur"
-    run_cc(
-        [
-            "pacman-key --init",
-            f"pacman-key --recv-key {chaotic_key_id} --keyserver {key_serv}",
-            f"pacman-key --lsign-key {chaotic_key_id}",
-            f"pacman -U --noconfirm --needed {chaotic_web}/chaotic-keyring.pkg.tar.zst",
-            f"pacman -U --noconfirm --needed {chaotic_web}/chaotic-mirrorlist.pkg.tar.zst",
-        ],
-        mnt_point,
-    )
-    pacman_conf = Path(f"{mnt_point}/etc/pacman.conf")
+    chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur"
+    cmds_setup = [
+        "pacman-key --init",
+        f"pacman-key --recv-key {chaotic_key_id} --keyserver {key_serv}",
+        f"pacman-key --lsign-key {chaotic_key_id}",
+        f"pacman -U --noconfirm --needed {chaotic_web}/chaotic-keyring.pkg.tar.zst",
+        f"pacman -U --noconfirm --needed {chaotic_web}/chaotic-mirrorlist.pkg.tar.zst",
+    ]
+    cmds_update = ["pacman -Sy"]
+    if mnt_point:
+        run_cc(cmds_setup, mnt_point)
+        pacman_conf = mnt_point / "etc/pacman.conf"
+    else:
+        for c in cmds_setup:
+            run_cmd(c, check=True)
+        pacman_conf = Path("/etc/pacman.conf")
     section = "[chaotic-aur]"
     content = pacman_conf.read_text()
     if section not in content:
         with pacman_conf.open("a") as f:
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
-    run_cc(
-        ["pacman -Sy", f"pacman -S --noconfirm --needed {' '.join(chaos_pkgs)}"],
-        mnt_point,
-    )
+    if mnt_point:
+        run_cc(cmds_update, mnt_point)
+    else:
+        for c in cmds_update:
+            run_cmd(c, check=True)
+
     info("Chaotic-AUR repository added.")
 
 
@@ -714,6 +718,8 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.create_users(user)
         if app_config := my_app:
             application_handler.install_applications(installation, app_config, [user])
+        chaotic_repo(mountpoint)
+        installation.add_additional_packages(chaos_pkgs)
         installation.add_additional_packages(pkgs)
         installation.set_timezone("US/Eastern")
         installation.enable_service(services)
@@ -731,7 +737,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         ]
         configure_sudo(user_name, mountpoint, no_password=False)
         config_pac_conf(mountpoint)
-        chaotic_repo(mountpoint, chaos_pkgs)
+        # chaotic_repo(mountpoint)
         sys_dots(mountpoint, script_dir, sys_dir_cp)
         systemd_modify(mountpoint)
         run_cc(svc_cmd, mountpoint)
@@ -777,6 +783,7 @@ def _minimal() -> None:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         fs_handler.perform_filesystem_operations()
     run_cmd(reflector_cmd)
+    chaotic_repo()
     config_pac_conf()
     perform_installation(Path("/mnt"))
 
