@@ -25,7 +25,6 @@ from archinstall.lib.interactions.general_conf import (
 from archinstall.lib.models.application import (
     Audio,
     AudioConfiguration,
-    BluetoothConfiguration,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.output import debug, error, info
@@ -38,9 +37,7 @@ my_contry = "Spain"
 reflector_cmd = f"reflector --country {my_contry} --protocol http,https --latest 12 --sort rate --number 3 --save /etc/pacman.d/mirrorlist"
 my_locale = LocaleConfiguration("us", "en_US", "UTF-8")
 user_script = "d.py"
-my_app = ApplicationConfiguration(
-    BluetoothConfiguration(True), AudioConfiguration(Audio.PIPEWIRE)
-)
+my_app = ApplicationConfiguration(audio_config=AudioConfiguration(Audio.PIPEWIRE))
 sys_dir_cp = ["etc", "usr"]
 #################-PKGS-#################
 pkgs = [
@@ -256,6 +253,7 @@ pkgs = [
 #############-SERVICES-##############
 services = [
     "ananicy-cpp",
+    "bluetooth",
     "tlp",
     "iwd",
     "ly@tty1",
@@ -499,7 +497,6 @@ Restart=no
 WantedBy=graphical-session.target
 """)
     mnt_service_path.chmod(0o644)
-    info(f"wrote service to {mnt_service_path}")
     wants_dir = service_dir / "graphical-session.target.wants"
     run_cc(
         [
@@ -524,7 +521,6 @@ def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
             dirs_exist_ok=True,
             copy_function=shutil.copy2,
         )
-        info(f"Copying {source_dir} -> {target_dir}")
 
 
 def chaotic_repo(
@@ -559,8 +555,6 @@ def chaotic_repo(
     else:
         for c in cmds_update:
             run_cmd(c, check=True)
-
-    info("Chaotic-AUR repository added.")
 
 
 def configure_sudo(user_name: str, mnt_point: Path, no_password: bool):

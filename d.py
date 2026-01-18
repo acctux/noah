@@ -34,8 +34,6 @@ SEC_DOTS = [
     (BASE_DIR / "zsh", CONFIG_DIR / "zsh"),
 ]
 PASSWORD_FILE = KEYS_DIR / "pass.txt"
-CLEAR_AFTER_SECONDS = 120
-# gh auth login -h github.com -s delete_repo
 
 
 class ColorFormatter(logging.Formatter):
@@ -297,9 +295,9 @@ def pass_and_launch():
     password = PASSWORD_FILE.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
-    log.info("Password copied to clipboard (not saved to history).")
-    subprocess.Popen(["firedragon"]).wait()
-    subprocess.Popen(["protonmail-bridge"]).wait()
+    log.info("Password copied to clipboard.")
+    cmd = ["firedragon", "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/"]
+    subprocess.Popen(cmd).wait()
     pyperclip.copy("")
     log.info("Clipboard cleared.")
     os.environ.pop("CLIPBOARD_STATE", None)
@@ -317,6 +315,8 @@ def main():
     set_folder_icons(CUSTOM_ICONS)
     clone_repos(GIT_REPOS, KEYS_DIR)
     deploy_dotfiles(DOT_DIR, HOME, DIR_TO_LINK, SEC_DOTS)
+    cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
+    run_cmd(cmd)
     pass_and_launch()
     if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
         log.info("Reboot cancelled.")
