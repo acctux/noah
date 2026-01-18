@@ -710,7 +710,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         run_cc([reflector_cmd], mountpoint)
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config(enable_services=False)
-        user = User(user_name, Password(my_pass), True, groups)
+        user = User(user_name, Password(my_pass), True)
         installation.create_users(user)
         if app_config := my_app:
             application_handler.install_applications(installation, app_config, [user])
@@ -721,6 +721,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         ############################################################
         user_home = f"home/{user_name}"
         svc_cmd = [
+            f"usermod -a -G {','.join(groups)} {user_name}",
             f"systemctl enable {' '.join(custom_svc)}",
             f"systemctl disable {' '.join(disable_svc)}",
         ]
