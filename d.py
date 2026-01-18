@@ -86,7 +86,7 @@ def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
         return e
 
 
-def run_cmd_interactive(cmd: list[str], check: bool = False) -> int:
+def run_cmd_interactive(cmd: list[str], check: bool = True) -> int:
     log.info(f"Running (interactive): {' '.join(cmd)}")
     proc = subprocess.Popen(
         cmd,
