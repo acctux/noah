@@ -518,6 +518,8 @@ def inst_pipewire(mnt_point: Path, user_name: str):
     service = "pipewire-pulse.service"
     socket = "pipewire-pulse.socket"
     (mnt_point / dest_dir).mkdir(parents=True, exist_ok=True)
+    cmd = [f"chown -R {user_name}:{user_name} /home/{user_name}"]
+    run_cc(cmd, mnt_point)
     cmd = [f"ln -sf /{source_dir}/{service} /{dest_dir}/{service}"]
     run_cc(cmd, mnt_point, user_name)
     cmd = [f"ln -sf /{source_dir}/{socket} /{dest_dir}/{socket}"]
