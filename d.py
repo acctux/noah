@@ -12,7 +12,7 @@ DESK_DIR = HOME / "Desktop"
 GIT_USER = "acctux"
 KEYS_DIR = HOME / ".ssh"
 SSH_KEY = KEYS_DIR / "id_ed25519"
-GPG_KEY = KEYS_DIR / "my_sec_gpg.asc"
+GPG_KEY = f"{KEYS_DIR}/my_sec_gpg.asc"
 ENC_DIR = DESK_DIR / "Encrypted"
 GIT_DIR = HOME / "Lit"
 DOT_DIR = HOME / "Polka"
@@ -201,16 +201,9 @@ def import_ssh_key(key_path: Path):
     log.info("SSH key added.")
 
 
-def import_gpg_key(gpg_key):
+def import_gpg_key(gpg_key: str):
     show = run_cmd(
-        [
-            "gpg",
-            "--import-options",
-            "show-only",
-            "--import",
-            "--with-colons",
-            str(gpg_key),
-        ]
+        ["gpg", "--import-options", "show-only", "--import", "--with-colons", gpg_key]
     )
     fingerprint = next(
         (
@@ -226,7 +219,7 @@ def import_gpg_key(gpg_key):
     if run_cmd(["gpg", "--list-keys", fingerprint]).returncode == 0:
         log.info(f"GPG key {fingerprint} already imported.")
         return
-    if run_cmd(["gpg", "--import", str(gpg_key)], check=True) is None:
+    if run_cmd(["gpg", "--import", gpg_key], check=True) is None:
         log.error("Failed to import GPG key.")
         return
     trust = run_cmd(
@@ -312,8 +305,7 @@ def setup_service(
     service_dir = HOME / ".config/systemd/user"
     service_name = f"{run_script.stem}.service"
     service_path = service_dir / service_name
-    service_path.write_text(
-        f"""[Unit]
+    service_path.write_text(f"""[Unit]
 Description=Open Alacritty running {user_script} on login
 After=graphical-session.target
 
@@ -324,8 +316,7 @@ Restart=no
 
 [Install]
 WantedBy=graphical-session.target
-"""
-    )
+""")
     run_cmd(["systemctl", "--user", "enable", service_name])
 
 
@@ -358,7 +349,7 @@ def main():
         run_sudo_commands()
         if SSH_KEY.exists():
             import_ssh_key(SSH_KEY)
-        if GPG_KEY.exists():
+        if Path(GPG_KEY).exists():
             import_gpg_key(GPG_KEY)
         initialize_gocrypt(ENC_DIR)
         if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
