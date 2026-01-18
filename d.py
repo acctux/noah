@@ -322,8 +322,9 @@ def launch_apps():
     processes = []
     for app in apps:
         processes.append(subprocess.Popen(app))
-    for process in processes:
+    for app, process in zip(apps, processes):
         process.wait()
+        log.info(f"{app} closed")
 
 
 def main():
