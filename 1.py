@@ -693,7 +693,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         return
     disk_config = config.disk_config
 
-    with Installer(mountpoint, disk_config, ["reflector"], ["linux"]) as installation:
+    with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()
@@ -706,6 +706,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
                 installation.generate_key_files()
         installation.setup_swap()
         installation.minimal_installation([], True, my_host, my_locale)
+        installation.add_additional_packages("reflector")
         run_cc([reflector_cmd], mountpoint)
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config(enable_services=False)
