@@ -8,16 +8,17 @@ import getpass
 import pyperclip
 
 HOME = Path.home()
+DESK_DIR = HOME / "Desktop"
 GIT_USER = "acctux"
 KEYS_DIR = HOME / ".ssh"
 SSH_KEY = KEYS_DIR / "id_ed25519"
 GPG_KEY = KEYS_DIR / "my_sec_gpg.asc"
-ENC_DIR = HOME / "Documents" / "Encrypted"
+ENC_DIR = DESK_DIR / "Encrypted"
 GIT_DIR = HOME / "Lit"
 DOT_DIR = HOME / "Polka"
 GIT_REPOS = [["Docs", GIT_DIR], ["Noah", GIT_DIR], ["Polka", HOME]]
 CUSTOM_ICONS = [
-    [HOME / "Games", "folder-games.svg"],
+    [DESK_DIR / "Games", "folder-games.svg"],
     [GIT_DIR, "folder-github.svg"],
     [GIT_DIR / "Noah", "folder-root.svg"],
     [GIT_DIR / "Docs", "folder-bookmark.svg"],
@@ -100,8 +101,8 @@ def run_sudo_commands():
 
 def link_path(src: Path, dst: Path) -> bool:
     dst.parent.mkdir(parents=True, exist_ok=True)
-    rel = os.path.relpath(src, dst.parent)
-    if dst.is_symlink() and dst.readlink() == Path(rel):
+    rel = src.relative_to(dst.parent, walk_up=True)
+    if dst.is_symlink() and dst.readlink() == rel:
         return False
     if dst.exists():
         if dst.is_dir() and not dst.is_symlink():
@@ -160,7 +161,7 @@ def deploy_dotfiles(dotfiles_dir, home_dir, dirs_to_link, individual_dirs):
                 linked += 1
             else:
                 skipped += 1
-    log.info(f"Linked: {linked} | Skipped: {skipped}")
+    log.info(f"Linked:{linked} | Skipped:{skipped}")
     if shutil.which("hyprctl"):
         run_cmd(["hyprctl", "reload"])
 
@@ -177,13 +178,12 @@ def import_ssh_key(key_path: Path):
     if not keygen or not keygen.stdout:
         log.error("Failed to read SSH key fingerprint.")
         return
-    fingerprint = keygen.stdout.strip().split()[1]
     ssh_list = run_cmd(["ssh-add", "-l"])
-    if ssh_list and fingerprint in ssh_list.stdout:
+    if ssh_list and keygen.stdout.strip().split()[1] in ssh_list.stdout:
         log.info("SSH key already imported.")
         return
     run_cmd(["ssh-add", str(key_path)], True)
-    log.info(f"SSH key {fingerprint} added.")
+    log.info("SSH key added.")
 
 
 def import_gpg_key(gpg_key):
@@ -250,8 +250,7 @@ def clone_repos(git_repos, keys_dir):
         if scan and scan.stdout:
             kh.write_text(content + scan.stdout)
     for name, path in git_repos:
-        repo_dir = path / name / ".git"
-        if not repo_dir.exists():
+        if not (path / name / ".git").exists():
             path.mkdir(parents=True, exist_ok=True)
             run_cmd(
                 [

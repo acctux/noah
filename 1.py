@@ -25,6 +25,7 @@ from archinstall.lib.interactions.general_conf import (
 from archinstall.lib.models.application import (
     Audio,
     AudioConfiguration,
+    BluetoothConfiguration,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.output import debug, error, info
@@ -37,9 +38,19 @@ my_contry = "Spain"
 reflector_cmd = f"reflector --country {my_contry} --protocol http,https --latest 12 --sort rate --number 3 --save /etc/pacman.d/mirrorlist"
 my_locale = LocaleConfiguration("us", "en_US", "UTF-8")
 user_script = "d.py"
-my_app = ApplicationConfiguration(audio_config=AudioConfiguration(Audio.PIPEWIRE))
+my_app = ApplicationConfiguration(
+    BluetoothConfiguration(True), AudioConfiguration(Audio.PIPEWIRE)
+)
 sys_dir_cp = ["etc", "usr"]
-#################-PKGS-#################
+groups = [
+    "audio",
+    "games",
+    "gamemode",
+    "log",
+    "realtime",
+    "storage",
+    "video",
+]
 pkgs = [
     #################-AMD-#################
     "mesa",
@@ -65,6 +76,7 @@ pkgs = [
     "exfatprogs",
     "ntfs-3g",
     "nvtop",
+    "partitionmanager",
     "powertop",
     "realtime-privileges",
     "rocm-smi-lib",  # btop dependency for amd gpu
@@ -253,7 +265,6 @@ pkgs = [
 #############-SERVICES-##############
 services = [
     "ananicy-cpp",
-    "bluetooth",
     "tlp",
     "iwd",
     "ly@tty1",
@@ -271,35 +282,27 @@ services = [
     "paccache.timer",
     "reflector.timer",
 ]
-###########-DISABLE SERVICES-############
 disable_svc = [
     "getty@tty1",
     "systemd-networkd-wait-online",
 ]
-###########-GROUPS-############
-groups = [
-    "audio",
-    "games",
-    "gamemode",
-    "log",
-    "realtime",
-    "storage",
-    "video",
-]
-###########-CUSTOM SVCS-############
 custom_svc = [
     "loggy",
     "wireguard-list",
 ]
-#################-MOUNT AND COPY KEYS-#################
+###########-MOUNT AND COPY KEYS-###########
 wireguard_dir = "wireguard"
 key_files = ["id_ed25519", "my_sec_gpg.asc", "pass.txt"]
 key_dir = "keys"
 usb_fs_type = "exfat"
 min_size = "20G"
-#################-SET VARS-#################
-my_pass = getpass.getpass(prompt=f"Enter password for {user_name}: ")
+###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent
+while True:
+    my_pass = getpass.getpass(prompt=f"Enter password for {user_name}: ")
+    confirm_pass = getpass.getpass(prompt="Re-enter password: ")
+    if my_pass == confirm_pass:
+        break
 
 
 def run_cmd(cmd, check=False):
@@ -755,6 +758,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
 def _minimal() -> None:
     mnt_cp_keys(key_dir, key_files, wireguard_dir)
+
     with Tui():
         disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
         arch_config_handler.config.disk_config = disk_config
