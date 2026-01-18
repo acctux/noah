@@ -305,6 +305,30 @@ def set_folder_icons(custom_icons):
             )
 
 
+def setup_service(
+    user_script: str = "d.py",
+) -> None:
+    run_script = HOME / user_script
+    service_dir = HOME / ".config/systemd/user"
+    service_name = f"{run_script.stem}.service"
+    service_path = service_dir / service_name
+    service_path.write_text(
+        f"""[Unit]
+Description=Open Alacritty running {user_script} on login
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/alacritty -e python {run_script}
+Restart=no
+
+[Install]
+WantedBy=graphical-session.target
+"""
+    )
+    run_cmd(["systemctl", "--user", "enable", service_name])
+
+
 def pass_and_input():
     password = PASSWORD_FILE.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
@@ -342,6 +366,7 @@ def main():
         set_folder_icons(CUSTOM_ICONS)
         clone_repos(GIT_REPOS, KEYS_DIR)
         deploy_dotfiles(DOT_DIR, HOME, DIR_TO_LINK, SEC_DOTS)
+        setup_service()
         CACHE_FILE.touch()
         if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
             log.info("Reboot cancelled.")
