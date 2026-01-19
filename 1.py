@@ -24,9 +24,7 @@ from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.output import debug, error, info
 from archinstall.tui import Tui
 
-# Write reflector.conf
-
-#################-CONF-#################
+###############-CONF-###############
 user_name = "nick"
 my_host = "yulia"
 contry = "Spain"
@@ -34,6 +32,13 @@ reflector_cmd = f"reflector --country {contry} --protocol https --latest 12 --so
 my_locale = LocaleConfiguration("us", "en_US", "UTF-8")
 user_script = "d.py"
 sys_dir_cp = ["etc", "usr"]
+###########-MNT CP KEYS-###########
+wireguard_dir = "wireguard"
+key_files = ["id_ed25519", "my_sec_gpg.asc", "pass.txt"]
+key_dir = "keys"
+usb_fs_type = "exfat"
+min_size = "20G"
+#############-Groups-#############
 groups = [
     "audio",
     "games",
@@ -43,20 +48,14 @@ groups = [
     "storage",
     "video",
 ]
+##############-PKGS##############
 pkgs = [
-    "pipewire",
-    "pipewire-alsa",
-    "pipewire-jack",
-    "pipewire-pulse",
-    "gst-plugin-pipewire",
-    "libpulse",
-    "wireplumber",
-    #################-AMD-#################
+    ############-Amd-############
     "mesa",
     "xf86-video-amdgpu",
     "xf86-video-ati",
     "vulkan-radeon",
-    ################-NVIDIA-################
+    ##########-Nvidia-##########
     "lib32-nvidia-utils",
     "libva-nvidia-driver",
     "libva-utils",
@@ -64,7 +63,15 @@ pkgs = [
     "nvidia-open",
     "nvidia-prime",
     "opencl-nvidia",
-    ###############-Hardware-###############
+    #########-Pipewire-#########
+    "pipewire",
+    "pipewire-alsa",
+    "pipewire-jack",
+    "pipewire-pulse",
+    "gst-plugin-pipewire",
+    "libpulse",
+    "wireplumber",
+    #########-Hardware-#########
     "ananicy-cpp",
     "android-file-transfer",
     "bluetui",
@@ -83,7 +90,7 @@ pkgs = [
     "tlp",
     "udisks2-btrfs",
     "usb_modeswitch",
-    ###############-Network-################
+    #########-Network-#########
     "bind",
     "deluge-gtk",
     "firewalld",
@@ -95,11 +102,7 @@ pkgs = [
     "sshfs",
     "wireguard-tools",
     "wireless-regdb",
-    ##############-SQL Server-##############
-    "dbeaver",
-    "jdk-openjdk",
-    "mariadb",
-    ############-Language/Fonts-############
+    ########-Lang/Fonts-########
     "font-manager",
     "hunspell-en_us",
     "hyphen-en",
@@ -108,7 +111,7 @@ pkgs = [
     "rofimoji",
     "tesseract-data-eng",
     "ttf-jetbrains-mono",
-    #############-Multimedia-###############
+    ########-Multimedia-########
     "cava",
     "evince",
     "gimp",
@@ -121,47 +124,7 @@ pkgs = [
     "playerctl",
     "rmpc",
     "yt-dlp",
-    ###############-Coding-#################
-    "luarocks",
-    "lua-sec",
-    "npm",
-    "neovim-lspconfig",
-    "rust",
-    "uv",
-    # Language Servers
-    "bash-language-server",
-    "clang",
-    "lua-language-server",
-    "pyright",
-    "rust-analyzer",
-    "systemd-language-server",
-    "tailwindcss-language-server",
-    "vscode-json-languageserver",
-    "yaml-language-server",
-    # Linters
-    "ruff",
-    # Tree sitter
-    "tree-sitter-bash",
-    "tree-sitter-cli",
-    "tree-sitter-javascript",
-    "tree-sitter-python",
-    "tree-sitter-rust",
-    ###############-Gaming-#################
-    "gamemode",
-    "gnome-chess",
-    "gnuchess",
-    "lib32-gamemode",
-    "lib32-mangohud",
-    "lutris",
-    "mangohud",
-    "mgba-qt",
-    "steam",
-    "umu-launcher",
-    "vkd3d",
-    "wine-mono",
-    "wine-staging",
-    "winetricks",
-    #################-CLI-##################
+    ###########-CLI-############
     "alacritty",
     "aria2",
     "bash-completion",
@@ -185,7 +148,7 @@ pkgs = [
     "zsh-autocomplete",
     "zsh-completions",
     "zsh-syntax-highlighting",
-    ##############-Hyprland-###############
+    #########-Hyprland-#########
     "capitaine-cursors",
     "fuzzel",
     "gnome-keyring",
@@ -210,15 +173,7 @@ pkgs = [
     "waybar",
     "xdg-desktop-portal-gnome",
     "xdg-desktop-portal-hyprland",
-    #################-Office-###############
-    "coin-or-mp",  # For LibreOffice Calc Solver
-    "gnucash",
-    "khal",
-    "libreoffice-fresh",
-    "thunderbird-i18n-en-us",
-    "thunderbird-dark-reader",
-    "thunderbird-ublock-origin",
-    #################-Basic-###############
+    ###########-Basic-###########
     "baobab",
     "bustle",
     "cdrtools",
@@ -236,7 +191,40 @@ pkgs = [
     "wl-clipboard",
     "wl-clip-persist",
     "xdg-user-dirs",
-    #################-Python-##############
+    ###########-Office-###########
+    "coin-or-mp",  # For LibreOffice Calc Solver
+    "gnucash",
+    "khal",
+    "libreoffice-fresh",
+    "thunderbird-i18n-en-us",
+    "thunderbird-dark-reader",
+    "thunderbird-ublock-origin",
+    ###########-Coding-###########
+    "luarocks",
+    "lua-sec",
+    "npm",
+    "neovim-lspconfig",
+    "rust",
+    "uv",
+    # Language Servers
+    "bash-language-server",
+    "clang",
+    "lua-language-server",
+    "pyright",
+    "rust-analyzer",
+    "systemd-language-server",
+    "tailwindcss-language-server",
+    "vscode-json-languageserver",
+    "yaml-language-server",
+    # Linters
+    "ruff",
+    # Tree sitter
+    "tree-sitter-bash",
+    "tree-sitter-cli",
+    "tree-sitter-javascript",
+    "tree-sitter-python",
+    "tree-sitter-rust",
+    ###########-Python-###########
     "python-dbus-fast",  # loggy
     "python-imaplib2",  # emailcheck
     "python-mpd2",
@@ -247,7 +235,26 @@ pkgs = [
     "python-systemd",  # loggy
     "python-tasklib",
     "python-wand",  # wallpaper script
-    ###########-CHAOTIC PKGS-############
+    #########-SQL Server-##########
+    "dbeaver",
+    "jdk-openjdk",
+    "mariadb",
+    ###########-Gaming-###########
+    "gamemode",
+    "gnome-chess",
+    "gnuchess",
+    "lib32-gamemode",
+    "lib32-mangohud",
+    "lutris",
+    "mangohud",
+    "mgba-qt",
+    "steam",
+    "umu-launcher",
+    "vkd3d",
+    "wine-mono",
+    "wine-staging",
+    "winetricks",
+    ########-CHAOTIC PKGS-########
     "anki",
     "ayugram-desktop-git",
     "dxvk-mingw-git",
@@ -289,22 +296,17 @@ disable_svc = [
     "getty@tty1",
     "systemd-networkd-wait-online",
 ]
-###########-MOUNT AND COPY KEYS-###########
-wireguard_dir = "wireguard"
-key_files = ["id_ed25519", "my_sec_gpg.asc", "pass.txt"]
-key_dir = "keys"
-usb_fs_type = "exfat"
-min_size = "20G"
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent
+user_home = f"home/{user_name}"
 while True:
     my_pass = getpass.getpass(prompt=f"Enter password for {user_name}: ")
     confirm_pass = getpass.getpass(prompt="Re-enter password: ")
     if my_pass == confirm_pass:
         break
-user_home = f"home/{user_name}"
 
 
+############-MNT CPY KEYS-###########
 def run_cmd(cmd, check=False):
     try:
         info(f"Running: {cmd}")
@@ -511,18 +513,29 @@ WantedBy=graphical-session.target
     )
 
 
+def inst_user_service(
+    mnt_point: Path,
+    user_name: str,
+    services: list[str],
+    target: str,
+    source_dir: str = "usr/lib/systemd/user",
+):
+    dest_dir = Path(f"home/{user_name}/.config/systemd/user/{target}")
+    full_dest_dir = mnt_point / dest_dir
+    full_dest_dir.mkdir(parents=True, exist_ok=True)
+    run_cc([f"chown -R {user_name}:{user_name} /home/{user_name}"], mnt_point)
+    for service in services:
+        cmd = [f"ln -sf /{source_dir}/{service} /{dest_dir}/{service}"]
+        run_cc(cmd, mnt_point, user_name)
+
+
 def inst_pipewire(mnt_point: Path, user_name: str):
-    source_dir = "usr/lib/systemd/user"
-    dest_dir = f"home/{user_name}/.config/systemd/user/default.target.wants"
-    service = "pipewire-pulse.service"
-    socket = "pipewire-pulse.socket"
-    (mnt_point / dest_dir).mkdir(parents=True, exist_ok=True)
-    cmd = [f"chown -R {user_name}:{user_name} /home/{user_name}"]
-    run_cc(cmd, mnt_point)
-    cmd = [f"ln -sf /{source_dir}/{service} /{dest_dir}/{service}"]
-    run_cc(cmd, mnt_point, user_name)
-    cmd = [f"ln -sf /{source_dir}/{socket} /{dest_dir}/{socket}"]
-    run_cc(cmd, mnt_point, user_name)
+    inst_user_service(
+        mnt_point,
+        user_name,
+        ["pipewire-pulse.service", "pipewire-pulse.socket"],
+        "default.target.wants",
+    )
 
 
 def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
@@ -592,7 +605,6 @@ def configure_sudo(user_name: str, mnt_point: Path, no_password: bool):
         Defaults    timestamp_type=global
         Defaults    editor=/usr/sbin/nvim, !env_editor
     """)
-    sudoers_file.parent.mkdir(parents=True, exist_ok=True)
     sudoers_file.write_text(sudoers_content.strip())
     os.chmod(sudoers_file, 0o440)
     info(f"Created {sudoers_file} {prt_val} for {user_name}")
@@ -744,8 +756,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         )
         mv_usb_files(mountpoint, key_dir, wireguard_dir, user_home)
         setup_alacritty_auto(mountpoint, script_dir, user_name, user_script)
-        cmd = [f"chown -R {user_name}:{user_name} /{user_home}"]
-        run_cc(cmd, mountpoint)
+        run_cc([f"chown -R {user_name}:{user_name} /{user_home}"], mountpoint)
         modify_fstab(mountpoint)
         ############################################################
         installation.enable_service(services)
