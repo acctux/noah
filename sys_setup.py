@@ -63,7 +63,7 @@ def sys_dots(
     sys_dir_cp: list[str],
 ):
     for dir_name in sys_dir_cp:
-        source_dir = script_dir.parent / dir_name
+        source_dir = script_dir / dir_name
         target_dir = mnt_point / dir_name
         log.info("Processing %s -> %s", source_dir, target_dir)
         if not source_dir.exists():
