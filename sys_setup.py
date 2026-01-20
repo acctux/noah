@@ -350,7 +350,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    if (CHROOT_HOME / key_files[3]).exists():
+    if Path(f"/root/{key_files[3]}").exists():
         pw = load_password(".ssh", key_files[3])
         import time
 
