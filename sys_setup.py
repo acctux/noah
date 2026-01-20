@@ -28,7 +28,7 @@ from noah_lib.utils import (
 from noah_lib.conf import UserSrv
 
 ###########-SET VARS-###########
-script_dir = Path(__file__).resolve().parent / "noah_lib"
+script_dir = Path(__file__).resolve().parent
 user_home = f"home/{nl.user_name}"
 log = get_logger("Noah")
 
