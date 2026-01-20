@@ -20,30 +20,13 @@ from archinstall.lib.interactions.general_conf import (
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.output import debug, error, info
 from archinstall.tui import Tui
-from noah_lib.conf import (
-    sys_services,
-    user_name,
-    host,
-    reflector_opts,
-    my_locale,
-    user_script,
-    sys_cp,
-    usb_key_dir,
-    wireguard_dir,
-    key_files,
-    usb_fs_type,
-    min_usb_size,
-    groups,
-    pkgs,
-    disable_svcs,
-    user_services,
-)
+import noah_lib.conf as nl
 from noah_lib.usb_mnt_cp import mnt_cp_keys
 from noah_lib.utils import run_cmd, log, setup_alacritty_auto, enable_user_services
 
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent / "noah_lib"
-user_home = f"home/{user_name}"
+user_home = f"home/{nl.user_name}"
 
 
 #################-MAIN FUNCTIONS-#################
@@ -109,9 +92,10 @@ def chaotic_repo(
         ],
     ]
     cmds_update = ["pacman", "-Sy"]
+    cmds_setup_str = [" ".join(cmd) for cmd in cmds_setup]
     if mnt_point:
-        for cmd in cmds_setup:
-            run_cc(cmd, mnt_point)
+        for cmd in cmds_setup_str:
+            run_cc([cmd], mnt_point)
         pacman_conf = mnt_point / "etc/pacman.conf"
     else:
         for c in cmds_setup:
@@ -303,7 +287,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
     disk_config = config.disk_config
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
-        pw = get_password(usb_key_dir, key_files, user_name)
+        pw = get_password(nl.usb_key_dir, nl.key_files, nl.user_name)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()
@@ -315,21 +299,21 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
             ):
                 installation.generate_key_files()
         installation.setup_swap()
-        installation.minimal_installation([], True, host, my_locale)
+        installation.minimal_installation([], True, nl.host, nl.my_locale)
         installation.add_additional_packages("reflector")
         ref_cmd = [
-            f"reflector {' '.join(reflector_opts)} --save /etc/pacman.d/mirrorlist"
+            f"reflector {' '.join(nl.reflector_opts)} --save /etc/pacman.d/mirrorlist"
         ]
         run_cc(ref_cmd, mountpoint)
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config(enable_services=False)
         installation.set_timezone("US/Eastern")
-        installation.add_additional_packages(pkgs)
-        installation.create_users(User(user_name, Password(pw), True, groups))
-        sys_dots(mountpoint, script_dir, sys_cp)
-        installation.enable_service(sys_services)
-        run_cc([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
-        configure_sudo(user_name, mountpoint, pwd_require=False)
+        installation.add_additional_packages(nl.pkgs)
+        installation.create_users(User(nl.user_name, Password(pw), True, nl.groups))
+        sys_dots(mountpoint, script_dir, nl.sys_cp)
+        installation.enable_service(nl.sys_services)
+        run_cc([f"systemctl disable {' '.join(nl.disable_svcs)}"], mountpoint)
+        configure_sudo(nl.user_name, mountpoint, pwd_require=False)
         config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
         systemd_modify(mountpoint)
@@ -337,13 +321,13 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
             "xdg-user-dirs-update",
             f"mkdir -p /{user_home}/.cache/mpd/playlists /{user_home}/.cache/mpd/state",
         ]
-        run_cc(usr_cmd, mountpoint, user_name)
-        enable_user_services(user_home, mountpoint, user_services)
-        copy_dir(usb_key_dir, mountpoint / user_home / ".ssh")
-        copy_dir(wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
-        copy_scripts(script_dir, "noah_lib", user_name, user_script)
-        setup_alacritty_auto(user_name, user_script, mountpoint)
-        run_cc([f"chown -R {user_name}:{user_name} /{user_home}"], mountpoint)
+        run_cc(usr_cmd, mountpoint, nl.user_name)
+        enable_user_services(user_home, mountpoint, nl.user_services)
+        copy_dir(nl.usb_key_dir, mountpoint / user_home / ".ssh")
+        copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
+        copy_scripts(script_dir, "noah_lib", nl.user_name, nl.user_script)
+        setup_alacritty_auto(nl.user_name, nl.user_script, mountpoint)
+        run_cc([f"chown -R {nl.user_name}:{nl.user_name} /{user_home}"], mountpoint)
         installation.genfstab()
         modify_fstab(mountpoint)
         if not arch_config_handler.args.silent:
@@ -379,8 +363,10 @@ def _minimal() -> None:
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         fs_handler.perform_filesystem_operations()
-    mnt_cp_keys(min_usb_size, usb_fs_type, usb_key_dir, key_files, wireguard_dir)
-    ref_cmd = ["reflector", *reflector_opts, "--save", "/etc/pacman.d/mirrorlist"]
+    mnt_cp_keys(
+        nl.min_usb_size, nl.usb_fs_type, nl.usb_key_dir, nl.key_files, nl.wireguard_dir
+    )
+    ref_cmd = ["reflector", *nl.reflector_opts, "--save", "/etc/pacman.d/mirrorlist"]
     run_cmd(ref_cmd)
     config_pac_conf()
     chaotic_repo()
