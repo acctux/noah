@@ -270,9 +270,9 @@ def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10)
         pacman_conf_path = mnt_point / "etc/pacman.conf"
     pacman_conf_path.write_text(pacman_content.strip())
     if mnt_point:
-        run_cc(["pacman -Sy"], mnt_point)
+        run_cc(["pacman", "-Sy"], mnt_point)
     else:
-        run_cmd(["pacman -Sy"], True)
+        run_cmd(["pacman", "-Sy"], True)
 
 
 def copy_dir(dir: str, dest: Path, set_root: bool = False):
