@@ -135,7 +135,7 @@ def modify_fstab(mnt_point: Path) -> None:
     fstab.write_text("\n".join(out) + "\n")
 
 
-def systemd_modify(
+def modify_systemd(
     mnt_point: Path,
     boot_opts: list[str] = ["quiet", "splash"],
 ) -> None:

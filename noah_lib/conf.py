@@ -1,14 +1,14 @@
 from pathlib import Path
 from archinstall.lib.args import LocaleConfiguration
-from pydantic import BaseModel
+from noah_lib.utils import UserSrv
 
 user_name = "nick"
 host = "yulia"
 my_locale = LocaleConfiguration("us", "en_US", "UTF-8")
-reflector_opts = [
+refl_opts = [
     "--country US",
     "--protocol https",
-    "--latest 12",
+    "--latest 15",
     "--sort rate",
     "--number 3",
 ]
@@ -109,6 +109,7 @@ pkgs = [
     "less",
     "man-pages",
     "mcfly",
+    "ouch",
     "rebuild-detector",
     "ripgrep-all",
     "sd",
@@ -155,7 +156,6 @@ pkgs = [
     "logrotate",
     "ly",
     "nemo-audio-tab",
-    "ouch",
     "plymouth",
     "qalculate-qt",
     "qt6ct",
@@ -205,7 +205,6 @@ pkgs = [
     "python-pygit2",
     "python-pyperclip",
     "python-systemd",  # loggy
-    "python-tasklib",
     "python-wand",  # wallpaper script
     #########-SQL Server-##########
     "dbeaver",
@@ -240,6 +239,26 @@ pkgs = [
     "proton-ge-custom-bin",
     "rpcs3-git",
 ]
+hide_apps = [
+    "assistant.desktop",
+    "avahi-discover.desktop",
+    "bssh.desktop",
+    "bvnc.desktop",
+    "com.github.FontManager.FontViewer.desktop",
+    "jconsole-java-openjdk.desktop",
+    "khal.desktop",
+    "linguist.desktop",
+    "octopi-cachecleaner.desktop",
+    "octopi-notifier.desktop",
+    "octopi-repoeditor.desktop",
+    "org.gnome.Nautilus.desktop",
+    "org.gnome.baobab.desktop",
+    "org.kde.kdeconnect.nonplasma.desktop",
+    "qv4l2.desktop",
+    "qvidcap.desktop",
+    "xgps.desktop",
+    "xgpsspeed.desktop",
+]
 #############-SERVICES-##############
 sys_services = [
     "ananicy-cpp",
@@ -269,15 +288,7 @@ disable_svcs = [
     "getty@tty1",
     "systemd-networkd-wait-online",
 ]
-
-
 ###########-USER SERVICES-############
-class UserSrv(BaseModel):
-    target: str
-    services: list[str]
-    source_dir: Path = Path("/usr/lib/systemd/user")
-
-
 user_services = [
     UserSrv(target="default.target.wants", services=["pipewire-pulse.service"]),
     UserSrv(
@@ -293,58 +304,37 @@ user_services = [
         services=["waybar.service", "swaync.service"],
     ),
 ]
-
 ###########-FOLDERS/GITS-############
 HOME = Path.home()
-DESK_DIR = HOME / "Desktop"
-GIT_DIR = HOME / "Lit"
-DOT_DIR = HOME / "Polka"
-DOCS_DIR = GIT_DIR / "Docs"
-ENC_DIR = DESK_DIR / "Encrypted"
-GIT_USER = "acctux"
+desk_dir = HOME / "Desktop"
+git_dir = HOME / "Lit"
+dot_dir = HOME / "Polka"
+docs_dir = git_dir / "Docs"
+enc_dir = desk_dir / "Encrypted"
+git_user = "acctux"
 ssh_dir = ".ssh"
-SSH_KEY = HOME / ssh_dir / key_files[0]
-GPG_KEY = f"{ssh_dir}/{key_files[1]}"
-PASSWORD_FILE = HOME / ssh_dir / f"{key_files[2]}"
-GIT_REPOS = [
-    (GIT_DIR, "Docs"),
-    (GIT_DIR, "Noah"),
+ssh_key = HOME / ssh_dir / key_files[0]
+gpg_key = f"{ssh_dir}/{key_files[1]}"
+git_repos = [
+    (git_dir, "Docs"),
+    (git_dir, "Noah"),
     (HOME, "Polka"),
 ]
-CUSTOM_ICONS = [
-    [DESK_DIR / "Games", "folder-games.svg"],
-    [GIT_DIR, "folder-github.svg"],
-    [GIT_DIR / "Noah", "folder-root.svg"],
-    [DOCS_DIR, "folder-bookmark.svg"],
-    [DOT_DIR, "folder-html.svg"],
-    [ENC_DIR, "folder-locked.svg"],
+dir_icons = [
+    [desk_dir / "Games", "folder-games.svg"],
+    [git_dir, "folder-github.svg"],
+    [git_dir / "Noah", "folder-root.svg"],
+    [docs_dir, "folder-bookmark.svg"],
+    [dot_dir, "folder-html.svg"],
+    [enc_dir, "folder-locked.svg"],
 ]
+###########-SYMLINK-############
 # Polka Config
-DOTFILES_DIR = HOME / "Polka"
-DIRECTORIES_TO_LINK = ["config/systemd/user", "config/nvim", "local/bin"]
-BASE_DIR = HOME / "Lit/Docs/base"
-INDIVIDUAL_DIRS = [
-    ((BASE_DIR / "fonts"), (HOME / ".local" / "share" / "fonts")),
-    ((BASE_DIR / "task"), (HOME / ".config" / "task")),
-    ((BASE_DIR / "zsh"), (HOME / ".config" / "zsh")),
-]
-hide_apps = [
-    "assistant.desktop",
-    "avahi-discover.desktop",
-    "bssh.desktop",
-    "bvnc.desktop",
-    "com.github.FontManager.FontViewer.desktop",
-    "jconsole-java-openjdk.desktop",
-    "khal.desktop",
-    "linguist.desktop",
-    "octopi-cachecleaner.desktop",
-    "octopi-notifier.desktop",
-    "octopi-repoeditor.desktop",
-    "org.gnome.Nautilus.desktop",
-    "org.gnome.baobab.desktop",
-    "org.kde.kdeconnect.nonplasma.desktop",
-    "qv4l2.desktop",
-    "qvidcap.desktop",
-    "xgps.desktop",
-    "xgpsspeed.desktop",
+dots_dir = HOME / "Polka"
+dirs_to_link = ["config/systemd/user", "config/nvim", "local/bin"]
+base_dir = HOME / "Lit/Docs/base"
+ind_dirs = [
+    ((base_dir / "fonts"), (HOME / ".local" / "share" / "fonts")),
+    ((base_dir / "task"), (HOME / ".config" / "task")),
+    ((base_dir / "zsh"), (HOME / ".config" / "zsh")),
 ]

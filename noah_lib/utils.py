@@ -1,6 +1,8 @@
 import logging
+from pathlib import Path
 import subprocess
 import sys
+from pydantic import BaseModel
 
 
 class ColorFormatter(logging.Formatter):
@@ -17,6 +19,12 @@ class ColorFormatter(logging.Formatter):
         if color:
             message = f"{color}{message}{self.RESET}"
         return message
+
+
+class UserSrv(BaseModel):
+    target: str
+    services: list[str]
+    source_dir: Path = Path("/usr/lib/systemd/user")
 
 
 def get_logger(name, level=logging.INFO, use_color=True):

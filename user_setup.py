@@ -92,7 +92,7 @@ def launch_apps():
 
 def main():
     if not CACHE_FILE.exists():
-        _ = mnt_cp_keys(
+        mnt_cp_keys(
             nl.min_usb_size,
             nl.usb_fs_type,
             nl.usb_key_dir,
@@ -102,19 +102,17 @@ def main():
         cmd = ["chsh", "-s", "/usr/bin/zsh"]
         run_cmd_interactive(cmd)
         run_sudo_commands()
-        if nl.SSH_KEY.exists():
-            import_ssh_key(nl.SSH_KEY)
-        if Path(nl.GPG_KEY).exists():
-            import_gpg_key(nl.GPG_KEY)
-        initialize_gocrypt(nl.ENC_DIR)
+        if nl.ssh_key.exists():
+            import_ssh_key(nl.ssh_key)
+        if Path(nl.gpg_key).exists():
+            import_gpg_key(nl.gpg_key)
+        initialize_gocrypt(nl.enc_dir)
         if not (nl.HOME / ".local/share/icons/WhiteSur-dark").exists():
             install_icon_theme()
-        set_folder_icons(nl.HOME, nl.CUSTOM_ICONS)
-        clone_repos(nl.GIT_USER, nl.GIT_REPOS, nl.ssh_dir)
+        set_folder_icons(nl.HOME, nl.dir_icons)
+        clone_repos(nl.git_user, nl.git_repos, nl.ssh_dir)
         hide_linux_app_icons(nl.hide_apps)
-        deploy_dotfiles(
-            nl.DOTFILES_DIR, nl.HOME, nl.DIRECTORIES_TO_LINK, nl.INDIVIDUAL_DIRS
-        )
+        deploy_dotfiles(nl.dots_dir, nl.HOME, nl.dirs_to_link, nl.ind_dirs)
         setup_service()
         CACHE_FILE.touch()
         if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
@@ -122,7 +120,7 @@ def main():
         else:
             run_cmd(["systemctl", "reboot"], True)
     else:
-        pass_and_input(nl.PASSWORD_FILE)
+        pass_and_input(nl.HOME / nl.ssh_dir / f"{nl.key_files[2]}")
         launch_apps()
         cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
         run_cmd_interactive(cmd)
