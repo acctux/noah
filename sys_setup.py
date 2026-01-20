@@ -45,12 +45,7 @@ from noah_lib.utils import run_cmd, log, ask_pass
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent / "noah_lib"
 user_home = f"home/{user_name}"
-ref_cmd = [
-    "reflector",
-    *reflector_opts,
-    "--save",
-    "/etc/pacman.d/mirrorlist",
-]
+ref_cmd = ["reflector", *reflector_opts, "--save", "/etc/pacman.d/mirrorlist"]
 
 CHROOT_HOME = Path.home()
 
@@ -158,7 +153,7 @@ def chaotic_repo(
         f"pacman -U --noconfirm --needed {chaotic_web}/chaotic-keyring.pkg.tar.zst",
         f"pacman -U --noconfirm --needed {chaotic_web}/chaotic-mirrorlist.pkg.tar.zst",
     ]
-    cmds_update = ["pacman -Sy"]
+    cmds_update = ["pacman", "-Sy"]
     if mnt_point:
         run_cc(cmds_setup, mnt_point)
         pacman_conf = mnt_point / "etc/pacman.conf"
