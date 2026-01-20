@@ -1,4 +1,3 @@
-import logging
 import os
 from pathlib import Path
 import shutil
@@ -6,62 +5,30 @@ import subprocess
 import sys
 import getpass
 import pyperclip
+from noah_lib.utils import get_logger
+from noah_lib.conf import (
+    HOME,
+    GIT_USER,
+    GIT_REPOS,
+    GPG_KEY,
+    KEYS_DIR,
+    SSH_KEY,
+    ENC_DIR,
+    CUSTOM_ICONS,
+    DOTFILES_DIR,
+    PASSWORD_FILE,
+    DIRECTORIES_TO_LINK,
+    INDIVIDUAL_DIRS,
+    min_usb_size,
+    usb_fs_type,
+    usb_key_dir,
+    key_files,
+    wireguard_dir,
+)
+from usb_mnt_cp import mnt_cp_keys
+from noah_lib.dotsync import deploy_dotfiles
 
-HOME = Path.home()
-DESK_DIR = HOME / "Desktop"
-GIT_USER = "acctux"
-KEYS_DIR = HOME / ".ssh"
-SSH_KEY = KEYS_DIR / "id_ed25519"
-GPG_KEY = f"{KEYS_DIR}/my_sec_gpg.asc"
-ENC_DIR = DESK_DIR / "Encrypted"
-GIT_DIR = HOME / "Lit"
-DOT_DIR = HOME / "Polka"
-GIT_REPOS = [["Docs", GIT_DIR], ["Noah", GIT_DIR], ["Polka", HOME]]
-CUSTOM_ICONS = [
-    [DESK_DIR / "Games", "folder-games.svg"],
-    [GIT_DIR, "folder-github.svg"],
-    [GIT_DIR / "Noah", "folder-root.svg"],
-    [GIT_DIR / "Docs", "folder-bookmark.svg"],
-    [DOT_DIR, "folder-html.svg"],
-    [ENC_DIR, "folder-locked.svg"],
-]
-CONFIG_DIR = HOME / ".config"
-SHARE_DIR = HOME / ".local" / "share"
-DIR_TO_LINK = ["config/systemd/user", "config/nvim", "local/bin"]
-BASE_DIR = GIT_DIR / "Docs/base"
-SEC_DOTS = [
-    (BASE_DIR / "fonts", SHARE_DIR / "fonts"),
-    (BASE_DIR / "task", CONFIG_DIR / "task"),
-    (BASE_DIR / "zsh", CONFIG_DIR / "zsh"),
-]
-PASSWORD_FILE = KEYS_DIR / "pass.txt"
 CACHE_FILE = HOME / ".cache" / "first_done"
-
-
-class ColorFormatter(logging.Formatter):
-    COLORS = {
-        logging.INFO: "\033[34m",
-        logging.ERROR: "\033[31m",
-    }
-    RESET = "\033[0m"
-
-    def format(self, record):
-        color = self.COLORS.get(record.levelno, "")
-        return f"{color}{super().format(record)}{self.RESET}"
-
-
-def get_logger(name):
-    logger = logging.getLogger(name)
-    if logger.handlers:
-        return logger
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(ColorFormatter("%(name)s %(levelname)s: %(message)s"))
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-    return logger
-
-
 log = get_logger("Noah")
 
 
@@ -112,73 +79,6 @@ def run_sudo_commands():
         result = run_cmd(cmd.split(), True)
         if result and result.returncode != 0:
             log.error(f"Command failed: {cmd}")
-
-
-def link_path(src: Path, dst: Path) -> bool:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    rel = src.relative_to(dst.parent, walk_up=True)
-    if dst.is_symlink() and dst.readlink() == rel:
-        return False
-    if dst.exists():
-        if dst.is_dir() and not dst.is_symlink():
-            shutil.rmtree(dst)
-        else:
-            dst.unlink(missing_ok=True)
-        log.info(f"Removed: {dst}")
-    dst.symlink_to(rel, target_is_directory=src.is_dir())
-    log.info(f"Linked: {dst} → {rel}")
-    return True
-
-
-def dotted_destination(src: Path, source_root: Path, target_root: Path) -> Path:
-    parts = src.relative_to(source_root).parts
-    return target_root / Path("." + parts[0], *parts[1:])
-
-
-def deploy_dotfiles(dotfiles_dir, home_dir, dirs_to_link, individual_dirs):
-    linked = skipped = 0
-    if not dotfiles_dir.is_dir():
-        log.error(f"Dotfiles directory does not exist: {dotfiles_dir}")
-        return
-    for src in dotfiles_dir.rglob("*"):
-        if not src.is_file():
-            skipped += 1
-            continue
-        if src.relative_to(dotfiles_dir).as_posix().startswith(".git") or any(
-            src.relative_to(dotfiles_dir).is_relative_to(Path(d)) for d in dirs_to_link
-        ):
-            skipped += 1
-            continue
-        dst = dotted_destination(src, dotfiles_dir, home_dir)
-        if link_path(src, dst):
-            linked += 1
-        else:
-            skipped += 1
-    for d in dirs_to_link:
-        src = dotfiles_dir / d
-        if not src.is_dir():
-            log.error(f"{src} not found.")
-            continue
-        dst = dotted_destination(src, dotfiles_dir, home_dir)
-        if link_path(src, dst):
-            linked += 1
-        else:
-            skipped += 1
-    for src_dir, dst_dir in individual_dirs:
-        if not src_dir.is_dir():
-            log.error(f"Directory does not exist: {src_dir}")
-            continue
-        for src_file in src_dir.rglob("*"):
-            if not src_file.is_file():
-                continue
-            dst_file = dst_dir / src_file.relative_to(src_dir)
-            if link_path(src_file, dst_file):
-                linked += 1
-            else:
-                skipped += 1
-    log.info(f"Linked:{linked} | Skipped:{skipped}")
-    if shutil.which("hyprctl"):
-        run_cmd(["hyprctl", "reload"])
 
 
 def import_ssh_key(key_path: Path):
@@ -247,7 +147,7 @@ def initialize_gocrypt(enc_dir: Path):
     )
 
 
-def clone_repos(git_repos, keys_dir):
+def clone_repos(git_user: str, git_repos: list[tuple[Path, str]], keys_dir):
     kh = keys_dir / "known_hosts"
     kh.parent.mkdir(parents=True, exist_ok=True)
     if not kh.exists():
@@ -257,14 +157,14 @@ def clone_repos(git_repos, keys_dir):
         scan = run_cmd(["ssh-keyscan", "-H", "github.com"], True)
         if scan and scan.stdout:
             kh.write_text(content + scan.stdout)
-    for name, path in git_repos:
+    for path, name in git_repos:
         if not (path / name / ".git").exists():
             path.mkdir(parents=True, exist_ok=True)
             run_cmd(
                 [
                     "git",
                     "clone",
-                    f"git@github.com:{GIT_USER}/{name}.git",
+                    f"git@github.com:{git_user}/{name}.git",
                     str(path / name),
                 ],
                 True,
@@ -286,8 +186,8 @@ def install_icon_theme(
             svg.write_text(text.replace(old, new))
 
 
-def set_folder_icons(custom_icons):
-    folder_icon_dir = HOME / ".local/share/icons/WhiteSur-dark/places/scalable"
+def set_folder_icons(home, custom_icons):
+    folder_icon_dir = home / ".local/share/icons/WhiteSur-dark/places/scalable"
     for folder, icon in custom_icons:
         folder.mkdir(parents=True, exist_ok=True)
         path = folder_icon_dir / icon
@@ -320,8 +220,8 @@ WantedBy=graphical-session.target
     run_cmd(["systemctl", "--user", "enable", service_name])
 
 
-def pass_and_input():
-    password = PASSWORD_FILE.read_text().strip()
+def pass_and_input(password_file):
+    password = password_file.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
     log.info("Password copied to clipboard.")
@@ -330,6 +230,21 @@ def pass_and_input():
     pyperclip.copy("")
     log.info("Clipboard cleared.")
     os.environ.pop("CLIPBOARD_STATE", None)
+
+
+def hide_linux_app_icons(applications: list[str]):
+    system_dir = Path("/usr/share/applications")
+    user_dir = HOME / ".local" / "share" / "applications"
+    user_dir.mkdir(parents=True, exist_ok=True)
+    hidden_entry = "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
+    for app in applications:
+        system_file = system_dir / app
+        if not system_file.exists():
+            log.info(f"Skipping {system_file} not found")
+            continue
+        user_file = user_dir / app
+        user_file.write_text(hidden_entry)
+        log.info("Hidden: %s", app)
 
 
 def launch_apps():
@@ -344,6 +259,9 @@ def launch_apps():
 
 def main():
     if not CACHE_FILE.exists():
+        _ = mnt_cp_keys(
+            min_usb_size, usb_fs_type, usb_key_dir, key_files, wireguard_dir
+        )
         cmd = ["chsh", "-s", "/usr/bin/zsh"]
         run_cmd_interactive(cmd)
         run_sudo_commands()
@@ -354,9 +272,9 @@ def main():
         initialize_gocrypt(ENC_DIR)
         if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
             install_icon_theme()
-        set_folder_icons(CUSTOM_ICONS)
-        clone_repos(GIT_REPOS, KEYS_DIR)
-        deploy_dotfiles(DOT_DIR, HOME, DIR_TO_LINK, SEC_DOTS)
+        set_folder_icons(HOME, CUSTOM_ICONS)
+        clone_repos(GIT_USER, GIT_REPOS, KEYS_DIR)
+        deploy_dotfiles(DOTFILES_DIR, HOME, DIRECTORIES_TO_LINK, INDIVIDUAL_DIRS)
         setup_service()
         CACHE_FILE.touch()
         if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
@@ -364,7 +282,7 @@ def main():
         else:
             run_cmd(["systemctl", "reboot"], True)
     else:
-        pass_and_input()
+        pass_and_input(PASSWORD_FILE)
         launch_apps()
         cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
         run_cmd_interactive(cmd)
