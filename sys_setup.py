@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import shlex
 import shutil
+import getpass
 import textwrap
 from archinstall.lib.args import (
     Password,
@@ -349,11 +350,16 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    pw = ""
     if (CHROOT_HOME / key_files[3]).exists():
         pw = load_password(".ssh", key_files[3])
-        if not pw or pw == "":
-            pw = ask_pass()
+        import time
+
+        log.info(f"found {pw}")
+        time.sleep(20)
+    else:
+        pw = ask_pass()
+    if not pw:
+        pw = getpass.getpass(f"Enter password for {user_name}: ")
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
         if disk_config.config_type != DiskLayoutType.Pre_mount:
