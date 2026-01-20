@@ -416,10 +416,7 @@ def _minimal() -> None:
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         fs_handler.perform_filesystem_operations()
-    ref_cmd = [f"reflector {' '.join(reflector_opts)} --save /etc/pacman.d/mirrorlist"]
-    pw = mnt_cp_keys(min_usb_size, usb_fs_type, usb_key_dir, key_files, wireguard_dir)
-    if not pw:
-        pw = ask_pass()
+    mnt_cp_keys(min_usb_size, usb_fs_type, usb_key_dir, key_files, wireguard_dir)
     run_cmd(ref_cmd)
     config_pac_conf()
     chaotic_repo()

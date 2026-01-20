@@ -151,7 +151,7 @@ def mnt_cp_keys(
     wireguard_dir: str | None = None,
     pass_file: str | None = None,
     usb_mnt=Path("/mnt/usb"),
-) -> str | None:
+):
     if key_dir and key_files or wireguard_dir or pass_file:
         if check_usb_files(key_dir, key_files):
             mnt_keys_partition(usb_mnt, min_size, usb_fs_type)
