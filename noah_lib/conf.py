@@ -1,6 +1,6 @@
 from pathlib import Path
 from archinstall.lib.args import LocaleConfiguration
-from sys_setup import UserSrv
+from pydantic import BaseModel
 
 user_name = "nick"
 host = "yulia"
@@ -277,7 +277,15 @@ disable_svcs = [
     "getty@tty1",
     "systemd-networkd-wait-online",
 ]
+
+
 ###########-USER SERVICES-############
+class UserSrv(BaseModel):
+    target: str
+    services: list[str]
+    source_dir: Path = Path("/usr/lib/systemd/user")
+
+
 user_services = [
     UserSrv(target="default.target.wants", services=["pipewire-pulse.service"]),
     UserSrv(

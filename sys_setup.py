@@ -20,8 +20,8 @@ from archinstall.lib.interactions.general_conf import (
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.output import debug, error, info
 from archinstall.tui import Tui
-from pydantic import BaseModel
 from noah_lib.conf import (
+    UserSrv,
     sys_services,
     user_name,
     host,
@@ -45,13 +45,6 @@ from noah_lib.utils import run_cmd, log, ask_pass
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent / "noah_lib"
 user_home = f"home/{user_name}"
-
-
-###########-UserSrv CLASS-###########
-class UserSrv(BaseModel):
-    target: str
-    services: list[str]
-    source_dir: Path = Path("/usr/lib/systemd/user")
 
 
 #################-MAIN FUNCTIONS-#################
