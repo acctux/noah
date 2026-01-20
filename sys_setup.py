@@ -245,6 +245,7 @@ def copy_scripts(
     if not src_file.is_file():
         raise FileNotFoundError(f"{src_file} does not exist")
     shutil.copy2(src_file, dest / src_file.name)
+    dest.chmod(0o755)
     for path in dest.rglob("*"):
         if path.is_symlink():
             continue
@@ -252,7 +253,6 @@ def copy_scripts(
             path.chmod(0o755)
         else:
             path.chmod(0o644)
-    dest.chmod(0o755)
     cmd = [f"chown -R {user_name}:{user_name} {dest}"]
     run_cc(cmd, mnt_point, None, True)
 
@@ -418,4 +418,5 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-_minimal()
+# _minimal()
+sys_dots(Path("/mnt"), script_dir, nl.sys_cp)

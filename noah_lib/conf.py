@@ -302,6 +302,7 @@ user_services = [
     ),
 ]
 
+###########-FOLDERS/GITS-############
 HOME = Path.home()
 DESK_DIR = HOME / "Desktop"
 GIT_DIR = HOME / "Lit"
