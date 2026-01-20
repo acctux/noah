@@ -2,7 +2,7 @@ import getpass
 import logging
 import subprocess
 import sys
-from conf import user_name
+from noah_lib.conf import user_name
 
 
 class ColorFormatter(logging.Formatter):
