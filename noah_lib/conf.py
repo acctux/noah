@@ -328,3 +328,23 @@ INDIVIDUAL_DIRS = [
     ((BASE_DIR / "task"), (HOME / ".config" / "task")),
     ((BASE_DIR / "zsh"), (HOME / ".config" / "zsh")),
 ]
+hide_apps = [
+    "assistant.desktop",
+    "avahi-discover.desktop",
+    "bssh.desktop",
+    "bvnc.desktop",
+    "com.github.FontManager.FontViewer.desktop",
+    "jconsole-java-openjdk.desktop",
+    "khal.desktop",
+    "linguist.desktop",
+    "octopi-cachecleaner.desktop",
+    "octopi-notifier.desktop",
+    "octopi-repoeditor.desktop",
+    "org.gnome.Nautilus.desktop",
+    "org.gnome.baobab.desktop",
+    "org.kde.kdeconnect.nonplasma.desktop",
+    "qv4l2.desktop",
+    "qvidcap.desktop",
+    "xgps.desktop",
+    "xgpsspeed.desktop",
+]
