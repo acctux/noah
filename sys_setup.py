@@ -45,7 +45,6 @@ from noah_lib.utils import run_cmd, log, ask_pass
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent / "noah_lib"
 user_home = f"home/{user_name}"
-ref_cmd = ["reflector", *reflector_opts, "--save", "/etc/pacman.d/mirrorlist"]
 
 CHROOT_HOME = Path.home()
 
@@ -370,6 +369,9 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.setup_swap()
         installation.minimal_installation([], True, host, my_locale)
         installation.add_additional_packages("reflector")
+        ref_cmd = [
+            f"reflector {' '.join(reflector_opts)} --save /etc/pacman.d/mirrorlist"
+        ]
         run_cc(ref_cmd, mountpoint)
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config(enable_services=False)
@@ -430,6 +432,7 @@ def _minimal() -> None:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         fs_handler.perform_filesystem_operations()
     mnt_cp_keys(min_usb_size, usb_fs_type, usb_key_dir, key_files, wireguard_dir)
+    ref_cmd = ["reflector", *reflector_opts, "--save", "/etc/pacman.d/mirrorlist"]
     run_cmd(ref_cmd)
     config_pac_conf()
     chaotic_repo()
