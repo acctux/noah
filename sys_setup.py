@@ -85,25 +85,13 @@ def chaotic_repo(mnt_point: Path | None = None):
     log.info("Setting up Chaotic-AUR repository.")
     chaotic_key_id = "3056513887B78AEB"
     key_serv = "keyserver.ubuntu.com"
-    chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur"
+    chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
     cmds_setup = [
         ["pacman-key", "--init"],
         ["pacman-key", "--recv-key", chaotic_key_id, "--keyserver", key_serv],
         ["pacman-key", "--lsign-key", chaotic_key_id],
-        [
-            "pacman",
-            "-U",
-            "--noconfirm",
-            "--needed",
-            f"{chaotic_web}/chaotic-keyring.pkg.tar.zst",
-        ],
-        [
-            "pacman",
-            "-U",
-            "--noconfirm",
-            "--needed",
-            f"{chaotic_web}/chaotic-mirrorlist.pkg.tar.zst",
-        ],
+        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
+        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
     cmds_update = ["pacman", "-Sy"]
     if mnt_point:
@@ -239,6 +227,24 @@ def copy_dir(dir: str, dest: Path, set_root: bool = False):
         dest.chmod(0o700)
 
 
+def copy_file_list(key_files: list[str], usb_key_dir: str, dest: Path):
+    src = Path("/root") / usb_key_dir
+    if not src.is_dir():
+        log.error(f"{src} does not exist")
+        return
+    dest.mkdir(parents=True, exist_ok=True)
+    dest.chmod(0o700)
+    for name in key_files[:3]:
+        src_file = src / name
+        if not src_file.is_file():
+            log.error(f"{src_file} does not exist")
+            continue
+        dest_file = dest / name
+        shutil.copy2(src_file, dest_file)
+        if name in key_files[:2]:
+            dest_file.chmod(0o600)
+
+
 def copy_scripts(
     mnt_point: Path,
     script_dir: Path,
@@ -312,17 +318,18 @@ WantedBy=graphical-session.target
     return service_path
 
 
+def type_password(user_name: str) -> str:
+    while True:
+        pwd1 = getpass.getpass(f"Enter password for {user_name}: ")
+        pwd2 = getpass.getpass("Re-enter password: ")
+        if not pwd1 or pwd1 != pwd2:
+            print("Try again.")
+            continue
+        return pwd1
+
+
 def get_password(usb_key_dir: str, key_files: list[str], user_name: str) -> str:
     key_path = Path("/root") / usb_key_dir / key_files[3]
-
-    def prompt_password() -> str:
-        while True:
-            pwd1 = getpass.getpass(f"Enter password for {user_name}: ")
-            pwd2 = getpass.getpass("Re-enter password: ")
-            if not pwd1 or pwd1 != pwd2:
-                print("Try again.")
-                continue
-            return pwd1
 
     if key_path.exists():
         try:
@@ -332,7 +339,7 @@ def get_password(usb_key_dir: str, key_files: list[str], user_name: str) -> str:
         except Exception as e:
             log.error(f"Failed to read password from '{key_path}': {e}")
     log.warning(f"Password file '{key_path}' not found or unreadable.")
-    return prompt_password()
+    return type_password(user_name)
 
 
 ##############################################################
@@ -380,7 +387,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         ]
         run_cc(usr_cmd, mountpoint, nl.user_name)
         enable_user_services(user_home, nl.user_services, mountpoint, nl.user_name)
-        copy_dir(nl.usb_key_dir, mountpoint / user_home / ".ssh")
+        copy_file_list(nl.key_files, nl.usb_key_dir, nl.HOME)
         copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         copy_scripts(mountpoint, script_dir, "noah_lib", nl.user_name, nl.user_script)
         user_service_file(nl.user_name, nl.user_script, mountpoint)
