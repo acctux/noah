@@ -65,9 +65,7 @@ def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
         )
 
 
-def chaotic_repo(
-    mnt_point: Path | None = None,
-):
+def chaotic_repo(mnt_point: Path | None = None):
     info("Setting up Chaotic-AUR repository.")
     chaotic_key_id = "3056513887B78AEB"
     key_serv = "keyserver.ubuntu.com"
@@ -92,24 +90,21 @@ def chaotic_repo(
         ],
     ]
     cmds_update = ["pacman", "-Sy"]
-    cmds_setup_str = [" ".join(cmd) for cmd in cmds_setup]
     if mnt_point:
-        for cmd in cmds_setup_str:
-            run_cc([cmd], mnt_point)
+        for cmd in cmds_setup:
+            run_cc([" ".join(cmd)], mnt_point)
         pacman_conf = mnt_point / "etc/pacman.conf"
+        run_cc([" ".join(cmds_update)], mnt_point)
     else:
-        for c in cmds_setup:
-            run_cmd(c, check=True)
+        for cmd in cmds_setup:
+            run_cmd(cmd, check=True)
         pacman_conf = Path("/etc/pacman.conf")
+        run_cmd(cmds_update, check=True)
     section = "[chaotic-aur]"
     content = pacman_conf.read_text()
     if section not in content:
         with pacman_conf.open("a") as f:
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
-    if mnt_point:
-        run_cc(cmds_update, mnt_point)
-    else:
-        run_cmd(cmds_update, check=True)
 
 
 def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
