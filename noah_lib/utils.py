@@ -1,8 +1,6 @@
-import getpass
 import logging
 import subprocess
 import sys
-from noah_lib.conf import user_name
 
 
 class ColorFormatter(logging.Formatter):
@@ -53,16 +51,3 @@ def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
         if e.stderr:
             log.error(f"stderr: {e.stderr.strip()}")
         return e
-
-
-def ask_pass() -> str:
-    while True:
-        pwd1 = getpass.getpass(f"Enter password for {user_name}: ")
-        pwd2 = getpass.getpass("Re-enter password: ")
-        if not pwd1:
-            print("Password cannot be empty. Try again.")
-            continue
-        if pwd1 != pwd2:
-            print("Passwords do not match. Try again.")
-            continue
-        return pwd1

@@ -43,7 +43,7 @@ from noah_lib.conf import (
     user_services,
 )
 from noah_lib.usb_mnt_cp import mnt_cp_keys
-from noah_lib.utils import run_cmd, log, ask_pass
+from noah_lib.utils import run_cmd, log
 
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent / "noah_lib"
@@ -365,17 +365,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    if Path(f"/root/{ssh_dir}/{key_files[3]}").exists():
-        pw = get_password(ssh_dir, key_files, user_name)
-        import time
-
-        log.info(f"found {pw}")
-        time.sleep(20)
-    else:
-        log.info(f"/root/{key_files[3]}")
-        pw = ask_pass()
-    if not pw:
-        pw = getpass.getpass(f"Enter password for {user_name}: ")
+    pw = get_password(ssh_dir, key_files, user_name)
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
         if disk_config.config_type != DiskLayoutType.Pre_mount:
