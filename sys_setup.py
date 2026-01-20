@@ -45,7 +45,13 @@ from noah_lib.utils import run_cmd, log, ask_pass
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent / "noah_lib"
 user_home = f"home/{user_name}"
-ref_cmd = [f"reflector {' '.join(reflector_opts)} --save /etc/pacman.d/mirrorlist"]
+ref_cmd = [
+    "reflector",
+    *reflector_opts,
+    "--save",
+    "/etc/pacman.d/mirrorlist",
+]
+
 CHROOT_HOME = Path.home()
 
 
