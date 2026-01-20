@@ -21,11 +21,17 @@ from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.tui import Tui
 import noah_lib.conf as nl
 from noah_lib.usb_mnt_cp import mnt_cp_keys
-from noah_lib.utils import run_cmd, log, setup_alacritty_auto, enable_user_services
+from noah_lib.utils import (
+    run_cmd,
+    get_logger,
+    setup_alacritty_auto,
+)
+from noah_lib.conf import UserSrv
 
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent / "noah_lib"
 user_home = f"home/{nl.user_name}"
+log = get_logger("Noah")
 
 
 #################-MAIN FUNCTIONS-#################
@@ -249,6 +255,55 @@ def copy_scripts(
     dest.chmod(0o755)
 
 
+def enable_user_services(
+    user_home: str,
+    units: UserSrv | list[UserSrv],
+    mnt_point: Path,
+    user_name: str,
+) -> None:
+    units = [units] if isinstance(units, UserSrv) else units
+    commands: list[str] = []
+    for unit in units:
+        target_path = Path(user_home) / ".config/systemd/user" / unit.target
+        commands.append(f"mkdir -p {target_path}")
+        for service in unit.services:
+            unit_file = unit.source_dir / service
+            commands.append(f"ln -sf {unit_file} {target_path / service}")
+    run_cc(commands, mnt_point, user_name)
+
+
+def create_alacritty_service_file(
+    usr: str,
+    user_setup_script: str,
+    mnt_point: Path | None = None,
+) -> Path:
+    """
+    Creates a systemd service file for running Alacritty with the given script.
+    Returns the path to the created service file.
+    """
+    home = Path(f"/home/{usr}") if mnt_point is None else mnt_point / "home" / usr
+    run_script = home / user_setup_script
+    service_dir = home / ".config" / "systemd" / "user"
+    service_dir.mkdir(parents=True, exist_ok=True)
+
+    svc_name = f"{run_script.stem}.service"
+    service_path = service_dir / svc_name
+
+    service_path.write_text(f"""[Unit]
+Description=Open Alacritty running {run_script} on login
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/alacritty -e python {run_script}
+Restart=no
+
+[Install]
+WantedBy=graphical-session.target
+""")
+    return service_path
+
+
 def get_password(usb_key_dir: str, key_files: list[str], user_name: str) -> str:
     key_path = Path("/root") / usb_key_dir / key_files[3]
 
@@ -316,7 +371,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
             f"mkdir -p /{user_home}/.cache/mpd/playlists /{user_home}/.cache/mpd/state",
         ]
         run_cc(usr_cmd, mountpoint, nl.user_name)
-        enable_user_services(user_home, mountpoint, nl.user_services)
+        enable_user_services(user_home, nl.user_services, mountpoint, nl.user_name)
         copy_dir(nl.usb_key_dir, mountpoint / user_home / ".ssh")
         copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         copy_scripts(script_dir, "noah_lib", nl.user_name, nl.user_script)

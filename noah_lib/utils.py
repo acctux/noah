@@ -25,21 +25,16 @@ def get_logger(name, level=logging.INFO, use_color=True):
     logger = logging.getLogger(name)
     if logger.handlers:
         return logger
-
     handler = logging.StreamHandler(sys.stderr)
     fmt = "%(name)s %(levelname)s: %(message)s"
     if use_color:
         handler.setFormatter(ColorFormatter(fmt))
     else:
         handler.setFormatter(logging.Formatter(fmt))
-
     logger.addHandler(handler)
     logger.setLevel(level)
     logger.propagate = False
     return logger
-
-
-log = get_logger("Noah")
 
 
 def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
@@ -65,18 +60,29 @@ def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
         return e
 
 
-def enable_user_services(user_home: str, mnt_point: Path, groups: list[UserSrv]):
-    base_dir = mnt_point / user_home / ".config" / "systemd" / "user"
-    for group in groups:
-        dest_dir = base_dir / group.target
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        for service in group.services:
-            link_path = dest_dir / service
-            if link_path.exists() or link_path.is_symlink():
-                link_path.unlink()
-            target_path = group.source_dir / service
-            relative_target = (target_path).relative_to(dest_dir)
-            link_path.symlink_to(relative_target)
+def enable_user_services(
+    user_home: str,
+    units: UserUnit | list[UserUnit],
+    mnt_point: Path,
+    user_name: str,
+) -> None:
+    if isinstance(units, UserUnit):
+        units = [units]
+
+    commands: list[str] = []
+
+    for unit in units:
+        target_path = f"/{user_home}/.config/systemd/user/{unit.target}"
+        unit_file = f"{unit.location}/{unit.name}"
+
+        commands.extend(
+            [
+                f"mkdir -p {target_path}",
+                f"ln -sf {unit_file} {target_path}/{unit.name}",
+            ]
+        )
+
+    run_cc(commands, mnt_point, user_name)
 
 
 def setup_alacritty_auto(
