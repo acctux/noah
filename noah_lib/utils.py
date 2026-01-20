@@ -7,24 +7,34 @@ from noah_lib.conf import UserSrv
 
 class ColorFormatter(logging.Formatter):
     COLORS = {
-        logging.INFO: "\033[34m",
-        logging.ERROR: "\033[31m",
+        logging.INFO: "\033[34m",  # Blue
+        logging.WARNING: "\033[33m",  # Yellow
+        logging.ERROR: "\033[31m",  # Red
     }
     RESET = "\033[0m"
 
     def format(self, record):
+        message = super().format(record)
         color = self.COLORS.get(record.levelno, "")
-        return f"{color}{super().format(record)}{self.RESET}"
+        if color:
+            message = f"{color}{message}{self.RESET}"
+        return message
 
 
-def get_logger(name):
+def get_logger(name, level=logging.INFO, use_color=True):
     logger = logging.getLogger(name)
     if logger.handlers:
         return logger
+
     handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(ColorFormatter("%(name)s %(levelname)s: %(message)s"))
+    fmt = "%(name)s %(levelname)s: %(message)s"
+    if use_color:
+        handler.setFormatter(ColorFormatter(fmt))
+    else:
+        handler.setFormatter(logging.Formatter(fmt))
+
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(level)
     logger.propagate = False
     return logger
 
@@ -64,8 +74,9 @@ def enable_user_services(user_home: str, mnt_point: Path, groups: list[UserSrv])
             link_path = dest_dir / service
             if link_path.exists() or link_path.is_symlink():
                 link_path.unlink()
-            target = (group.source_dir / service).relative_to(dest_dir.parent)
-            link_path.symlink_to(target)
+            target_path = group.source_dir / service
+            relative_target = (target_path).relative_to(dest_dir)
+            link_path.symlink_to(relative_target)
 
 
 def setup_alacritty_auto(

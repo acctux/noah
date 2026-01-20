@@ -18,7 +18,6 @@ from archinstall.lib.interactions.general_conf import (
     ask_post_installation,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
-from archinstall.lib.output import debug, error, info
 from archinstall.tui import Tui
 import noah_lib.conf as nl
 from noah_lib.usb_mnt_cp import mnt_cp_keys
@@ -66,7 +65,7 @@ def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
 
 
 def chaotic_repo(mnt_point: Path | None = None):
-    info("Setting up Chaotic-AUR repository.")
+    log.info("Setting up Chaotic-AUR repository.")
     chaotic_key_id = "3056513887B78AEB"
     key_serv = "keyserver.ubuntu.com"
     chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur"
@@ -127,7 +126,7 @@ def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
     """)
     sudoers_file.write_text(sudoers_content.strip())
     sudoers_file.chmod(0o440)
-    info(f"Created {sudoers_file} {prt_val} for {user_name}")
+    log.info(f"Created {sudoers_file} {prt_val} for {user_name}")
 
 
 def modify_fstab(mnt_point: Path) -> None:
@@ -173,7 +172,7 @@ def systemd_modify(
     loader_file = mnt_point / "boot" / "loader" / "loader.conf"
     loader_file.write_text("default @saved\ntimeout 1\neditor no\n")
     loader_file.chmod(0o644)
-    info(f"Modified {loader_file}")
+    log.info(f"Modified {loader_file}")
 
 
 def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10):
@@ -212,7 +211,7 @@ def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10)
 def copy_dir(dir: str, dest: Path, set_root: bool = False):
     src = Path("/root") / dir
     if not src.is_dir():
-        error(f"{src} does not exist")
+        log.error(f"{src} does not exist")
     shutil.copytree(src, dest, dirs_exist_ok=True)
     if set_root:
         for path in dest.rglob("*"):
@@ -232,7 +231,7 @@ def copy_scripts(
 ):
     src_dir = script_dir / lib_dir
     if not src_dir.is_dir():
-        error(f"{src_dir} does not exist")
+        log.error(f"{src_dir} does not exist")
     shutil.copytree(src_dir, dest, dirs_exist_ok=True)
     src_file = script_dir / user_script
     if not src_file.is_file():
@@ -277,7 +276,7 @@ def get_password(usb_key_dir: str, key_files: list[str], user_name: str) -> str:
 def perform_installation(mountpoint=Path("/mnt")) -> None:
     config = arch_config_handler.config
     if not config.disk_config:
-        error("No disk configuration provided")
+        log.error("No disk configuration provided")
         return
     disk_config = config.disk_config
 
@@ -351,7 +350,7 @@ def _minimal() -> None:
         aborted = False
         with Tui():
             if not config.confirm_config():
-                debug("Installation aborted")
+                log.warning("Installation aborted")
                 aborted = True
         if aborted:
             exit(0)
