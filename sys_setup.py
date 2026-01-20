@@ -13,7 +13,8 @@ from archinstall.lib.interactions.general_conf import (
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.tui import Tui
 
-import conf as nl
+import noah_conf.conf as nl
+import noah_conf.pkg as pkg
 from utils import run_cmd, get_logger
 
 from noah_lib.sys_pac import chaotic_repo, config_pac_conf
@@ -71,7 +72,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
 
-        installation.add_additional_packages(nl.pkgs)
+        installation.add_additional_packages(pkg.pkgs)
         sys_dots(mountpoint, script_dir, nl.sys_cp)
         copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         installation.enable_service(nl.sys_services)
