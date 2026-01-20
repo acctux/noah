@@ -1,5 +1,4 @@
 import subprocess
-import os
 from pathlib import Path
 import shlex
 import shutil
@@ -68,7 +67,7 @@ def run_cc(
     if user_name:
         cmd = f"su - {user_name} -c {shlex.quote(cmd)}"
     SysCommand(f"arch-chroot -S {mnt_point} {cmd}")
-    os.unlink(chroot_path)
+    chroot_path.unlink()
 
 
 def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
@@ -148,7 +147,7 @@ def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
         Defaults    editor=/usr/sbin/nvim, !env_editor
     """)
     sudoers_file.write_text(sudoers_content.strip())
-    os.chmod(sudoers_file, 0o440)
+    sudoers_file.chmod(0o440)
     info(f"Created {sudoers_file} {prt_val} for {user_name}")
 
 
@@ -194,7 +193,7 @@ def systemd_modify(
         entry.write_text("\n".join(new_lines) + "\n")
     loader_file = mnt_point / "boot" / "loader" / "loader.conf"
     loader_file.write_text("default @saved\ntimeout 1\neditor no\n")
-    os.chmod(loader_file, 0o644)
+    loader_file.chmod(0o644)
     info(f"Modified {loader_file}")
 
 
@@ -331,7 +330,6 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.enable_service(sys_services)
         run_cc([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
         configure_sudo(user_name, mountpoint, pwd_require=False)
-        config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
         systemd_modify(mountpoint)
         usr_cmd = [
@@ -388,4 +386,5 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-_minimal()
+# _minimal()
+config_pac_conf(Path("/mnt"))
