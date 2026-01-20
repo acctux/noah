@@ -22,7 +22,6 @@ from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.output import debug, error, info
 from archinstall.tui import Tui
 from noah_lib.conf import (
-    UserSrv,
     sys_services,
     user_name,
     host,
@@ -41,13 +40,11 @@ from noah_lib.conf import (
     user_services,
 )
 from noah_lib.usb_mnt_cp import mnt_cp_keys
-from noah_lib.utils import run_cmd, log
+from noah_lib.utils import run_cmd, log, setup_alacritty_auto, enable_user_services
 
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent / "noah_lib"
 user_home = f"home/{user_name}"
-
-CHROOT_HOME = Path.home()
 
 
 #################-MAIN FUNCTIONS-#################
@@ -72,59 +69,6 @@ def run_cc(
         cmd = f"su - {user_name} -c {shlex.quote(cmd)}"
     SysCommand(f"arch-chroot -S {mnt_point} {cmd}")
     os.unlink(chroot_path)
-
-
-def enable_user_services(user_name: str, mnt_point: Path, groups: list[UserSrv]):
-    base_dir = mnt_point / "home" / user_name / ".config" / "systemd" / "user"
-    for group in groups:
-        dest_dir = base_dir / group.target
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        for service in group.services:
-            link_path = dest_dir / service
-            if link_path.exists() or link_path.is_symlink():
-                link_path.unlink()
-            target = (group.source_dir / service).relative_to(dest_dir.parent)
-            link_path.symlink_to(target)
-
-
-def setup_alacritty_auto(
-    usr: str,
-    user_setup_script: str,
-    mnt_point: Path | None = None,
-) -> None:
-    home = Path(f"/home/{usr}") if mnt_point is None else mnt_point / "home" / usr
-    run_script = home / user_setup_script
-    service_dir = home / ".config" / "systemd" / "user"
-    service_dir.mkdir(parents=True, exist_ok=True)
-    svc_name = f"{run_script.stem}.service"
-    service_path = service_dir / svc_name
-    service_path.write_text(f"""[Unit]
-Description=Open Alacritty running {run_script} on login
-After=graphical-session.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/alacritty -e python {run_script}
-Restart=no
-
-[Install]
-WantedBy=graphical-session.target
-""")
-    if not mnt_point:
-        run_cmd([f"systemctl --user enable {svc_name}"])
-    else:
-        service_path.chmod(0o644)
-        enable_user_services(
-            usr,
-            mnt_point,
-            [
-                UserSrv(
-                    target="graphical-session.target.wants",
-                    services=["pipewire-pulse.service"],
-                    source_dir=(home / ".config" / "systemd" / "user"),
-                )
-            ],
-        )
 
 
 def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
@@ -386,7 +330,6 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         sys_dots(mountpoint, script_dir, sys_cp)
         installation.enable_service(sys_services)
         run_cc([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
-        enable_user_services(user_name, mountpoint, user_services)
         configure_sudo(user_name, mountpoint, pwd_require=False)
         config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
@@ -396,6 +339,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
             f"mkdir -p /{user_home}/.cache/mpd/playlists /{user_home}/.cache/mpd/state",
         ]
         run_cc(usr_cmd, mountpoint, user_name)
+        enable_user_services(user_name, mountpoint, user_services)
         copy_dir(usb_key_dir, mountpoint / user_home / ".ssh")
         copy_dir(wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         copy_scripts(script_dir, "noah_lib", user_name, user_script)
