@@ -309,10 +309,10 @@ DOT_DIR = HOME / "Polka"
 DOCS_DIR = GIT_DIR / "Docs"
 ENC_DIR = DESK_DIR / "Encrypted"
 GIT_USER = "acctux"
-ssh_dir = HOME / ".ssh"
-SSH_KEY = ssh_dir / key_files[0]
+ssh_dir = ".ssh"
+SSH_KEY = HOME / ssh_dir / key_files[0]
 GPG_KEY = f"{ssh_dir}/{key_files[1]}"
-PASSWORD_FILE = ssh_dir / f"{key_files[2]}"
+PASSWORD_FILE = HOME / ssh_dir / f"{key_files[2]}"
 GIT_REPOS = [
     (GIT_DIR, "Docs"),
     (GIT_DIR, "Noah"),

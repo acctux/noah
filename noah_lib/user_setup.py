@@ -273,7 +273,7 @@ def main():
         if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
             install_icon_theme()
         set_folder_icons(HOME, CUSTOM_ICONS)
-        clone_repos(GIT_USER, GIT_REPOS, ssh_dir)
+        clone_repos(GIT_USER, GIT_REPOS, (HOME / ssh_dir))
         deploy_dotfiles(DOTFILES_DIR, HOME, DIRECTORIES_TO_LINK, INDIVIDUAL_DIRS)
         setup_service()
         CACHE_FILE.touch()
