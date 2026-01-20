@@ -248,13 +248,13 @@ def copy_scripts(
     for path in dest.rglob("*"):
         if path.is_symlink():
             continue
-        shutil.chown(path, user=user_name)
         if path.is_dir():
             path.chmod(0o755)
         else:
             path.chmod(0o644)
-    shutil.chown(dest, user=user_name)
     dest.chmod(0o755)
+    cmd = [f"chown -R {user_name}:{user_name} {dest}"]
+    run_cc(cmd, mnt_point, None, True)
 
 
 def enable_user_services(
@@ -418,5 +418,4 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-# _minimal()
-copy_scripts(Path("/mnt"), script_dir, "noah_lib", nl.user_name, nl.user_script)
+_minimal()
