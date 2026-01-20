@@ -5,19 +5,19 @@ import subprocess
 import sys
 import getpass
 import pyperclip
-from noah_lib.utils import get_logger
+from noah_lib.utils import get_logger, run_cmd
 from noah_lib.conf import (
     HOME,
     GIT_USER,
     GIT_REPOS,
     GPG_KEY,
-    KEYS_DIR,
     SSH_KEY,
     ENC_DIR,
     CUSTOM_ICONS,
     DOTFILES_DIR,
     PASSWORD_FILE,
     DIRECTORIES_TO_LINK,
+    ssh_dir,
     INDIVIDUAL_DIRS,
     min_usb_size,
     usb_fs_type,
@@ -26,31 +26,10 @@ from noah_lib.conf import (
     wireguard_dir,
 )
 from noah_lib.usb_mnt_cp import mnt_cp_keys
+from noah_lib.dotsync import deploy_dotfiles
 
 CACHE_FILE = HOME / ".cache" / "first_done"
 log = get_logger("Noah")
-
-
-def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
-    try:
-        log.info(f"Running: {' '.join(cmd)}")
-        result = subprocess.run(
-            cmd,
-            text=True,
-            check=check,
-            capture_output=True,
-            input=input_text,
-        )
-        if result.stdout:
-            log.info(f"stdout: {result.stdout.strip()}")
-        return result
-    except subprocess.CalledProcessError as e:
-        log.error(f"Command failed: {' '.join(cmd)} (exit {e.returncode})")
-        if e.stdout:
-            log.info(f"stdout: {e.stdout.strip()}")
-        if e.stderr:
-            log.error(f"stderr: {e.stderr.strip()}")
-        return e
 
 
 def run_cmd_interactive(cmd: list[str], check: bool = True) -> int:
@@ -78,74 +57,6 @@ def run_sudo_commands():
         result = run_cmd(cmd.split(), True)
         if result and result.returncode != 0:
             log.error(f"Command failed: {cmd}")
-
-
-def link_path(src: Path, dst: Path) -> bool:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    rel = src.relative_to(dst.parent, walk_up=True)
-    if dst.is_symlink() and dst.readlink() == rel:
-        return False
-    if dst.exists():
-        if dst.is_dir() and not dst.is_symlink():
-            shutil.rmtree(dst)
-        else:
-            dst.unlink(missing_ok=True)
-        log.info(f"Removed: {dst}")
-    dst.symlink_to(rel, target_is_directory=src.is_dir())
-    log.info(f"Linked: {dst} → {rel}")
-    return True
-
-
-def dotted_destination(src: Path, source_root: Path, target_root: Path) -> Path:
-    parts = src.relative_to(source_root).parts
-    return target_root / Path("." + parts[0], *parts[1:])
-
-
-def deploy_dotfiles(dotfiles_dir, home_dir, dirs_to_link, individual_dirs):
-    linked = skipped = 0
-    if not dotfiles_dir.is_dir():
-        log.error(f"Dotfiles directory does not exist: {dotfiles_dir}")
-        return
-    for src in dotfiles_dir.rglob("*"):
-        if not src.is_file():
-            skipped += 1
-            continue
-        if src.relative_to(dotfiles_dir).as_posix().startswith(".git") or any(
-            src.relative_to(dotfiles_dir).is_relative_to(Path(d)) for d in dirs_to_link
-        ):
-            skipped += 1
-            continue
-        dst = dotted_destination(src, dotfiles_dir, home_dir)
-        if link_path(src, dst):
-            linked += 1
-        else:
-            skipped += 1
-    for d in dirs_to_link:
-        src = dotfiles_dir / d
-        if not src.is_dir():
-            log.error(f"{src} not found.")
-            continue
-        dst = dotted_destination(src, dotfiles_dir, home_dir)
-        if link_path(src, dst):
-            linked += 1
-        else:
-            skipped += 1
-    for src_dir, dst_dir in individual_dirs:
-        if not src_dir.is_dir():
-            log.error(f"Directory does not exist: {src_dir}")
-            continue
-        for src_file in src_dir.rglob("*"):
-            if not src_file.is_file():
-                continue
-            dst_file = dst_dir / src_file.relative_to(src_dir)
-            if link_path(src_file, dst_file):
-                linked += 1
-            else:
-                skipped += 1
-    if shutil.which("hyprctl"):
-        subprocess.run(["hyprctl", "reload"], check=False)
-        log.info("Hyprland reloaded")
-    log.info(f"Linked:{linked} | Skipped: {skipped}")
 
 
 def import_ssh_key(key_path: Path):
@@ -340,7 +251,7 @@ def main():
         if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
             install_icon_theme()
         set_folder_icons(HOME, CUSTOM_ICONS)
-        clone_repos(GIT_USER, GIT_REPOS, KEYS_DIR)
+        clone_repos(GIT_USER, GIT_REPOS, ssh_dir)
         deploy_dotfiles(DOTFILES_DIR, HOME, DIRECTORIES_TO_LINK, INDIVIDUAL_DIRS)
         setup_service()
         CACHE_FILE.touch()

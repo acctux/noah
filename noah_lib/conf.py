@@ -21,15 +21,7 @@ key_files = ["id_ed25519", "my_sec_gpg.asc", "pass.txt", "pass.py"]
 usb_fs_type = "exfat"
 min_usb_size = "20G"
 #############-GROUPS-#############
-groups = [
-    "audio",
-    "games",
-    "gamemode",
-    "log",
-    "realtime",
-    "storage",
-    "video",
-]
+groups = ["audio", "games", "gamemode", "log", "realtime", "storage", "video"]
 pkgs = [
     ############-Amd-############
     "mesa",
