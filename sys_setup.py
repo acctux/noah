@@ -330,8 +330,10 @@ def copy_scripts(
     dest.chmod(0o755)
 
 
-def get_password(ssh_dir, key_files, user_name) -> str:
-    key_path = Path(f"/root/{ssh_dir}/{key_files[3]}")
+def get_password(
+    mnt_point: Path, user_home: str, ssh_dir: str, key_files: list[str], user_name: str
+) -> str:
+    key_path = mnt_point / user_home / ssh_dir / key_files[3]
 
     def prompt_password() -> str:
         while True:
@@ -365,9 +367,9 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    pw = get_password(ssh_dir, key_files, user_name)
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
+        pw = get_password(mountpoint, user_home, ssh_dir, key_files, user_name)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()
