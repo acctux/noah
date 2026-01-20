@@ -3,10 +3,8 @@ import getpass
 from pathlib import Path
 import shlex
 import shutil
-import textwrap
 from noah_lib.conf import UserSrv
 from noah_lib.utils import get_logger
-from noah_lib.utils import run_cmd
 from archinstall.lib.installer import SysCommand
 
 log = get_logger("User")
@@ -33,162 +31,6 @@ def run_cc(
         cmd = f"su - {user_name} -c {shlex.quote(cmd)}"
     SysCommand(f"arch-chroot -S {mnt_point} {cmd}")
     chroot_path.unlink()
-
-
-def sys_dots(
-    mnt_point: Path,
-    script_dir: Path,
-    sys_dir_cp: list[str],
-):
-    for dir_name in sys_dir_cp:
-        source_dir = script_dir / dir_name
-        target_dir = mnt_point / dir_name
-        log.info("Processing %s -> %s", source_dir, target_dir)
-        if not source_dir.exists():
-            log.error("Source directory not found: %s", source_dir)
-            continue
-        try:
-            shutil.copytree(
-                source_dir,
-                target_dir,
-                dirs_exist_ok=True,
-                copy_function=shutil.copy2,
-            )
-            log.info("Copied %s to %s", source_dir, target_dir)
-        except Exception:
-            log.exception("Failed copying %s to %s", source_dir, target_dir)
-
-
-def chaotic_repo(mnt_point: Path | None = None):
-    log.info("Setting up Chaotic-AUR repository.")
-    chaotic_key_id = "3056513887B78AEB"
-    key_serv = "keyserver.ubuntu.com"
-    chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-    cmds_setup = [
-        ["pacman-key", "--init"],
-        ["pacman-key", "--recv-key", chaotic_key_id, "--keyserver", key_serv],
-        ["pacman-key", "--lsign-key", chaotic_key_id],
-        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
-        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
-    ]
-    cmds_update = ["pacman", "-Sy"]
-    if mnt_point:
-        for cmd in cmds_setup:
-            run_cc([" ".join(cmd)], mnt_point)
-        pacman_conf = mnt_point / "etc/pacman.conf"
-        run_cc([" ".join(cmds_update)], mnt_point)
-    else:
-        for cmd in cmds_setup:
-            run_cmd(cmd, check=True)
-        pacman_conf = Path("/etc/pacman.conf")
-        run_cmd(cmds_update, check=True)
-    section = "[chaotic-aur]"
-    content = pacman_conf.read_text()
-    if section not in content:
-        with pacman_conf.open("a") as f:
-            f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
-
-
-def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
-    sudoers_file = mnt_point / f"etc/sudoers.d/00_{user_name}"
-    if not pwd_require:
-        sudoers_line = f"{user_name} ALL=(ALL:ALL) NOPASSWD:ALL"
-        prt_val = "without password requirement"
-    else:
-        sudoers_line = f"{user_name} ALL=(ALL:ALL) ALL"
-        prt_val = "with password requirement"
-    sudoers_content = textwrap.dedent(f"""\
-        {sudoers_line}
-        Defaults    insults
-        Defaults    passwd_tries=10
-        Defaults    lecture=never
-        Defaults    passwd_timeout=0
-        Defaults    timestamp_timeout=20
-        Defaults    timestamp_type=global
-        Defaults    editor=/usr/sbin/nvim, !env_editor
-    """)
-    sudoers_file.write_text(sudoers_content.strip())
-    sudoers_file.chmod(0o440)
-    log.info(f"Created {sudoers_file} {prt_val} for {user_name}")
-
-
-def modify_fstab(mnt_point: Path) -> None:
-    fstab = mnt_point / "etc" / "fstab"
-    out = []
-    for line in fstab.read_text().splitlines():
-        s = line.strip()
-        if not s or s.startswith("#"):
-            out.append(line)
-            continue
-        parts = line.split()
-        if len(parts) < 6:
-            out.append(line)
-            continue
-        opts = parts[3].split(",")
-        for i, opt in enumerate(opts):
-            if opt.startswith("fmask="):
-                opts[i] = "fmask=0077"
-            elif opt.startswith("dmask="):
-                opts[i] = "dmask=0077"
-        parts[3] = ",".join(opts)
-        out.append("\t".join(parts))
-    fstab.write_text("\n".join(out) + "\n")
-
-
-def modify_systemd(
-    mnt_point: Path,
-    boot_opts: list[str] = ["quiet", "splash"],
-) -> None:
-    entries_dir = mnt_point / "boot" / "loader" / "entries"
-    for entry in entries_dir.iterdir():
-        lines = entry.read_text().splitlines()
-        new_lines = []
-        for line in lines:
-            if line.startswith("options "):
-                existing_opts = line[len("options ") :].split()
-                for opt in boot_opts:
-                    if opt not in existing_opts:
-                        existing_opts.append(opt)
-                line = "options " + " ".join(existing_opts)
-            new_lines.append(line)
-        entry.write_text("\n".join(new_lines) + "\n")
-    loader_file = mnt_point / "boot" / "loader" / "loader.conf"
-    loader_file.write_text("default @saved\ntimeout 1\neditor no\n")
-    loader_file.chmod(0o644)
-    log.info(f"Modified {loader_file}")
-
-
-def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10):
-    pacman_content = textwrap.dedent(f"""\
-        [options]
-        HoldPkg     = pacman glibc
-        Architecture = auto
-        Color
-        ILoveCandy
-        ParallelDownloads = {parallel_downloads}
-        DownloadUser = alpm
-        SigLevel    = Required DatabaseOptional
-        LocalFileSigLevel = Optional
-        NoExtract = /etc/xdg/autostart/firewall-applet.desktop
-        NoExtract = /usr/share/icons/capitaine-cursors/*
-
-        [core]
-        Include = /etc/pacman.d/mirrorlist
-
-        [extra]
-        Include = /etc/pacman.d/mirrorlist
-
-        [multilib]
-        Include = /etc/pacman.d/mirrorlist
-    """)
-    pacman_conf_path = Path("/etc/pacman.conf")
-    if mnt_point:
-        pacman_conf_path = mnt_point / "etc/pacman.conf"
-    pacman_conf_path.write_text(pacman_content.strip())
-    if mnt_point:
-        run_cc(["pacman -Sy"], mnt_point)
-    else:
-        run_cmd(["pacman", "-Sy"], True)
 
 
 def copy_dir(dir: str, dest: Path, set_root: bool = False):
@@ -221,6 +63,29 @@ def copy_file_list(key_files: list[str], usb_key_dir: str, dest: Path):
         shutil.copy2(src_file, dest_file)
         if name in key_files[:2]:
             dest_file.chmod(0o600)
+
+
+def modify_systemd(
+    mnt_point: Path,
+    boot_opts: list[str] = ["quiet", "splash"],
+) -> None:
+    entries_dir = mnt_point / "boot" / "loader" / "entries"
+    for entry in entries_dir.iterdir():
+        lines = entry.read_text().splitlines()
+        new_lines = []
+        for line in lines:
+            if line.startswith("options "):
+                existing_opts = line[len("options ") :].split()
+                for opt in boot_opts:
+                    if opt not in existing_opts:
+                        existing_opts.append(opt)
+                line = "options " + " ".join(existing_opts)
+            new_lines.append(line)
+        entry.write_text("\n".join(new_lines) + "\n")
+    loader_file = mnt_point / "boot" / "loader" / "loader.conf"
+    loader_file.write_text("default @saved\ntimeout 1\neditor no\n")
+    loader_file.chmod(0o644)
+    log.info(f"Modified {loader_file}")
 
 
 def copy_scripts(

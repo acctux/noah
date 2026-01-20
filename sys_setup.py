@@ -12,18 +12,15 @@ from archinstall.lib.interactions.general_conf import (
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.tui import Tui
 import noah_lib.conf as nl
+from noah_lib.sys_pac import chaotic_repo, config_pac_conf
+from noah_lib.sys_etc import configure_sudo, modify_fstab, sys_dots
 from noah_lib.sys_functions import (
-    chaotic_repo,
-    config_pac_conf,
-    configure_sudo,
     copy_dir,
     copy_file_list,
     copy_scripts,
     enable_user_services,
     ensure_password,
-    modify_fstab,
     run_cc,
-    sys_dots,
     modify_systemd,
     user_service_file,
 )
@@ -58,30 +55,24 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
                 installation.generate_key_files()
         installation.setup_swap()
         installation.minimal_installation([], True, nl.host, nl.my_locale)
-
         installation.add_additional_packages("reflector")
         ref_cmd = f"reflector {' '.join(nl.refl_opts)} --save /etc/pacman.d/mirrorlist"
         run_cc([ref_cmd], mountpoint)
-
         installation.add_bootloader(Bootloader.Systemd)
         modify_systemd(mountpoint)
-
         installation.copy_iso_network_config(enable_services=False)
         installation.set_timezone("US/Eastern")
-
         config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
         installation.add_additional_packages(nl.pkgs)
         sys_dots(mountpoint, script_dir, nl.sys_cp)
         installation.enable_service(nl.sys_services)
         run_cc([f"systemctl disable {' '.join(nl.disable_svcs)}"], mountpoint)
-
         installation.create_users(User(nl.user_name, Password(pw), True, nl.groups))
         configure_sudo(nl.user_name, mountpoint, pwd_require=False)
         usr_cmd = ["xdg-user-dirs-update", f"mkdir -p /{user_home}/.cache/mpd"]
         run_cc(usr_cmd, mountpoint, nl.user_name)
         enable_user_services(user_home, nl.user_services, mountpoint, nl.user_name)
-
         copy_file_list(nl.key_files, nl.usb_key_dir, nl.HOME)
         copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         copy_scripts(mountpoint, script_dir, "noah_lib", nl.user_name, nl.user_script)
