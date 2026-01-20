@@ -225,7 +225,7 @@ def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10)
         pacman_conf_path = mnt_point / "etc/pacman.conf"
     pacman_conf_path.write_text(pacman_content.strip())
     if mnt_point:
-        run_cc(["pacman", "-Sy"], mnt_point)
+        run_cc(["pacman -Sy"], mnt_point)
     else:
         run_cmd(["pacman", "-Sy"], True)
 
@@ -330,6 +330,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.enable_service(sys_services)
         run_cc([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
         configure_sudo(user_name, mountpoint, pwd_require=False)
+        config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
         systemd_modify(mountpoint)
         usr_cmd = [
@@ -387,4 +388,3 @@ def _minimal() -> None:
 
 
 # _minimal()
-config_pac_conf(Path("/mnt"))
