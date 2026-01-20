@@ -30,7 +30,6 @@ from noah_lib.conf import (
     reflector_opts,
     my_locale,
     user_script,
-    ssh_dir,
     sys_cp,
     usb_key_dir,
     wireguard_dir,
@@ -367,7 +366,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
     disk_config = config.disk_config
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
-        pw = get_password(ssh_dir, key_files, user_name)
+        pw = get_password(usb_key_dir, key_files, user_name)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()
