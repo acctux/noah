@@ -5,6 +5,7 @@ import shlex
 import shutil
 import getpass
 import textwrap
+import time
 from archinstall.lib.args import (
     Password,
     User,
@@ -29,6 +30,7 @@ from noah_lib.conf import (
     reflector_opts,
     my_locale,
     user_script,
+    ssh_dir,
     sys_cp,
     usb_key_dir,
     wireguard_dir,
@@ -328,19 +330,32 @@ def copy_scripts(
     dest.chmod(0o755)
 
 
-def load_password(key_dir: str, pass_file: str) -> str | None:
-    file_path = CHROOT_HOME / key_dir / pass_file
-    if file_path.exists():
+def get_password(ssh_dir, key_files, user_name) -> str:
+    key_path = Path(f"/root/{ssh_dir}/{key_files[3]}")
+
+    def prompt_password() -> str:
+        while True:
+            pwd1 = getpass.getpass(f"Enter password for {user_name}: ")
+            pwd2 = getpass.getpass("Re-enter password: ")
+            if not pwd1:
+                print("Password cannot be empty. Try again.")
+                continue
+            if pwd1 != pwd2:
+                print("Passwords do not match. Try again.")
+                continue
+            return pwd1
+
+    if key_path.exists():
         try:
-            password = file_path.read_text().strip()
-            log.info(f"Password loaded from '{file_path}'.")
-            return password
+            pw = key_path.read_text().strip()
+            log.info(f"Password loaded from '{key_path}'.")
+            log.info(f"found {pw}")
+            time.sleep(20)
+            return pw
         except Exception as e:
-            log.error(f"Failed to read password from:'{file_path}': {e}")
-            return None
-    else:
-        log.warning(f"Password file '{file_path}' not found.")
-        return None
+            log.error(f"Failed to read password from '{key_path}': {e}")
+    log.warning(f"Password file '{key_path}' not found or unreadable.")
+    return prompt_password()
 
 
 ##############################################################
@@ -350,8 +365,8 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    if Path(f"/root/{key_files[3]}").exists():
-        pw = load_password(".ssh", key_files[3])
+    if Path(f"/root/{ssh_dir}/{key_files[3]}").exists():
+        pw = get_password(ssh_dir, key_files, user_name)
         import time
 
         log.info(f"found {pw}")
