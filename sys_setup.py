@@ -147,19 +147,32 @@ def chaotic_repo(
     key_serv = "keyserver.ubuntu.com"
     chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur"
     cmds_setup = [
-        "pacman-key --init",
-        f"pacman-key --recv-key {chaotic_key_id} --keyserver {key_serv}",
-        f"pacman-key --lsign-key {chaotic_key_id}",
-        f"pacman -U --noconfirm --needed {chaotic_web}/chaotic-keyring.pkg.tar.zst",
-        f"pacman -U --noconfirm --needed {chaotic_web}/chaotic-mirrorlist.pkg.tar.zst",
+        ["pacman-key", "--init"],
+        ["pacman-key", "--recv-key", chaotic_key_id, "--keyserver", key_serv],
+        ["pacman-key", "--lsign-key", chaotic_key_id],
+        [
+            "pacman",
+            "-U",
+            "--noconfirm",
+            "--needed",
+            f"{chaotic_web}/chaotic-keyring.pkg.tar.zst",
+        ],
+        [
+            "pacman",
+            "-U",
+            "--noconfirm",
+            "--needed",
+            f"{chaotic_web}/chaotic-mirrorlist.pkg.tar.zst",
+        ],
     ]
     cmds_update = ["pacman", "-Sy"]
     if mnt_point:
-        run_cc(cmds_setup, mnt_point)
+        for cmd in cmds_setup:
+            run_cc(cmd, mnt_point)
         pacman_conf = mnt_point / "etc/pacman.conf"
     else:
         for c in cmds_setup:
-            run_cmd([c], check=True)
+            run_cmd(c, check=True)
         pacman_conf = Path("/etc/pacman.conf")
     section = "[chaotic-aur]"
     content = pacman_conf.read_text()
