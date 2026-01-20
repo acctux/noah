@@ -24,7 +24,6 @@ from noah_lib.usb_mnt_cp import mnt_cp_keys
 from noah_lib.utils import (
     run_cmd,
     get_logger,
-    setup_alacritty_auto,
 )
 from noah_lib.conf import UserSrv
 
@@ -272,7 +271,7 @@ def enable_user_services(
     run_cc(commands, mnt_point, user_name)
 
 
-def create_alacritty_service_file(
+def user_service_file(
     usr: str,
     user_setup_script: str,
     mnt_point: Path | None = None,
@@ -375,7 +374,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         copy_dir(nl.usb_key_dir, mountpoint / user_home / ".ssh")
         copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         copy_scripts(script_dir, "noah_lib", nl.user_name, nl.user_script)
-        setup_alacritty_auto(nl.user_name, nl.user_script, mountpoint)
+        user_service_file(nl.user_name, nl.user_script, mountpoint)
         run_cc([f"chown -R {nl.user_name}:{nl.user_name} /{user_home}"], mountpoint)
         installation.genfstab()
         modify_fstab(mountpoint)
