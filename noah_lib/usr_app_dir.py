@@ -57,7 +57,7 @@ def set_folder_icons(home, custom_icons):
             )
 
 
-def hide_linux_app_icons(applications: list[str]):
+def hide_app_icons(applications: list[str]):
     system_dir = Path("/usr/share/applications")
     user_dir = HOME / ".local" / "share" / "applications"
     user_dir.mkdir(parents=True, exist_ok=True)

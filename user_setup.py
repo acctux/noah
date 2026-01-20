@@ -7,10 +7,10 @@ from noah_lib.utils import get_logger, run_cmd
 import noah_lib.conf as nl
 from noah_lib.usb_mnt_cp import mnt_cp_keys
 from noah_lib.usr_key_crypt import import_ssh_key, import_gpg_key, initialize_gocrypt
-from noah_lib.usr_icon_folders import (
+from noah_lib.usr_app_dir import (
     install_icon_theme,
     set_folder_icons,
-    hide_linux_app_icons,
+    hide_app_icons,
     clone_repos,
 )
 from noah_lib.dotsync import deploy_dotfiles
@@ -19,7 +19,7 @@ CACHE_FILE = nl.HOME / ".cache" / "first_done"
 log = get_logger("Noah")
 
 
-def run_cmd_interactive(cmd: list[str], check: bool = True) -> int:
+def run_interactive(cmd: list[str], check: bool = True) -> int:
     log.info(f"Running (interactive): {' '.join(cmd)}")
     proc = subprocess.Popen(
         cmd,
@@ -100,7 +100,7 @@ def main():
             nl.wireguard_dir,
         )
         cmd = ["chsh", "-s", "/usr/bin/zsh"]
-        run_cmd_interactive(cmd)
+        run_interactive(cmd)
         run_sudo_commands()
         if nl.ssh_key.exists():
             import_ssh_key(nl.ssh_key)
@@ -111,7 +111,7 @@ def main():
             install_icon_theme()
         set_folder_icons(nl.HOME, nl.dir_icons)
         clone_repos(nl.git_user, nl.git_repos, nl.ssh_dir)
-        hide_linux_app_icons(nl.hide_apps)
+        hide_app_icons(nl.hide_apps)
         deploy_dotfiles(nl.dots_dir, nl.HOME, nl.dirs_to_link, nl.ind_dirs)
         setup_service()
         CACHE_FILE.touch()
@@ -123,7 +123,7 @@ def main():
         pass_and_input(nl.HOME / nl.ssh_dir / f"{nl.key_files[2]}")
         launch_apps()
         cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
-        run_cmd_interactive(cmd)
+        run_interactive(cmd)
 
 
 if __name__ == "__main__":
