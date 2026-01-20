@@ -1,7 +1,9 @@
 from pathlib import Path
 import shutil
 import subprocess
-from utils import log
+from noah_lib.utils import get_logger
+
+log = get_logger("Noah")
 
 
 def link_path(src: Path, dst: Path) -> bool:

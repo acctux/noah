@@ -228,19 +228,22 @@ def copy_dir(dir: str, dest: Path, set_root: bool = False):
 
 
 def copy_scripts(
+    mnt_point: Path,
     script_dir: Path,
     lib_dir: str,
     user_name: str,
     user_script: str,
-    dest=Path(f"/{user_home}"),
+    dest: Path | None = None,
 ):
+    if dest is None:
+        dest = mnt_point / f"/home/{user_name}"
     src_dir = script_dir / lib_dir
     if not src_dir.is_dir():
-        log.error(f"{src_dir} does not exist")
+        raise FileNotFoundError(f"{src_dir} does not exist")
     shutil.copytree(src_dir, dest, dirs_exist_ok=True)
     src_file = script_dir / user_script
     if not src_file.is_file():
-        log.error(f"{src_file} does not exist")
+        raise FileNotFoundError(f"{src_file} does not exist")
     shutil.copy2(src_file, dest / src_file.name)
     for path in dest.rglob("*"):
         if path.is_symlink():
@@ -276,18 +279,12 @@ def user_service_file(
     user_setup_script: str,
     mnt_point: Path | None = None,
 ) -> Path:
-    """
-    Creates a systemd service file for running Alacritty with the given script.
-    Returns the path to the created service file.
-    """
     home = Path(f"/home/{usr}") if mnt_point is None else mnt_point / "home" / usr
     run_script = home / user_setup_script
     service_dir = home / ".config" / "systemd" / "user"
     service_dir.mkdir(parents=True, exist_ok=True)
-
     svc_name = f"{run_script.stem}.service"
     service_path = service_dir / svc_name
-
     service_path.write_text(f"""[Unit]
 Description=Open Alacritty running {run_script} on login
 After=graphical-session.target
@@ -373,7 +370,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         enable_user_services(user_home, nl.user_services, mountpoint, nl.user_name)
         copy_dir(nl.usb_key_dir, mountpoint / user_home / ".ssh")
         copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
-        copy_scripts(script_dir, "noah_lib", nl.user_name, nl.user_script)
+        copy_scripts(mountpoint, script_dir, "noah_lib", nl.user_name, nl.user_script)
         user_service_file(nl.user_name, nl.user_script, mountpoint)
         run_cc([f"chown -R {nl.user_name}:{nl.user_name} /{user_home}"], mountpoint)
         installation.genfstab()
@@ -421,4 +418,5 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-_minimal()
+# _minimal()
+copy_scripts(Path("/mnt"), script_dir, "noah_lib", nl.user_name, nl.user_script)
