@@ -330,10 +330,8 @@ def copy_scripts(
     dest.chmod(0o755)
 
 
-def get_password(
-    mnt_point: Path, user_home: str, ssh_dir: str, key_files: list[str], user_name: str
-) -> str:
-    key_path = mnt_point / user_home / ssh_dir / key_files[3]
+def get_password(usb_key_dir: str, key_files: list[str], user_name: str) -> str:
+    key_path = Path("/root") / usb_key_dir / key_files[3]
 
     def prompt_password() -> str:
         while True:
@@ -369,7 +367,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
     disk_config = config.disk_config
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
-        pw = get_password(mountpoint, user_home, ssh_dir, key_files, user_name)
+        pw = get_password(ssh_dir, key_files, user_name)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()
