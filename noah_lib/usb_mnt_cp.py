@@ -131,21 +131,6 @@ def usb_cp_folder(usb_mount, folder_name):
             log.error(f"Failed to copy folder {folder_name} from USB: {e}")
 
 
-def load_password(usb_mnt: Path, key_dir: str, pass_file: str) -> str | None:
-    file_path = Path(usb_mnt / key_dir / pass_file)
-    if file_path.exists():
-        try:
-            password = file_path.read_text().strip()
-            log.info(f"Password loaded from '{file_path}'.")
-            return password
-        except Exception as e:
-            log.error(f"Failed to read password from:'{file_path}': {e}")
-            return None
-    else:
-        log.warning(f"Password file '{file_path}' not found.")
-        return None
-
-
 def unmount_partition(usb_mount: Path):
     result = run_cmd(["mountpoint", "-q", f"{usb_mount}"], check=False)
     if result.returncode == 0:
@@ -172,13 +157,8 @@ def mnt_cp_keys(
             mnt_keys_partition(usb_mnt, min_size, usb_fs_type)
             if key_dir and key_files:
                 usb_cp_keys(usb_mnt, key_dir, key_files)
-            if key_dir and pass_file:
-                user_pass = load_password(usb_mnt, key_dir, pass_file)
-            else:
-                user_pass = None
             if wireguard_dir:
                 usb_cp_folder(usb_mnt, wireguard_dir)
             unmount_partition(usb_mnt)
-            return user_pass
     else:
         log.info("All required files present.")

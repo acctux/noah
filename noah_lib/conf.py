@@ -17,7 +17,7 @@ sys_cp = ["etc", "usr"]
 ###########-USB FILES-###########
 usb_key_dir = "keys"
 wireguard_dir = "wireguard"
-key_files = ["id_ed25519", "my_sec_gpg.asc", "pass.txt"]
+key_files = ["id_ed25519", "my_sec_gpg.asc", "pass.txt", "pass.py"]
 usb_fs_type = "exfat"
 min_usb_size = "20G"
 #############-GROUPS-#############

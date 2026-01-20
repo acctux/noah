@@ -45,6 +45,8 @@ from noah_lib.utils import run_cmd, log, ask_pass
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent / "noah_lib"
 user_home = f"home/{user_name}"
+ref_cmd = [f"reflector {' '.join(reflector_opts)} --save /etc/pacman.d/mirrorlist"]
+CHROOT_HOME = Path.home()
 
 
 #################-MAIN FUNCTIONS-#################
@@ -313,6 +315,21 @@ def copy_scripts(
     dest.chmod(0o755)
 
 
+def load_password(key_dir: str, pass_file: str) -> str | None:
+    file_path = CHROOT_HOME / key_dir / pass_file
+    if file_path.exists():
+        try:
+            password = file_path.read_text().strip()
+            log.info(f"Password loaded from '{file_path}'.")
+            return password
+        except Exception as e:
+            log.error(f"Failed to read password from:'{file_path}': {e}")
+            return None
+    else:
+        log.warning(f"Password file '{file_path}' not found.")
+        return None
+
+
 ##############################################################
 def perform_installation(mountpoint=Path("/mnt")) -> None:
     config = arch_config_handler.config
@@ -320,13 +337,11 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    ref_cmd = [f"reflector {' '.join(reflector_opts)} --save /etc/pacman.d/mirrorlist"]
-    pw = mnt_cp_keys(min_usb_size, usb_fs_type, usb_key_dir, key_files, wireguard_dir)
-    if not pw:
-        pw = ask_pass()
-    run_cmd(ref_cmd)
-    config_pac_conf()
-    chaotic_repo()
+    pw = ""
+    if (CHROOT_HOME / key_files[3]).exists():
+        pw = load_password(".ssh", key_files[3])
+        if not pw or pw == "":
+            pw = ask_pass()
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -401,6 +416,13 @@ def _minimal() -> None:
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         fs_handler.perform_filesystem_operations()
+    ref_cmd = [f"reflector {' '.join(reflector_opts)} --save /etc/pacman.d/mirrorlist"]
+    pw = mnt_cp_keys(min_usb_size, usb_fs_type, usb_key_dir, key_files, wireguard_dir)
+    if not pw:
+        pw = ask_pass()
+    run_cmd(ref_cmd)
+    config_pac_conf()
+    chaotic_repo()
     perform_installation(Path("/mnt"))
 
 
