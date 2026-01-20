@@ -430,5 +430,4 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-# _minimal()
-sys_dots(Path("/mnt"), script_dir, nl.sys_cp)
+_minimal()
