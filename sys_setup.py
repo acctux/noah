@@ -182,8 +182,7 @@ def chaotic_repo(
     if mnt_point:
         run_cc(cmds_update, mnt_point)
     else:
-        for c in cmds_update:
-            run_cmd([c], check=True)
+        run_cmd(cmds_update, check=True)
 
 
 def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
