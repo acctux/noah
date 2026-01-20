@@ -55,17 +55,10 @@ def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
         return e
 
 
-def enable_user_services(user_name: str, mnt_point: Path, groups: list[UserSrv]):
+def enable_user_services(user_home: str, mnt_point: Path, groups: list[UserSrv]):
+    base_dir = mnt_point / user_home / ".config" / "systemd" / "user"
     for group in groups:
-        dest_dir = (
-            mnt_point
-            / "home"
-            / user_name
-            / ".config"
-            / "systemd"
-            / "user"
-            / group.target
-        )
+        dest_dir = base_dir / group.target
         dest_dir.mkdir(parents=True, exist_ok=True)
         for service in group.services:
             link_path = dest_dir / service

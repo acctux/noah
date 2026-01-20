@@ -339,7 +339,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
             f"mkdir -p /{user_home}/.cache/mpd/playlists /{user_home}/.cache/mpd/state",
         ]
         run_cc(usr_cmd, mountpoint, user_name)
-        enable_user_services(user_name, mountpoint, user_services)
+        enable_user_services(user_home, mountpoint, user_services)
         copy_dir(usb_key_dir, mountpoint / user_home / ".ssh")
         copy_dir(wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         copy_scripts(script_dir, "noah_lib", user_name, user_script)
