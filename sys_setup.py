@@ -28,13 +28,11 @@ from noah_lib.sys_files import (
 from noah_lib.sys_functions import copy_dir, ensure_password, run_cc, modify_systemd
 from noah_lib.usb_mnt_cp import mnt_cp_keys
 
-###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent
 user_home = f"home/{nl.user_name}"
 log = get_logger("Noah")
 
 
-##############################################################
 def perform_installation(mountpoint=Path("/mnt")) -> None:
     config = arch_config_handler.config
     if not config.disk_config:
@@ -44,7 +42,6 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
         pw = ensure_password(nl.usb_key_dir, nl.key_files, nl.user_name)
-
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()
