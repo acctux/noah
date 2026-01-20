@@ -57,16 +57,28 @@ def run_cc(
     chroot_path.unlink()
 
 
-def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
+def sys_dots(
+    mnt_point: Path,
+    script_dir: Path,
+    sys_dir_cp: list[str],
+):
     for dir_name in sys_dir_cp:
         source_dir = script_dir.parent / dir_name
         target_dir = mnt_point / dir_name
+        log.info("Processing %s -> %s", source_dir, target_dir)
         if not source_dir.exists():
-            log.error(f"{source_dir} not found.")
+            log.error("Source directory not found: %s", source_dir)
             continue
-        shutil.copytree(
-            source_dir, target_dir, dirs_exist_ok=True, copy_function=shutil.copy2
-        )
+        try:
+            shutil.copytree(
+                source_dir,
+                target_dir,
+                dirs_exist_ok=True,
+                copy_function=shutil.copy2,
+            )
+            log.info("Copied %s to %s", source_dir, target_dir)
+        except Exception:
+            log.exception("Failed copying %s to %s", source_dir, target_dir)
 
 
 def chaotic_repo(mnt_point: Path | None = None):
