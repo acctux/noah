@@ -357,6 +357,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         log.info(f"found {pw}")
         time.sleep(20)
     else:
+        log.info(f"/root/{key_files[3]}")
         pw = ask_pass()
     if not pw:
         pw = getpass.getpass(f"Enter password for {user_name}: ")
