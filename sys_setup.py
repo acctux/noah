@@ -129,7 +129,7 @@ WantedBy=graphical-session.target
 
 def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
     for dir_name in sys_dir_cp:
-        source_dir = script_dir / dir_name
+        source_dir = script_dir.parent / dir_name
         target_dir = mnt_point / dir_name
         if not source_dir.exists():
             log.error(f"{source_dir} not found.")
