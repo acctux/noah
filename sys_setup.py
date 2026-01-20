@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+
 from archinstall.lib.args import Password, User, arch_config_handler
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
@@ -11,18 +12,20 @@ from archinstall.lib.interactions.general_conf import (
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.tui import Tui
-import noah_lib.conf as nl
+
+import conf as nl
+from utils import run_cmd, get_logger
+
 from noah_lib.sys_pac import chaotic_repo, config_pac_conf
 from noah_lib.sys_etc import configure_sudo, modify_fstab, sys_dots
-from noah_lib.sys_pass_files import (
+from noah_lib.sys_files import (
     copy_file_list,
     copy_scripts,
     enable_user_services,
-    user_service_file,
+    user_service,
 )
 from noah_lib.sys_functions import copy_dir, ensure_password, run_cc, modify_systemd
 from noah_lib.usb_mnt_cp import mnt_cp_keys
-from noah_lib.utils import run_cmd, get_logger
 
 ###########-SET VARS-###########
 script_dir = Path(__file__).resolve().parent
@@ -82,7 +85,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
         copy_file_list(nl.key_files, nl.usb_key_dir, nl.HOME)
         copy_scripts(mountpoint, script_dir, "noah_lib", nl.user_name, nl.user_script)
-        user_service_file(nl.user_name, nl.user_script, mountpoint)
+        user_service(nl.user_name, nl.user_script, mountpoint)
         run_cc([f"chown -R {nl.user_name}:{nl.user_name} /{user_home}"], mountpoint)
 
         installation.genfstab()

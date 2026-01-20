@@ -3,7 +3,7 @@ import getpass
 from pathlib import Path
 import shlex
 import shutil
-from noah_lib.utils import get_logger
+from utils import get_logger
 from archinstall.lib.installer import SysCommand
 
 log = get_logger("User")

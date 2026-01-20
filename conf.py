@@ -1,6 +1,6 @@
 from pathlib import Path
 from archinstall.lib.args import LocaleConfiguration
-from noah_lib.utils import UserSrv
+from utils import UserSrv
 
 user_name = "nick"
 host = "yulia"

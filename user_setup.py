@@ -3,8 +3,8 @@ from pathlib import Path
 import subprocess
 import sys
 import pyperclip
-from noah_lib.utils import get_logger, run_cmd
-import noah_lib.conf as nl
+from utils import get_logger, run_cmd
+import conf as nl
 from noah_lib.usb_mnt_cp import mnt_cp_keys
 from noah_lib.usr_key_crypt import import_ssh_key, import_gpg_key, initialize_gocrypt
 from noah_lib.usr_app_dir import (

@@ -1,7 +1,7 @@
 from pathlib import Path
 import shutil
 import subprocess
-from noah_lib.utils import get_logger
+from utils import get_logger
 
 log = get_logger("Noah")
 

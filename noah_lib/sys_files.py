@@ -1,13 +1,13 @@
 from pathlib import Path
 import shutil
-from noah_lib.conf import UserSrv
+from utils import UserSrv
 from noah_lib.sys_functions import run_cc
-from noah_lib.utils import get_logger
+from utils import get_logger
 
 log = get_logger("User")
 
 
-def user_service_file(
+def user_service(
     usr: str,
     user_setup_script: str,
     mnt_point: Path | None = None,

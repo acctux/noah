@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 import getpass
-from noah_lib.utils import get_logger, run_cmd
+from utils import get_logger, run_cmd
 
 log = get_logger("Noah")
 
