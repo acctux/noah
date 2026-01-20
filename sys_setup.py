@@ -5,7 +5,6 @@ import shlex
 import shutil
 import getpass
 import textwrap
-import time
 from archinstall.lib.args import (
     Password,
     User,
@@ -336,11 +335,8 @@ def get_password(usb_key_dir: str, key_files: list[str], user_name: str) -> str:
         while True:
             pwd1 = getpass.getpass(f"Enter password for {user_name}: ")
             pwd2 = getpass.getpass("Re-enter password: ")
-            if not pwd1:
-                print("Password cannot be empty. Try again.")
-                continue
-            if pwd1 != pwd2:
-                print("Passwords do not match. Try again.")
+            if not pwd1 or pwd1 != pwd2:
+                print("Try again.")
                 continue
             return pwd1
 
@@ -348,8 +344,6 @@ def get_password(usb_key_dir: str, key_files: list[str], user_name: str) -> str:
         try:
             pw = key_path.read_text().strip()
             log.info(f"Password loaded from '{key_path}'.")
-            log.info(f"found {pw}")
-            time.sleep(20)
             return pw
         except Exception as e:
             log.error(f"Failed to read password from '{key_path}': {e}")
@@ -450,4 +444,5 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-_minimal()
+# _minimal()
+sys_dots(Path("/mnt"), script_dir, sys_cp)
