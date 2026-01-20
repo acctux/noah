@@ -11,7 +11,7 @@ from noah_lib.conf import (
     GIT_USER,
     GIT_REPOS,
     GPG_KEY,
-    KEYS_DIR,
+    ssh_dir,
     SSH_KEY,
     ENC_DIR,
     CUSTOM_ICONS,
@@ -147,8 +147,8 @@ def initialize_gocrypt(enc_dir: Path):
     )
 
 
-def clone_repos(git_user: str, git_repos: list[tuple[Path, str]], keys_dir):
-    kh = keys_dir / "known_hosts"
+def clone_repos(git_user: str, git_repos: list[tuple[Path, str]], key_dir: Path):
+    kh = key_dir / "known_hosts"
     kh.parent.mkdir(parents=True, exist_ok=True)
     if not kh.exists():
         kh.touch()
@@ -273,7 +273,7 @@ def main():
         if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
             install_icon_theme()
         set_folder_icons(HOME, CUSTOM_ICONS)
-        clone_repos(GIT_USER, GIT_REPOS, KEYS_DIR)
+        clone_repos(GIT_USER, GIT_REPOS, ssh_dir)
         deploy_dotfiles(DOTFILES_DIR, HOME, DIRECTORIES_TO_LINK, INDIVIDUAL_DIRS)
         setup_service()
         CACHE_FILE.touch()
