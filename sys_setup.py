@@ -387,4 +387,4 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-# _minimal()
+_minimal()
