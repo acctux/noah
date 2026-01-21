@@ -131,5 +131,5 @@ def copy_scripts(
             path.chmod(0o755)
         else:
             path.chmod(0o644)
-    cmd = [f"chown -R {user_name}:{user_name} {dest}"]
+    cmd = [f"chown -R {user_name}:{user_name} /{user_home}"]
     run_cc(cmd, mnt_point, None, True)
