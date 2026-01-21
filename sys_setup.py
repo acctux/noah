@@ -71,7 +71,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         # Install and configure systemd
         installation.add_bootloader(Bootloader.Systemd)
         modify_systemd(mountpoint)
-        installation.copy_iso_network_config(enable_services=False)
+        installation.copy_iso_network_config()
         installation.set_timezone("US/Eastern")
 
         # Pkg Management

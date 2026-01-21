@@ -34,15 +34,16 @@ def install_icon_theme(
     old="#ffffff", new="#F4F5F6", repo="vinceliuice/WhiteSur-icon-theme.git"
 ):
     icon_dir = HOME / ".local/share/icons/WhiteSur-dark"
-    tmp = "/tmp/whitesur-icons"
-    if Path(tmp).exists():
-        shutil.rmtree(tmp)
-    run_cmd(["git", "clone", "--depth=1", f"https://github.com/{repo}", tmp], True)
-    run_cmd(["bash", f"{tmp}/install.sh"], True)
-    for svg in [p for p in icon_dir.rglob("*.svg") if "scalable" not in p.parts]:
-        text = svg.read_text()
-        if old in text:
-            svg.write_text(text.replace(old, new))
+    if not icon_dir.exists():
+        tmp = "/tmp/whitesur-icons"
+        if Path(tmp).exists():
+            shutil.rmtree(tmp)
+        run_cmd(["git", "clone", "--depth=1", f"https://github.com/{repo}", tmp], True)
+        run_cmd(["bash", f"{tmp}/install.sh"], True)
+        for svg in [p for p in icon_dir.rglob("*.svg") if "scalable" not in p.parts]:
+            text = svg.read_text()
+            if old in text:
+                svg.write_text(text.replace(old, new))
 
 
 def set_folder_icons(home, custom_icons):
