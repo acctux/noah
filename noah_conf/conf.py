@@ -1,9 +1,7 @@
 from pathlib import Path
-from archinstall.lib.args import LocaleConfiguration
 
 user_name = "nick"
 host = "yulia"
-my_locale = LocaleConfiguration("us", "en_US", "UTF-8")
 refl_opts = [
     "--country US",
     "--protocol https",

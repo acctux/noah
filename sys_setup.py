@@ -1,6 +1,11 @@
 import subprocess
 from pathlib import Path
-from archinstall.lib.args import Password, User, arch_config_handler
+from archinstall.lib.args import (
+    LocaleConfiguration,
+    Password,
+    User,
+    arch_config_handler,
+)
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.global_menu import DiskLayoutConfigurationMenu
@@ -53,7 +58,9 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
             ):
                 installation.generate_key_files()
         installation.setup_swap()
-        installation.minimal_installation([], True, nl.host, nl.my_locale)
+        installation.minimal_installation(
+            [], True, nl.host, LocaleConfiguration("us", "en_US", "UTF-8")
+        )
         # Install reflector to manage pacman mirrors
         installation.add_additional_packages("reflector")
         ref_cmd = f"reflector {' '.join(nl.refl_opts)} --save /etc/pacman.d/mirrorlist"

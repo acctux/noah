@@ -178,6 +178,7 @@ pkgs = [
     "python-mpd2",
     "python-mysqlclient",
     "python-pandas",
+    "python-pydantic",
     "python-pygit2",
     "python-pyperclip",
     "python-systemd",  # loggy
