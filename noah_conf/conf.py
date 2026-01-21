@@ -1,6 +1,5 @@
 from pathlib import Path
 from archinstall.lib.args import LocaleConfiguration
-from utils import UserSrv
 
 user_name = "nick"
 host = "yulia"
@@ -20,32 +19,6 @@ wireguard_dir = "wireguard"
 key_files = ["id_ed25519", "my_sec_gpg.asc", "pass.txt", "pass.py"]
 usb_fs_type = "exfat"
 min_usb_size = "20G"
-##########-GROUPS/SERV-##########
-groups = ["audio", "games", "gamemode", "log", "realtime", "storage", "video"]
-sys_services = [
-    "ananicy-cpp",
-    "bluetooth",
-    "tlp",
-    "iwd",
-    "ly@tty1",
-    "named",
-    "firewalld",
-    "swayosd-libinput-backend",
-    "systemd-networkd",
-    "systemd-oomd",
-    "systemd-timesyncd",
-    "btrfs-scrub@-.timer",
-    "btrfs-scrub@home.timer",
-    "fstrim.timer",
-    "logrotate.timer",
-    "man-db.timer",
-    "paccache.timer",
-    "reflector.timer",
-    #####-Custom-####
-    "loggy",
-    "wireguard-list",
-]
-disable_svcs = ["getty@tty1", "systemd-networkd-wait-online"]
 ###########-USER CONF-############
 HOME = Path.home()
 desk_dir = HOME / "Desktop"
@@ -85,21 +58,6 @@ hide_apps = [
     "qvidcap.desktop",
     "xgps.desktop",
     "xgpsspeed.desktop",
-]
-user_services = [
-    UserSrv(target="default.target.wants", services=["pipewire-pulse.service"]),
-    UserSrv(
-        target="sockets.target.wants",
-        services=[
-            "pipewire-pulse.socket",
-            "gnome-keyring-daemon.socket",
-            "gcr-ssh-agent.socket",
-        ],
-    ),
-    UserSrv(
-        target="graphical-session.target.wants",
-        services=["waybar.service", "swaync.service"],
-    ),
 ]
 ###########-SYMLINK-############
 # Polka Config
