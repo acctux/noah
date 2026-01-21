@@ -30,7 +30,7 @@ def enable_user_services(
     if isinstance(units, UserSrv):
         units = [units]
     commands: list[str] = []
-    base_dir = Path("/") / user_home / ".config/systemd/user"
+    base_dir = Path(f"/{user_home}") / ".config/systemd/user"
     for unit in units:
         target_dir = base_dir / unit.target
         commands.append(f"mkdir -p {target_dir}")
@@ -48,10 +48,9 @@ def user_service(
     user_name: str,
     user_home: str,
 ) -> None:
-    home = mnt_point / user_home
     run_script = Path(f"/{user_home}") / script_dir / user_setup_script
-    service_dir = home / ".config/systemd/user"
-    service_dir.mkdir(parents=True, exist_ok=True)
+    service_dir = Path(f"{user_home}/.config/systemd/user")
+    (mnt_point / service_dir).mkdir(parents=True, exist_ok=True)
     svc_name = f"{run_script.stem}.service"
     service_path = service_dir / svc_name
     service_path.write_text(
