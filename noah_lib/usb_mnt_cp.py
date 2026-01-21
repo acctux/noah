@@ -132,10 +132,8 @@ def usb_cp_folder(usb_mount, folder_name):
 
 
 def unmount_partition(usb_mount: Path):
-    result = run_cmd(["mountpoint", "-q", str(usb_mount)], check=False)
-    if result.returncode == 0:
-        run_cmd(["umount", f"{usb_mount}"], check=True)
-        log.info(f"Unmounted USB from {usb_mount}.")
+    run_cmd(["umount", f"{usb_mount}"], check=True)
+    log.info(f"Unmounted USB from {usb_mount}.")
     if usb_mount.exists():
         try:
             Path(usb_mount).unlink()
