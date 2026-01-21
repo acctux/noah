@@ -24,8 +24,9 @@ from noah_lib.sys_files import (
     copy_scripts,
     enable_user_services,
     user_service,
+    copy_dir,
 )
-from noah_lib.sys_functions import copy_dir, ensure_password, run_cc, modify_systemd
+from noah_lib.sys_functions import ensure_password, run_cc, modify_systemd
 from noah_lib.usb_mnt_cp import mnt_cp_keys
 
 script_dir = Path(__file__).resolve().parent

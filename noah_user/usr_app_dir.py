@@ -1,6 +1,6 @@
 from pathlib import Path
 import shutil
-from conf import HOME
+from noah_conf.conf import HOME
 from utils import get_logger, run_cmd
 
 log = get_logger("Noah")

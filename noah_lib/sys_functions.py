@@ -2,7 +2,6 @@
 import getpass
 from pathlib import Path
 import shlex
-import shutil
 from utils import get_logger
 from archinstall.lib.installer import SysCommand
 
@@ -30,20 +29,6 @@ def run_cc(
         cmd = f"su - {user_name} -c {shlex.quote(cmd)}"
     SysCommand(f"arch-chroot -S {mnt_point} {cmd}")
     chroot_path.unlink()
-
-
-def copy_dir(dir: str, dest: Path, set_root: bool = False):
-    src = Path("/root") / dir
-    if not src.is_dir():
-        log.error(f"{src} does not exist")
-    shutil.copytree(src, dest, dirs_exist_ok=True)
-    if set_root:
-        for path in dest.rglob("*"):
-            shutil.chown(path, user="root", group="root")
-            if path.is_file():
-                path.chmod(0o600)
-        shutil.chown(dest, user="root", group="root")
-        dest.chmod(0o700)
 
 
 def modify_systemd(

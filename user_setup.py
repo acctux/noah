@@ -47,7 +47,7 @@ def run_sudo_commands():
 
 
 def setup_service(
-    user_script: str = "d.py",
+    user_script: str,
 ) -> None:
     run_script = nl.HOME / user_script
     service_dir = nl.HOME / ".config/systemd/user"
@@ -113,7 +113,7 @@ def main():
         clone_repos(nl.git_user, nl.git_repos, nl.ssh_dir)
         hide_app_icons(nl.hide_apps)
         deploy_dotfiles(nl.dots_dir, nl.HOME, nl.dirs_to_link, nl.ind_dirs)
-        setup_service()
+        setup_service(nl.user_script)
         CACHE_FILE.touch()
         if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
             log.info("Reboot cancelled.")
