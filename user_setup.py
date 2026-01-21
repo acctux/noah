@@ -98,7 +98,8 @@ def main():
             import_ssh_key(nl.ssh_key)
         if Path(nl.gpg_key).exists():
             import_gpg_key(nl.gpg_key)
-        initialize_gocrypt(nl.enc_dir)
+        if not nl.enc_dir.exists() or nl.enc_dir.iterdir() == 0:
+            initialize_gocrypt(nl.enc_dir)
         if not (nl.HOME / ".local/share/icons/WhiteSur-dark").exists():
             install_icon_theme()
         set_folder_icons(nl.HOME, nl.dir_icons)
