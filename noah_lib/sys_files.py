@@ -21,19 +21,46 @@ def copy_dir(dir: str, dest: Path, set_root: bool = False):
         dest.chmod(0o700)
 
 
+def enable_user_services(
+    user_home: str,
+    units: UserSrv | list[UserSrv],
+    mnt_point: Path,
+    user_name: str,
+) -> None:
+    if isinstance(units, UserSrv):
+        units = [units]
+
+    commands: list[str] = []
+    base_dir = Path("/") / user_home / ".config/systemd/user"
+
+    for unit in units:
+        target_dir = base_dir / unit.target
+        commands.append(f"mkdir -p {target_dir}")
+
+        for service in unit.services:
+            src = unit.source_dir / service
+            dst = target_dir / service
+            commands.append(f"ln -sf {src} {dst}")
+
+    run_cc(commands, mnt_point, user_name)
+
+
 def user_service(
     user_setup_script: str,
     mnt_point: Path,
     user_name: str,
     user_home: str,
-):
+) -> None:
     home = mnt_point / user_home
-    run_script = home / user_setup_script
-    service_dir = home / ".config" / "systemd" / "user"
+    run_script = Path(f"/{user_home}") / user_setup_script
+    service_dir = home / ".config/systemd/user"
     service_dir.mkdir(parents=True, exist_ok=True)
+
     svc_name = f"{run_script.stem}.service"
     service_path = service_dir / svc_name
-    service_path.write_text(f"""[Unit]
+
+    service_path.write_text(
+        f"""[Unit]
 Description=Open Alacritty running {run_script} on login
 After=graphical-session.target
 
@@ -44,34 +71,19 @@ Restart=no
 
 [Install]
 WantedBy=graphical-session.target
-""")
+"""
+    )
+
     enable_user_services(
-        user_home,
-        UserSrv(
+        user_home=user_home,
+        units=UserSrv(
             target="graphical-session.target.wants",
             services=[svc_name],
             source_dir=service_dir,
         ),
-        mnt_point,
-        user_name,
+        mnt_point=mnt_point,
+        user_name=user_name,
     )
-
-
-def enable_user_services(
-    user_home: str,
-    units: UserSrv | list[UserSrv],
-    mnt_point: Path,
-    user_name: str,
-) -> None:
-    units = [units] if isinstance(units, UserSrv) else units
-    commands: list[str] = []
-    for unit in units:
-        target_path = Path(f"/{user_home}/.config/systemd/user") / unit.target
-        commands.append(f"mkdir -p {target_path}")
-        for service in unit.services:
-            unit_file = unit.source_dir / service
-            commands.append(f"ln -sf {unit_file} {target_path / service}")
-    run_cc(commands, mnt_point, user_name)
 
 
 def copy_file_list(key_files: list[str], usb_key_dir: str, dest: Path):
@@ -97,11 +109,12 @@ def copy_scripts(
     script_dir: Path,
     lib_dir: str,
     user_name: str,
+    user_home: str,
     user_script: str,
     dest: Path | None = None,
 ):
     if dest is None:
-        dest = mnt_point / f"/home/{user_name}"
+        dest = mnt_point / user_home
     src_dir = script_dir / lib_dir
     if not src_dir.is_dir():
         raise FileNotFoundError(f"{src_dir} does not exist")
