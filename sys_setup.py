@@ -133,4 +133,6 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-_minimal()
+# _minimal()
+usr_cmd = ["xdg-user-dirs-update", f"mkdir -p /{user_home}/.cache/mpd"]
+run_cc(usr_cmd, Path("/mnt"), nl.user_name)
