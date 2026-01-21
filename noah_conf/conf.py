@@ -69,7 +69,7 @@ git_user = "acctux"
 ssh_dir = ".ssh"
 ssh_key = HOME / ssh_dir / key_files[0]
 gpg_key = f"{ssh_dir}/{key_files[1]}"
-git_repos = [(git_dir, "Docs"), (git_dir, "Noah"), (HOME, "Polka")]
+git_repos = [(git_dir, "Docs"), (git_dir, "noah"), (HOME, "Polka")]
 dir_icons = [
     [HOME / "Desktop" / "Games", "folder-games.svg"],
     [git_dir, "folder-github.svg"],
