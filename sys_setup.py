@@ -93,7 +93,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         enable_user_services(user_home, gs.user_services, mountpoint, nl.user_name)
 
         # Copy encryption key files into the user home directory
-        copy_file_list(nl.key_files, nl.usb_key_dir, nl.HOME)
+        copy_file_list(nl.key_files, nl.usb_key_dir, (mountpoint / user_home / ".ssh"))
 
         # Copy user scripts into the home directory and start service
         copy_dir(str(script_dir), (mountpoint / user_home / script_dir.name))

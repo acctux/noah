@@ -24,7 +24,7 @@ def clone_repos(git_user: str, git_repos: list[tuple[Path, str]], keys_dir):
                     "git",
                     "clone",
                     f"git@github.com:{git_user}/{name}.git",
-                    str(path / name),
+                    f"{path}/{name}",
                 ],
                 True,
             )
