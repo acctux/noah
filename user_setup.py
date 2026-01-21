@@ -5,7 +5,6 @@ import sys
 import pyperclip
 from utils import get_logger, run_cmd
 import noah_conf.conf as nl
-from noah_lib.usb_mnt_cp import mnt_cp_keys
 from noah_user.usr_key_crypt import import_ssh_key, import_gpg_key, initialize_gocrypt
 from noah_user.usr_app_dir import (
     install_icon_theme,
@@ -92,13 +91,6 @@ def launch_apps():
 
 def main():
     if not CACHE_FILE.exists():
-        mnt_cp_keys(
-            nl.min_usb_size,
-            nl.usb_fs_type,
-            nl.usb_key_dir,
-            nl.key_files,
-            nl.wireguard_dir,
-        )
         cmd = ["chsh", "-s", "/usr/bin/zsh"]
         run_interactive(cmd)
         run_sudo_commands()

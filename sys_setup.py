@@ -57,49 +57,57 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
                 != EncryptionType.NoEncryption
             ):
                 installation.generate_key_files()
+
         installation.setup_swap()
         installation.minimal_installation(
             [], True, nl.host, LocaleConfiguration("us", "en_US", "UTF-8")
         )
+
         # Install reflector to manage pacman mirrors
         installation.add_additional_packages("reflector")
         ref_cmd = f"reflector {' '.join(nl.refl_opts)} --save /etc/pacman.d/mirrorlist"
         run_cc([ref_cmd], mountpoint)
+
         # Install and configure systemd
         installation.add_bootloader(Bootloader.Systemd)
         modify_systemd(mountpoint)
         installation.copy_iso_network_config(enable_services=False)
         installation.set_timezone("US/Eastern")
+
         # Pkg Management
         config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
         installation.add_additional_packages(pkg.pkgs)
+
         # Etc Management
         sys_dots(mountpoint, script_dir, nl.sys_cp)
         copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         installation.enable_service(gs.sys_services)
         run_cc([f"systemctl disable {' '.join(gs.disable_svcs)}"], mountpoint)
+
         # Create user account with groups and sudo privileges
         installation.create_users(User(nl.user_name, Password(pw), True, gs.groups))
         configure_sudo(nl.user_name, mountpoint, pwd_require=False)
         usr_cmd = ["xdg-user-dirs-update", f"mkdir -p /{user_home}/.cache/mpd"]
         run_cc(usr_cmd, mountpoint, nl.user_name)
         enable_user_services(user_home, gs.user_services, mountpoint, nl.user_name)
+
         # Copy encryption key files into the user home directory
         copy_file_list(nl.key_files, nl.usb_key_dir, nl.HOME)
+
         # Copy user scripts into the home directory and start service
         copy_dir(str(script_dir), (mountpoint / user_home / script_dir.name))
         user_service(
             script_dir.name, nl.user_script, mountpoint, nl.user_name, user_home
         )
         run_cc([f"chown -R {nl.user_name}:{nl.user_name} /{user_home}"], mountpoint)
+
         # Generate filesystem table entries and fix
         installation.genfstab()
         modify_fstab(mountpoint)
         if not arch_config_handler.args.silent:
             with Tui():
                 action = ask_post_installation()
-            # Handle selected post-install action
             match action:
                 case PostInstallationAction.EXIT:
                     pass
