@@ -24,9 +24,9 @@ def copy_dir(dir: str, dest: Path, set_root: bool = False):
 def user_service(
     usr: str,
     user_setup_script: str,
-    mnt_point: Path | None = None,
+    mnt_point: Path,
 ) -> Path:
-    home = Path(f"/home/{usr}") if mnt_point is None else mnt_point / "home" / usr
+    home = mnt_point / "home" / usr
     run_script = home / user_setup_script
     service_dir = home / ".config" / "systemd" / "user"
     service_dir.mkdir(parents=True, exist_ok=True)
@@ -56,7 +56,7 @@ def enable_user_services(
     units = [units] if isinstance(units, UserSrv) else units
     commands: list[str] = []
     for unit in units:
-        target_path = Path(user_home) / ".config/systemd/user" / unit.target
+        target_path = Path(f"/{user_home}") / ".config/systemd/user" / unit.target
         commands.append(f"mkdir -p {target_path}")
         for service in unit.services:
             unit_file = unit.source_dir / service
