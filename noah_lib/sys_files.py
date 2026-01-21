@@ -56,7 +56,7 @@ def enable_user_services(
     units = [units] if isinstance(units, UserSrv) else units
     commands: list[str] = []
     for unit in units:
-        target_path = Path(f"/{user_home}") / ".config/systemd/user" / unit.target
+        target_path = Path(f"/{user_home}/.config/systemd/user") / unit.target
         commands.append(f"mkdir -p {target_path}")
         for service in unit.services:
             unit_file = unit.source_dir / service

@@ -133,5 +133,4 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-# _minimal()
-enable_user_services(user_home, nl.user_services, Path("/mnt"), nl.user_name)
+_minimal()
