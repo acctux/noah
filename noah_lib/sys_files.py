@@ -29,36 +29,31 @@ def enable_user_services(
 ) -> None:
     if isinstance(units, UserSrv):
         units = [units]
-
     commands: list[str] = []
     base_dir = Path("/") / user_home / ".config/systemd/user"
-
     for unit in units:
         target_dir = base_dir / unit.target
         commands.append(f"mkdir -p {target_dir}")
-
         for service in unit.services:
             src = unit.source_dir / service
             dst = target_dir / service
             commands.append(f"ln -sf {src} {dst}")
-
     run_cc(commands, mnt_point, user_name)
 
 
 def user_service(
+    script_dir: str,
     user_setup_script: str,
     mnt_point: Path,
     user_name: str,
     user_home: str,
 ) -> None:
     home = mnt_point / user_home
-    run_script = Path(f"/{user_home}") / user_setup_script
+    run_script = Path(f"/{user_home}") / script_dir / user_setup_script
     service_dir = home / ".config/systemd/user"
     service_dir.mkdir(parents=True, exist_ok=True)
-
     svc_name = f"{run_script.stem}.service"
     service_path = service_dir / svc_name
-
     service_path.write_text(
         f"""[Unit]
 Description=Open Alacritty running {run_script} on login
@@ -73,7 +68,6 @@ Restart=no
 WantedBy=graphical-session.target
 """
     )
-
     enable_user_services(
         user_home=user_home,
         units=UserSrv(
@@ -102,34 +96,3 @@ def copy_file_list(key_files: list[str], usb_key_dir: str, dest: Path):
         shutil.copy2(src_file, dest_file)
         if name in key_files[:2]:
             dest_file.chmod(0o600)
-
-
-def copy_scripts(
-    mnt_point: Path,
-    script_dir: Path,
-    lib_dir: str,
-    user_name: str,
-    user_home: str,
-    user_script: str,
-    dest: Path | None = None,
-):
-    if dest is None:
-        dest = mnt_point / user_home
-    src_dir = script_dir / lib_dir
-    if not src_dir.is_dir():
-        raise FileNotFoundError(f"{src_dir} does not exist")
-    shutil.copytree(src_dir, dest, dirs_exist_ok=True)
-    src_file = script_dir / user_script
-    if not src_file.is_file():
-        raise FileNotFoundError(f"{src_file} does not exist")
-    shutil.copy2(src_file, dest / src_file.name)
-    dest.chmod(0o755)
-    for path in dest.rglob("*"):
-        if path.is_symlink():
-            continue
-        if path.is_dir():
-            path.chmod(0o755)
-        else:
-            path.chmod(0o644)
-    cmd = [f"chown -R {user_name}:{user_name} /{user_home}"]
-    run_cc(cmd, mnt_point, None, True)

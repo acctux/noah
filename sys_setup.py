@@ -21,7 +21,6 @@ from noah_lib.sys_pac import chaotic_repo, config_pac_conf
 from noah_lib.sys_etc import configure_sudo, modify_fstab, sys_dots
 from noah_lib.sys_files import (
     copy_file_list,
-    copy_scripts,
     enable_user_services,
     user_service,
     copy_dir,
@@ -83,10 +82,10 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         enable_user_services(user_home, nl.user_services, mountpoint, nl.user_name)
 
         copy_file_list(nl.key_files, nl.usb_key_dir, nl.HOME)
-        copy_scripts(
-            mountpoint, script_dir, "noah_user", nl.user_name, user_home, nl.user_script
+        copy_dir(str(script_dir), (mountpoint / user_home / script_dir.name))
+        user_service(
+            script_dir.name, nl.user_script, mountpoint, nl.user_name, user_home
         )
-        user_service(nl.user_script, mountpoint, nl.user_name, user_home)
         run_cc([f"chown -R {nl.user_name}:{nl.user_name} /{user_home}"], mountpoint)
 
         installation.genfstab()
