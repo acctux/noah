@@ -22,13 +22,12 @@ def copy_dir(dir: str, dest: Path, set_root: bool = False):
 
 
 def user_service(
-    usr: str,
     user_setup_script: str,
     mnt_point: Path,
     user_name: str,
     user_home: str,
 ):
-    home = mnt_point / "home" / usr
+    home = mnt_point / user_home
     run_script = home / user_setup_script
     service_dir = home / ".config" / "systemd" / "user"
     service_dir.mkdir(parents=True, exist_ok=True)

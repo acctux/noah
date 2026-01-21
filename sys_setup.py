@@ -84,7 +84,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
         copy_file_list(nl.key_files, nl.usb_key_dir, nl.HOME)
         copy_scripts(mountpoint, script_dir, "noah_lib", nl.user_name, nl.user_script)
-        user_service(nl.user_name, nl.user_script, mountpoint)
+        user_service(nl.user_script, mountpoint, nl.user_name, user_home)
         run_cc([f"chown -R {nl.user_name}:{nl.user_name} /{user_home}"], mountpoint)
 
         installation.genfstab()
