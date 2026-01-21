@@ -52,9 +52,7 @@ def user_service(
     service_dir = Path(f"{user_home}/.config/systemd/user")
     (mnt_point / service_dir).mkdir(parents=True, exist_ok=True)
     svc_name = f"{run_script.stem}.service"
-    service_path = service_dir / svc_name
-    service_path.write_text(
-        f"""[Unit]
+    (mnt_point / service_dir / svc_name).write_text(f"""[Unit]
 Description=Open Alacritty running {run_script} on login
 After=graphical-session.target
 
@@ -65,8 +63,7 @@ Restart=no
 
 [Install]
 WantedBy=graphical-session.target
-"""
-    )
+""")
     enable_user_services(
         user_home=user_home,
         units=UserSrv(
