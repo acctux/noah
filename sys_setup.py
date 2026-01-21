@@ -134,5 +134,4 @@ def _minimal() -> None:
 
 
 # _minimal()
-usr_cmd = ["xdg-user-dirs-update", f"mkdir -p /{user_home}/.cache/mpd"]
-run_cc(usr_cmd, Path("/mnt"), nl.user_name)
+enable_user_services(user_home, nl.user_services, Path("/mnt"), nl.user_name)
