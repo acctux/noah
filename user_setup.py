@@ -14,6 +14,7 @@ from noah_user.usr_app_dir import (
     clone_repos,
 )
 
+# TODO investigate Ayugram vs Telegram dependencies
 CACHE_FILE = nl.HOME / ".cache" / "first_done"
 log = get_logger("Noah")
 
@@ -39,6 +40,7 @@ def run_sudo_commands():
         "sudo rm /etc/resolv.conf",
         "sudo resolvconf -u",
         "sudo firewall-cmd --set-default-zone=block",
+        "paru -R telegram-desktop",
     ]
     for cmd in commands:
         result = run_cmd(cmd.split(), True)
@@ -134,4 +136,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
