@@ -34,7 +34,7 @@ def install_icon_theme(
     old="#ffffff", new="#F4F5F6", repo="vinceliuice/WhiteSur-icon-theme.git"
 ):
     icon_dir = HOME / ".local/share/icons/WhiteSur-dark"
-    if not icon_dir.exists():
+    if not icon_dir.exists() or not any(icon_dir.rglob("*")):
         tmp = "/tmp/whitesur-icons"
         if Path(tmp).exists():
             shutil.rmtree(tmp)
@@ -44,6 +44,8 @@ def install_icon_theme(
             text = svg.read_text()
             if old in text:
                 svg.write_text(text.replace(old, new))
+    else:
+        log.info("Icons already installed")
 
 
 def set_folder_icons(home, custom_icons):
