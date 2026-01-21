@@ -17,7 +17,6 @@ from archinstall.lib.interactions.general_conf import (
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.tui import Tui
 import noah_conf.conf as nl
-import noah_conf.grp_svc as gs
 import noah_conf.pkg as pkg
 from utils import run_cmd, get_logger
 from noah_lib.sys_pac import chaotic_repo, config_pac_conf
@@ -82,15 +81,15 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         # Etc Management
         sys_dots(mountpoint, script_dir, nl.sys_cp)
         copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
-        installation.enable_service(gs.sys_services)
-        run_cc([f"systemctl disable {' '.join(gs.disable_svcs)}"], mountpoint)
+        installation.enable_service(nl.sys_services)
+        run_cc([f"systemctl disable {' '.join(nl.disable_svcs)}"], mountpoint)
 
         # Create user account with groups and sudo privileges
-        installation.create_users(User(nl.user_name, Password(pw), True, gs.groups))
+        installation.create_users(User(nl.user_name, Password(pw), True, nl.groups))
         configure_sudo(nl.user_name, mountpoint, pwd_require=False)
         usr_cmd = ["xdg-user-dirs-update", f"mkdir -p /{user_home}/.cache/mpd"]
         run_cc(usr_cmd, mountpoint, nl.user_name)
-        enable_user_services(user_home, gs.user_services, mountpoint, nl.user_name)
+        enable_user_services(user_home, nl.user_services, mountpoint, nl.user_name)
 
         # Copy encryption key files into the user home directory
         copy_file_list(nl.key_files, nl.usb_key_dir, (mountpoint / user_home / ".ssh"))
