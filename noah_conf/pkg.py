@@ -136,6 +136,7 @@ pkgs = [
     "qalculate-qt",
     "qt6ct",
     "qjournalctl",
+    "telegram-desktop",
     "wl-clipboard",
     "wl-clip-persist",
     "xdg-user-dirs",
