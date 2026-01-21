@@ -17,15 +17,16 @@ def clone_repos(git_user: str, git_repos: list[tuple[Path, str]], keys_dir):
         if scan and scan.stdout:
             kh.write_text(content + scan.stdout)
     for path, name in git_repos:
+        git_cmd = [
+            "git",
+            "clone",
+            f"git@github.com:{git_user}/{name}.git",
+            f"{path}/{name}",
+        ]
         if not (path / name / ".git").exists():
             path.mkdir(parents=True, exist_ok=True)
             run_cmd(
-                [
-                    "git",
-                    "clone",
-                    f"git@github.com:{git_user}/{name}.git",
-                    f"{path}/{name}",
-                ],
+                git_cmd,
                 True,
             )
 

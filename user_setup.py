@@ -6,13 +6,13 @@ import pyperclip
 from utils import get_logger, run_cmd
 import noah_conf.conf as nl
 from noah_user.usr_key_crypt import import_ssh_key, import_gpg_key, initialize_gocrypt
+from noah_user.usr_dotsync import deploy_dotfiles
 from noah_user.usr_app_dir import (
     install_icon_theme,
     set_folder_icons,
     hide_app_icons,
     clone_repos,
 )
-from noah_user.usr_dotsync import deploy_dotfiles
 
 CACHE_FILE = nl.HOME / ".cache" / "first_done"
 log = get_logger("Noah")
