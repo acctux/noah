@@ -21,18 +21,17 @@ usb_fs_type = "exfat"
 min_usb_size = "20G"
 ###########-USER CONF-############
 HOME = Path.home()
-desk_dir = HOME / "Desktop"
 git_dir = HOME / "Lit"
 dot_dir = HOME / "Polka"
 docs_dir = git_dir / "Docs"
-enc_dir = desk_dir / "Encrypted"
+enc_dir = HOME / "Desktop" / "Encrypted"
 git_user = "acctux"
 ssh_dir = ".ssh"
 ssh_key = HOME / ssh_dir / key_files[0]
 gpg_key = f"{ssh_dir}/{key_files[1]}"
 git_repos = [(git_dir, "Docs"), (git_dir, "Noah"), (HOME, "Polka")]
 dir_icons = [
-    [desk_dir / "Games", "folder-games.svg"],
+    [HOME / "Desktop" / "Games", "folder-games.svg"],
     [git_dir, "folder-github.svg"],
     [git_dir / "Noah", "folder-root.svg"],
     [docs_dir, "folder-bookmark.svg"],
