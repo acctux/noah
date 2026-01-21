@@ -3,9 +3,19 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
-from utils import get_logger, run_cmd
+from utils import get_logger
 
 log = get_logger("USB Mount and Copy")
+
+
+def run_cmd(cmd, check=False):
+    try:
+        log.info(f"Running: {cmd}")
+        result = subprocess.run(cmd, text=True, shell=True, check=check)
+        return result
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed: {cmd}\nExit code: {e.returncode}")
+        return e
 
 
 def check_usb_files(key_dir, key_files):

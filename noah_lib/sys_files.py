@@ -25,7 +25,9 @@ def user_service(
     usr: str,
     user_setup_script: str,
     mnt_point: Path,
-) -> Path:
+    user_name: str,
+    user_home: str,
+):
     home = mnt_point / "home" / usr
     run_script = home / user_setup_script
     service_dir = home / ".config" / "systemd" / "user"
@@ -44,7 +46,16 @@ Restart=no
 [Install]
 WantedBy=graphical-session.target
 """)
-    return service_path
+    enable_user_services(
+        user_home,
+        UserSrv(
+            target="graphical-session.target.wants",
+            services=[svc_name],
+            source_dir=service_dir,
+        ),
+        mnt_point,
+        user_name,
+    )
 
 
 def enable_user_services(
