@@ -57,16 +57,15 @@ def set_folder_icons(home, custom_icons):
             )
 
 
-def hide_app_icons(applications: list[str]):
+def hide_app_icons(applications: list[str]) -> None:
     system_dir = Path("/usr/share/applications")
     user_dir = HOME / ".local" / "share" / "applications"
     user_dir.mkdir(parents=True, exist_ok=True)
     hidden_entry = "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
     for app in applications:
         system_file = system_dir / app
-        if not system_file.exists():
-            log.info(f"Skipping {system_file} not found")
-            continue
-        user_file = user_dir / app
-        user_file.write_text(hidden_entry)
-        log.info("Hidden: %s", app)
+        if system_file.exists():
+            (user_dir / app).write_text(hidden_entry)
+            log.info("Hidden: %s", app)
+        else:
+            log.info("Skipping %s, not found", system_file)
