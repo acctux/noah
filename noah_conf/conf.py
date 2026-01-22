@@ -113,11 +113,11 @@ user_services = [
 usb_fs_type = "exfat"
 min_usb_size = "20G"
 usb_key_dir = "keys"
-user_pass_file = "pass.py"
 ssh_key = "id_ed25519"
 gpg_key = "my_sec_gpg.asc"
-wireguard_dir = "wireguard"
 pass_manager_pass = "pass.txt"
+user_pass_file = "pass.py"
+wireguard_dir = "wireguard"
 usb_cp_files = [
     ssh_key,
     gpg_key,

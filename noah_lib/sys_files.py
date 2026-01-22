@@ -107,6 +107,7 @@ def copy_file_list(
             dest = ssh_dir / name
         if name == gpg_key:
             dest = gpg_dir / name
+        dest.mkdir(parents=True, exist_ok=True)
         if not src_file.is_file():
             log.error(f"{src_file} does not exist")
             continue

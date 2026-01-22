@@ -157,10 +157,9 @@ def mnt_cp_keys(
     key_dir: str | None = None,
     key_files: list[str] | None = None,
     wireguard_dir: str | None = None,
-    pass_file: str | None = None,
     usb_mnt=Path("/mnt/usb"),
 ):
-    if key_dir and key_files or wireguard_dir or pass_file:
+    if key_dir and key_files or wireguard_dir:
         if check_usb_files(key_dir, key_files):
             if yes_no_prompt(
                 "Do you want to mount a USB drive to check for missing files?"

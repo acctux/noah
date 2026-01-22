@@ -84,6 +84,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.add_additional_packages("reflector")
         cmd = f"reflector {' '.join(refl_options)} --save /etc/pacman.d/mirrorlist"
         ref_cmd = cmd
+        log.info("Running reflector to update mirror list.")
         run_cc([ref_cmd], mountpoint)
 
         ####################-System D-####################
