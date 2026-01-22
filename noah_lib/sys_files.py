@@ -98,13 +98,13 @@ def copy_file_list(
         src_file = src / name
         dest = mnt_home / usb_key_dir / name
         if name == ssh_key:
-            dest = ssh_dir / name
+            dest = ssh_dir
         if name == gpg_key:
-            dest = gpg_dir / name
+            dest = gpg_dir
         dest.mkdir(parents=True, exist_ok=True)
         if not src_file.is_file():
             log.error(f"{src_file} does not exist")
             continue
-        shutil.copy2(src_file, dest)
+        shutil.copy2(src_file, (dest / name))
         if name == ssh_key:
             dest.chmod(0o600)
