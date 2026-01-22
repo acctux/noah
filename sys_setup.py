@@ -25,6 +25,7 @@ from noah_lib.sys_functions import src_pass_file, type_password, run_cc, modify_
 from noah_lib.usb_mnt_cp import mnt_cp_keys
 from noah_conf.conf import (
     usb_key_dir,
+    user_pass_file,
     user_name,
     usb_cp_files,
     hostname,
@@ -39,7 +40,6 @@ from noah_conf.conf import (
     sys_dir_to_cp,
     disable_svcs,
     kernel,
-    pass_manager_pass,
     groups,
     min_usb_size,
     usb_fs_type,
@@ -65,7 +65,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
     with Installer(mountpoint, disk_config, [], kernel) as installation:
         ############-Ensure User Pass Exists-##########
-        if pw := src_pass_file(usb_key_dir, pass_manager_pass, user_name):
+        if pw := src_pass_file(usb_key_dir, user_pass_file, user_name):
             log.info("Password Sourced")
         else:
             pw = type_password(user_name)
