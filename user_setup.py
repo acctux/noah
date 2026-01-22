@@ -145,7 +145,7 @@ def main():
             import_ssh_key(ssh_key)
         if GPG_PATH.exists():
             import_gpg_key(GPG_PATH)
-        if not ENC_DIR.exists() and not len(list(ENC_DIR.iterdir())) > 0:
+        if not ENC_DIR.exists() or not len(list(ENC_DIR.iterdir())) > 0:
             initialize_gocrypt(ENC_DIR)
         if not not any((HOME / ".local/share/icons/WhiteSur-dark").rglob("*")):
             install_icon_theme()
