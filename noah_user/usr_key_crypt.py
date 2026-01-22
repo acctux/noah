@@ -38,9 +38,9 @@ def import_gpg_key(GPG_PATH: Path):
         log.error(f"Failed to import GPG key {GPG_PATH}.")
         return
     if fingerprint := import_result.fingerprints[0]:
-        log.info(f"{fingerprint} already imported.")
+        log.info(f"GPG key {fingerprint} already imported.")
     else:
-        log.info(f"Imported: {fingerprint}")
+        log.info(f"GPG key imported: {fingerprint}")
     trust_result = run_cmd(
         ["gpg", "--import-ownertrust"], input_text=f"{fingerprint}:6:\n"
     )
