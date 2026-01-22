@@ -175,5 +175,4 @@ def _minimal() -> None:
     perform_installation(Path("/mnt"))
 
 
-# _minimal()
-user_service(script_dir.name, Path("/mnt"), user_name, user_home)
+_minimal()
