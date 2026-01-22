@@ -1,8 +1,7 @@
 from pathlib import Path
 import shutil
-from pydantic import BaseModel
 from noah_lib.sys_functions import run_cc
-from utils import get_logger
+from utils import UserSrv, get_logger
 
 log = get_logger("User")
 
@@ -19,12 +18,6 @@ def copy_dir(dir: str, dest: Path, set_root: bool = False):
                 path.chmod(0o600)
         shutil.chown(dest, user="root", group="root")
         dest.chmod(0o700)
-
-
-class UserSrv(BaseModel):
-    target: str
-    services: list[str]
-    source_dir: Path = Path("/usr/lib/systemd/user")
 
 
 def enable_user_services(

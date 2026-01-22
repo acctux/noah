@@ -1,6 +1,14 @@
 import logging
+from pathlib import Path
 import subprocess
 import sys
+from pydantic import BaseModel
+
+
+class UserSrv(BaseModel):
+    target: str
+    services: list[str]
+    source_dir: Path = Path("/usr/lib/systemd/user")
 
 
 class ColorFormatter(logging.Formatter):
