@@ -138,36 +138,36 @@ def verify_install(git_repos: list[tuple[Path, str]]):
 
 def main():
     if not CACHE_FILE.exists():
-        cmd = ["chsh", "-s", "/usr/bin/zsh"]
-        run_interactive(cmd)
-        run_sudo_commands()
-        if SSH_PATH.exists():
-            import_ssh_key(ssh_key)
-        if GPG_PATH.exists():
-            import_gpg_key(GPG_PATH)
-        if not ENC_DIR.exists() or not len(list(ENC_DIR.iterdir())) > 0:
-            initialize_gocrypt(ENC_DIR)
-        if not not any((HOME / ".local/share/icons/WhiteSur-dark").rglob("*")):
-            install_icon_theme()
-        set_folder_icons(custom_dir_icons)
-        ensure_github_known_hosts()
+        # cmd = ["chsh", "-s", "/usr/bin/zsh"]
+        # run_interactive(cmd)
+        # run_sudo_commands()
+        # if SSH_PATH.exists():
+        #     import_ssh_key(ssh_key)
+        # if GPG_PATH.exists():
+        #     import_gpg_key(GPG_PATH)
+        # if not ENC_DIR.exists() or not len(list(ENC_DIR.iterdir())) > 0:
+        #     initialize_gocrypt(ENC_DIR)
+        # if not not any((HOME / ".local/share/icons/WhiteSur-dark").rglob("*")):
+        #     install_icon_theme()
+        # set_folder_icons(custom_dir_icons)
+        # ensure_github_known_hosts()
         for path, name in GIT_REPOS:
             repo_path = path / name.capitalize()
             if not repo_path.exists():
                 clone_repos(git_user, repo_path, name)
-        hide_app_icons(hide_apps)
-        if DOTS_DIR.exists():
-            deploy_dotfiles(DOTS_DIR, HOME, dirs_to_link, ind_dirs)
-        setup_service(script_dir="archinstall")
-        if verify_install(GIT_REPOS):
-            CACHE_FILE.touch()
-        else:
-            log.error("Installation verification failed. Cache file not updated.")
-            return
-        if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
-            log.info("Reboot cancelled.")
-        else:
-            run_cmd(["systemctl", "reboot"], True)
+        # hide_app_icons(hide_apps)
+        # if DOTS_DIR.exists():
+        #     deploy_dotfiles(DOTS_DIR, HOME, dirs_to_link, ind_dirs)
+        # setup_service(script_dir="archinstall")
+        # if verify_install(GIT_REPOS):
+        #     CACHE_FILE.touch()
+        # else:
+        #     log.error("Installation verification failed. Cache file not updated.")
+        #     return
+        # if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
+        #     log.info("Reboot cancelled.")
+        # else:
+        #     run_cmd(["systemctl", "reboot"], True)
     else:
         pass_and_input(pass_manager_pass, SSH_DIR)
         launch_apps()
