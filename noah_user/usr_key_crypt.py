@@ -33,18 +33,21 @@ def import_ssh_key(key_file: str):
 def import_gpg_key(GPG_PATH: Path):
     gpg = gnupg.GPG(gnupghome=str(GPG_PATH.parent))
     with GPG_PATH.open("rb") as f:
-        if import_result := gpg.import_keys(f.read()).fingerprints:
-            if fingerprint := import_result[0]:
-                log.info(f"{fingerprint} already imported.")
-            else:
-                log.info(f"Imported: {fingerprint}")
-            trust_result = run_cmd(
-                ["gpg", "--import-ownertrust"], input_text=f"{fingerprint}:6:\n"
-            )
-            if trust_result and trust_result.returncode == 0:
-                log.info(f"GPG key trusted (ultimate): {fingerprint}")
-            else:
-                log.error("Failed to set trust for GPG key.")
+        import_result = gpg.import_keys(f.read()).fingerprints
+    if not import_result:
+        log.error(f"Failed to import GPG key {GPG_PATH}.")
+        return
+    if fingerprint := import_result[0]:
+        log.info(f"{fingerprint} already imported.")
+    else:
+        log.info(f"Imported: {fingerprint}")
+    trust_result = run_cmd(
+        ["gpg", "--import-ownertrust"], input_text=f"{fingerprint}:6:\n"
+    )
+    if trust_result and trust_result.returncode == 0:
+        log.info(f"GPG key trusted (ultimate): {fingerprint}")
+    else:
+        log.error("Failed to set trust for GPG key.")
 
 
 def initialize_gocrypt(enc_dir: Path):
