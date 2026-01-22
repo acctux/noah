@@ -153,7 +153,7 @@ def main():
         # ensure_github_known_hosts()
         for path, name in GIT_REPOS:
             repo_path = path / name.capitalize()
-            if not repo_path.exists():
+            if not any(repo_path.iterdir()):
                 clone_repos(git_user, repo_path, name)
         # hide_app_icons(hide_apps)
         # if DOTS_DIR.exists():
