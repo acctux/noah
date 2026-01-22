@@ -147,6 +147,7 @@ pkgs = [
     "gnucash",
     "khal",
     "libreoffice-fresh",
+    "systray-x-common",  # Thunderbird tray support
     "thunderbird-i18n-en-us",
     "thunderbird-dark-reader",
     "thunderbird-ublock-origin",
