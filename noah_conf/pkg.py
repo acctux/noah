@@ -59,7 +59,7 @@ pkgs = [
     "otf-firamono-nerd",
     "rofimoji",
     "tesseract-data-eng",
-    "ttf-jetbrains-mono-nerd",
+    "ttf-hack-nerd",
     ########-Multimedia-########
     "cava",
     "evince",
@@ -85,7 +85,6 @@ pkgs = [
     "lazygit",
     "less",
     "man-pages",
-    "ouch",
     "rebuild-detector",
     "ripgrep-all",
     "sd",
@@ -133,12 +132,14 @@ pkgs = [
     "logrotate",
     "ly",
     "nemo-audio-tab",
+    "nemo-fileroller",
     "plymouth",
     "qalculate-qt",
     "qt5ct",
     "qt6ct",
     "qjournalctl",
     "telegram-desktop",
+    "unrar",  # File roller
     "wl-clipboard",
     "wl-clip-persist",
     "xdg-user-dirs",
@@ -152,6 +153,7 @@ pkgs = [
     "thunderbird-dark-reader",
     "thunderbird-ublock-origin",
     ###########-Coding-###########
+    "inotify-tools",  # Nvim: WARNING libuv-watchdirs has known performance issues. Consider installing inotify-tools.
     "luarocks",
     "lua-sec",
     "npm",

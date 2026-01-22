@@ -52,7 +52,9 @@ def run_sudo_commands():
             log.error(f"Command failed: {cmd}")
 
 
-def setup_service(user_script: str, script_dir: str | None = None) -> None:
+def setup_service(
+    user_script: str = "user_setup.py", script_dir: str | None = None
+) -> None:
     run_script = nl.HOME / user_script
     if script_dir:
         run_script = nl.HOME / script_dir / user_script
@@ -121,11 +123,11 @@ def main():
         if not (nl.HOME / ".local/share/icons/WhiteSur-dark").exists():
             install_icon_theme()
         set_folder_icons(nl.HOME, nl.dir_icons)
-        clone_repos(nl.git_user, nl.git_repos, nl.ssh_dir)
+        clone_repos(nl.git_user, nl.git_repos)
         hide_app_icons(nl.hide_apps)
         if nl.dot_dir.exists():
             deploy_dotfiles(dc.dots_dir, dc.HOME, dc.dirs_to_link, dc.ind_dirs)
-        setup_service(nl.user_script, "archinstall")
+        setup_service(script_dir="archinstall")
         if verify_install():
             CACHE_FILE.touch()
         else:
@@ -136,7 +138,7 @@ def main():
         else:
             run_cmd(["systemctl", "reboot"], True)
     else:
-        pass_and_input(nl.HOME / nl.ssh_dir / f"{nl.key_files[2]}")
+        pass_and_input(nl.pass_word_path)
         launch_apps()
         cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
         run_interactive(cmd)

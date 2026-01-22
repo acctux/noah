@@ -43,10 +43,10 @@ def enable_user_services(
 
 def user_service(
     script_dir: str,
-    user_setup_script: str,
     mnt_point: Path,
     user_name: str,
     user_home: str,
+    user_setup_script: str = "user_setup.py",
 ) -> None:
     run_script = Path(f"/{user_home}") / script_dir / user_setup_script
     service_dir = Path(f"{user_home}/.config/systemd/user")

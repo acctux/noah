@@ -6,8 +6,8 @@ from utils import get_logger, run_cmd
 log = get_logger("Noah")
 
 
-def clone_repos(git_user: str, git_repos: list[tuple[Path, str]], keys_dir):
-    kh = HOME / keys_dir / "known_hosts"
+def clone_repos(git_user: str, git_repos: list[tuple[Path, str]]):
+    kh = HOME / ".ssh" / "known_hosts"
     kh.parent.mkdir(parents=True, exist_ok=True)
     if not kh.exists():
         kh.touch()

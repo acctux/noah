@@ -20,7 +20,7 @@ import noah_conf.conf as nl
 import noah_conf.pkg as pkg
 from utils import run_cmd, get_logger
 from noah_lib.sys_pac import chaotic_repo, config_pac_conf
-from noah_lib.sys_etc import configure_sudo, modify_fstab, sys_dots
+from noah_lib.sys_etc import configure_sudo, modify_fstab, sys_dots, mkinit_hooks
 from noah_lib.sys_files import (
     copy_file_list,
     enable_user_services,
@@ -59,7 +59,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
         installation.setup_swap()
         installation.minimal_installation(
-            [], True, nl.host, LocaleConfiguration("us", "en_US", "UTF-8")
+            [], True, nl.hostname, LocaleConfiguration("us", "en_US", "UTF-8")
         )
 
         # Install reflector to manage pacman mirrors
@@ -79,6 +79,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.add_additional_packages(pkg.pkgs)
 
         # Etc Management
+        mkinit_hooks(mountpoint, nl.mkinit_hooks)
         sys_dots(mountpoint, script_dir, nl.sys_cp)
         copy_dir(nl.wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         installation.enable_service(nl.sys_services)
@@ -96,9 +97,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
         # Copy user scripts into the home directory and start service
         copy_dir(str(script_dir), (mountpoint / user_home / script_dir.name))
-        user_service(
-            script_dir.name, nl.user_script, mountpoint, nl.user_name, user_home
-        )
+        user_service(script_dir.name, mountpoint, nl.user_name, user_home)
         run_cc([f"chown -R {nl.user_name}:{nl.user_name} /{user_home}"], mountpoint)
 
         # Generate filesystem table entries and fix

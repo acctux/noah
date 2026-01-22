@@ -2,8 +2,13 @@ from pathlib import Path
 from utils import UserSrv
 
 
+###########################################################
+# SYSTEM CONF
+###########################################################
 user_name = "nick"
-host = "yulia"
+hostname = "yulia"
+
+# Reflector Options
 refl_opts = [
     "--country US",
     "--protocol https",
@@ -11,9 +16,34 @@ refl_opts = [
     "--sort rate",
     "--number 3",
 ]
-user_script = "user_setup.py"
+
+# Conf Dirs to Copy
 sys_cp = ["etc", "usr"]
-groups = ["audio", "games", "gamemode", "log", "realtime", "storage", "video"]
+
+# Mkinicpio Hooks
+mkinit_hooks = [
+    "base",
+    "systemd",
+    "autodetect",
+    "microcode",
+    "modconf",
+    "kms",
+    "sd-vconsole",
+    "block",
+    "filesystems",
+    "fsck",
+]
+
+groups = [
+    "audio",
+    "games",
+    "gamemode",
+    "log",
+    "realtime",
+    "storage",
+    "video",
+]
+
 sys_services = [
     "ananicy-cpp",
     "bluetooth",
@@ -37,9 +67,17 @@ sys_services = [
     "loggy",
     "wireguard-list",
 ]
-disable_svcs = ["getty@tty1", "systemd-networkd-wait-online"]
+
+disable_svcs = [
+    "getty@tty1",
+    "systemd-networkd-wait-online",
+]
+
 user_services = [
-    UserSrv(target="default.target.wants", services=["pipewire-pulse.service"]),
+    UserSrv(
+        target="default.target.wants",
+        services=["pipewire-pulse.service"],
+    ),
     UserSrv(
         target="sockets.target.wants",
         services=[
@@ -50,25 +88,36 @@ user_services = [
     ),
     UserSrv(
         target="graphical-session.target.wants",
-        services=["waybar.service", "swaync.service"],
+        services=[
+            "waybar.service",
+            "swaync.service",
+        ],
     ),
 ]
-###########-USB FILES-###########
+
+###########################################################
+# USB PASED FILES CONF
+###########################################################
 usb_key_dir = "keys"
 wireguard_dir = "wireguard"
 key_files = ["id_ed25519", "my_sec_gpg.asc", "pass.txt", "pass.py"]
 usb_fs_type = "exfat"
 min_usb_size = "20G"
-###########-USER CONF-############
+
+###########################################################
+# USER CONF
+###########################################################
 HOME = Path.home()
+
+pass_word_path = HOME / ".ssh" / key_files[2]
 git_dir = HOME / "Lit"
 dot_dir = HOME / "Polka"
 docs_dir = git_dir / "Docs"
+
 enc_dir = HOME / "Desktop" / "Encrypted"
 git_user = "acctux"
-ssh_dir = ".ssh"
-ssh_key = HOME / ssh_dir / key_files[0]
-gpg_key = f"{ssh_dir}/{key_files[1]}"
+ssh_key = HOME / ".ssh" / key_files[0]
+gpg_key = f".ssh/{key_files[1]}"
 git_repos = [(git_dir, "Docs"), (git_dir, "noah"), (HOME, "Polka")]
 dir_icons = [
     [HOME / "Desktop" / "Games", "folder-games.svg"],

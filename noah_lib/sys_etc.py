@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import re
 import textwrap
 from utils import get_logger
 
@@ -54,23 +55,22 @@ def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
 
 
 def modify_fstab(mnt_point: Path) -> None:
-    fstab = mnt_point / "etc" / "fstab"
-    out = []
-    for line in fstab.read_text().splitlines():
-        s = line.strip()
-        if not s or s.startswith("#"):
-            out.append(line)
-            continue
-        parts = line.split()
-        if len(parts) < 6:
-            out.append(line)
-            continue
-        opts = parts[3].split(",")
-        for i, opt in enumerate(opts):
-            if opt.startswith("fmask="):
-                opts[i] = "fmask=0077"
-            elif opt.startswith("dmask="):
-                opts[i] = "dmask=0077"
-        parts[3] = ",".join(opts)
-        out.append("\t".join(parts))
-    fstab.write_text("\n".join(out) + "\n")
+    fstab_path = mnt_point / "etc" / "fstab"
+    content = fstab_path.read_text()
+    # ^(?!#)       → ignore comments
+    # .*?          → match any characters up to the option we want
+    # \bfmask=\d+  → word boundary, then 'fmask=' followed by digits
+    # \bdmask=\d+  → word boundary, then 'dmask=' followed by digits
+    content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
+    content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
+    fstab_path.write_text(content)
+
+
+def mkinit_hooks(mnt_point: Path, hooks: list[str]):
+    mkinitcpio_conf_path = f"{mnt_point}/etc/mkinitcpio.conf"
+    with open(mkinitcpio_conf_path, "r+") as mkinit:
+        content = mkinit.read()
+        content = re.sub(r"\nHOOKS=.*", f"\nHOOKS=({' '.join(hooks)})", content)
+        mkinit.seek(0)
+        mkinit.truncate()
+        mkinit.write(content)
