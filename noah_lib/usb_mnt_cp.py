@@ -34,7 +34,7 @@ def check_usb_files(key_dir, key_files) -> list[str]:
         file_path = Path(f"/root/{key_dir}/{key_file}")
         if not file_path.exists():
             missing_files.append(file_path)
-    log.warning("Needed:, ".join(missing_files))
+    log.warning("Needed:", ", ".join(missing_files))
     return missing_files
 
 
