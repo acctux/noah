@@ -21,7 +21,7 @@ from noah_conf.pkg import pkgs
 from noah_lib.sys_pac import chaotic_repo, config_pac_conf
 from noah_lib.sys_etc import configure_sudo, modify_fstab, modify_mkinit, sys_dots
 from noah_lib.sys_files import copy_file_list, user_service, copy_dir
-from noah_lib.sys_functions import ensure_password, run_cc, modify_systemd
+from noah_lib.sys_functions import src_pass_file, type_password, run_cc, modify_systemd
 from noah_lib.usb_mnt_cp import mnt_cp_keys
 from noah_conf.conf import (
     usb_key_dir,
@@ -34,6 +34,7 @@ from noah_conf.conf import (
     sys_services,
     sys_dir_to_cp,
     disable_svcs,
+    pass_manager_pass,
     groups,
     min_usb_size,
     usb_fs_type,
@@ -59,7 +60,10 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
         ############-Ensure User Pass Exists-##########
-        pw = ensure_password(usb_key_dir, usb_cp_files, user_name)
+        if pw := src_pass_file(usb_key_dir, pass_manager_pass, user_name):
+            log.info("Password Sourced")
+        else:
+            pw = type_password(user_name)
 
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()

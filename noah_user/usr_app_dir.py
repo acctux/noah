@@ -35,23 +35,27 @@ def clone_repos(git_user: str, repo_path: Path, name: str):
 
 
 def install_icon_theme(
-    old: str = "#ffffff",
-    new: str = "#F4F5F6",
     repo: str = "vinceliuice/WhiteSur-icon-theme.git",
 ):
-    icon_dir = HOME / ".local/share/icons/WhiteSur-dark"
     tmp = Path("/tmp/whitesur-icons")
     if tmp.exists():
         shutil.rmtree(tmp)
     run_cmd(["git", "clone", "--depth=1", f"https://github.com/{repo}", str(tmp)], True)
     run_cmd(["bash", f"{tmp}/install.sh"], True)
+
+
+def recolor_icons(
+    old: str = "#ffffff",
+    new: str = "#F4F5F6",
+    icon_dir: Path = HOME / ".local/share/icons/WhiteSur-dark",
+):
     for svg in [p for p in icon_dir.rglob("*.svg") if "scalable" not in p.parts]:
         text = svg.read_text()
         if old in text:
             svg.write_text(text.replace(old, new))
 
 
-def set_folder_icons(HOME, custom_folder_icons):
+def set_folder_icons(custom_folder_icons, HOME: Path = HOME):
     for folder, icon in custom_folder_icons:
         folder.mkdir(parents=True, exist_ok=True)
         icon_path = HOME / ".local/share/icons/WhiteSur-dark/places/scalable" / icon
@@ -72,11 +76,12 @@ def hide_app_icons(applications: list[str]) -> None:
     system_dir = Path("/usr/share/applications")
     user_dir = HOME / ".local" / "share" / "applications"
     user_dir.mkdir(parents=True, exist_ok=True)
-    hidden_entry = "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
     for app in applications:
         system_file = system_dir / app
-        if system_file.exists():
-            (user_dir / app).write_text(hidden_entry)
+        user_file = user_dir / app
+        if system_file.exists() and not user_file.exists():
+            hide_entry = "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
+            user_file.write_text(hide_entry)
             log.info("Hidden: %s", app)
         else:
             log.info("Skipping %s, not found", system_file)

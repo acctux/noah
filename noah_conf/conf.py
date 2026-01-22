@@ -117,7 +117,7 @@ user_pass_file = "pass.py"
 ssh_key = "id_ed25519"
 gpg_key = "my_sec_gpg.asc"
 wireguard_dir = "wireguard"
-pass_manager_pass = ".pass.txt"
+pass_manager_pass = "pass.txt"
 usb_cp_files = [
     ssh_key,
     gpg_key,

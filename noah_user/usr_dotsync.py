@@ -28,24 +28,20 @@ def dotted_destination(src: Path, source_root: Path, target_root: Path) -> Path:
 
 
 def deploy_dotfiles(dotfiles_dir, home_dir, dirs_to_link, individual_dirs):
-    linked = skipped = 0
+    linked = 0
     if not dotfiles_dir.is_dir():
         log.error(f"Dotfiles directory does not exist: {dotfiles_dir}")
         return
     for src in dotfiles_dir.rglob("*"):
         if not src.is_file():
-            skipped += 1
             continue
         if src.relative_to(dotfiles_dir).as_posix().startswith(".git") or any(
             src.relative_to(dotfiles_dir).is_relative_to(Path(d)) for d in dirs_to_link
         ):
-            skipped += 1
             continue
         dst = dotted_destination(src, dotfiles_dir, home_dir)
         if link_path(src, dst):
             linked += 1
-        else:
-            skipped += 1
     for d in dirs_to_link:
         src = dotfiles_dir / d
         if not src.is_dir():
@@ -54,8 +50,6 @@ def deploy_dotfiles(dotfiles_dir, home_dir, dirs_to_link, individual_dirs):
         dst = dotted_destination(src, dotfiles_dir, home_dir)
         if link_path(src, dst):
             linked += 1
-        else:
-            skipped += 1
     for src_dir, dst_dir in individual_dirs:
         if not src_dir.is_dir():
             log.error(f"Directory does not exist: {src_dir}")
@@ -66,9 +60,7 @@ def deploy_dotfiles(dotfiles_dir, home_dir, dirs_to_link, individual_dirs):
             dst_file = dst_dir / src_file.relative_to(src_dir)
             if link_path(src_file, dst_file):
                 linked += 1
-            else:
-                skipped += 1
     if shutil.which("hyprctl"):
         subprocess.run(["hyprctl", "reload"], check=False)
         log.info("Hyprland reloaded")
-    log.info(f"Linked:{linked} | Skipped: {skipped}")
+    log.info(f"Linked:{linked}")

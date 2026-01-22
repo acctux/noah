@@ -64,8 +64,8 @@ def type_password(user_name: str) -> str:
         return pwd1
 
 
-def ensure_password(usb_key_dir: str, key_files: list[str], user_name: str) -> str:
-    key_path = Path("/root") / usb_key_dir / key_files[3]
+def src_pass_file(usb_key_dir: str, pass_file: str, user_name: str) -> str:
+    key_path = Path("/root") / usb_key_dir / pass_file
     if key_path.exists():
         try:
             pw = key_path.read_text().strip()
