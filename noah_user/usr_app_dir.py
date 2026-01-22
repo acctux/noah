@@ -55,7 +55,10 @@ def recolor_icons(
             svg.write_text(text.replace(old, new))
 
 
-def set_folder_icons(custom_folder_icons, HOME: Path = HOME):
+def set_folder_icons(
+    custom_folder_icons: list[tuple[Path, str]],
+    HOME: Path = HOME,
+):
     for folder, icon in custom_folder_icons:
         folder.mkdir(parents=True, exist_ok=True)
         icon_path = HOME / ".local/share/icons/WhiteSur-dark/places/scalable" / icon

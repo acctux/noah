@@ -142,12 +142,12 @@ GIT_REPOS = [
 # ICONS
 ###########################################################
 custom_dir_icons = [
-    [GAMES_DIR, "folder-games.svg"],
-    [GIT_DIR, "folder-github.svg"],
-    [GIT_DIR / "Noah", "folder-root.svg"],
-    [DOCS, "folder-bookmark.svg"],
-    [DOTS_DIR, "folder-html.svg"],
-    [ENC_DIR, "folder-locked.svg"],
+    (GAMES_DIR, "folder-games.svg"),
+    (GIT_DIR, "folder-github.svg"),
+    (GIT_DIR / "Noah", "folder-root.svg"),
+    (DOCS, "folder-bookmark.svg"),
+    (DOTS_DIR, "folder-html.svg"),
+    (ENC_DIR, "folder-locked.svg"),
 ]
 ###########################################################
 # SYMLINK/DOT FILE
