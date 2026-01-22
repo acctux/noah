@@ -22,13 +22,13 @@ pkgs = [
     "wireplumber",
     #########-Hardware-#########
     "ananicy-cpp",
-    "android-file-transfer",
     "bluetui",
     "bluez-utils",  # for loggy
     "brightnessctl",
     "btop",
     "dosfstools",
     "exfatprogs",
+    "gvfs-mtp",  # Nemo/Android
     "ntfs-3g",
     "nvtop",
     "partitionmanager",
@@ -110,6 +110,7 @@ pkgs = [
     "hyprshot",
     "hyprsunset",
     "kvantum",
+    "kvantum-qt5",
     "nwg-clipman",
     "polkit-gnome",
     "qt5-wayland",
@@ -134,6 +135,7 @@ pkgs = [
     "nemo-audio-tab",
     "plymouth",
     "qalculate-qt",
+    "qt5ct",
     "qt6ct",
     "qjournalctl",
     "telegram-desktop",

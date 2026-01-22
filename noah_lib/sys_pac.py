@@ -37,6 +37,7 @@ def chaotic_repo(mnt_point: Path | None = None):
 
 
 def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10):
+    # No leadinf slashes for NoExtract
     pacman_content = textwrap.dedent(f"""\
         [options]
         HoldPkg     = pacman glibc
@@ -47,8 +48,8 @@ def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10)
         DownloadUser = alpm
         SigLevel    = Required DatabaseOptional
         LocalFileSigLevel = Optional
-        NoExtract = /etc/xdg/autostart/firewall-applet.desktop
-        NoExtract = /usr/share/icons/capitaine-cursors/*
+        NoExtract = etc/xdg/autostart/firewall-applet.desktop
+        NoExtract = usr/share/icons/capitaine-cursors/*
 
         [core]
         Include = /etc/pacman.d/mirrorlist
