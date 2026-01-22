@@ -44,6 +44,7 @@ def enable_user_services(
             src = unit.source_dir / service
             dst = target_dir / service
             user_commands.append(f"ln -sf {src} {dst}")
+    run_cc([f"chown -R {user_name}:{user_name} /{user_home}"], mnt_point)
     run_cc(user_commands, mnt_point, user_name)
 
 

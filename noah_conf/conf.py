@@ -27,17 +27,6 @@ kb_layout = "us"
 sys_lang = "en_US"
 sys_enc = "UTF-8"
 timezone = "US/Eastern"
-sys_dir_to_cp = [
-    "etc",
-    "usr",
-]
-refl_options = [
-    "--country US",
-    "--protocol https",
-    "--latest 15",
-    "--sort rate",
-    "--number 3",
-]
 ###########################################################
 # GROUPS
 ###########################################################
@@ -105,6 +94,23 @@ user_services = [
         target="sockets.target.wants",
         services=["pipewire-pulse.socket"],
     ),
+]
+###########################################################
+# FOLDERS TO COPY FROM SCRIPT DIR TO /mnt
+###########################################################
+sys_dir_to_cp = [
+    "etc",
+    "usr",
+]
+###########################################################
+# REFLECTOR OPTIONS
+###########################################################
+refl_options = [
+    "--country US",
+    "--protocol https",
+    "--latest 15",
+    "--sort rate",
+    "--number 3",
 ]
 ###########################################################
 # USB PASSED FILES CONF
