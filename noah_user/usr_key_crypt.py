@@ -16,7 +16,6 @@ def import_ssh_key(key_file: str):
     socket = f"/run/user/{os.getuid()}/gcr/ssh"
     os.environ["SSH_AUTH_SOCK"] = socket
     if not Path(socket).exists():
-        log.info("Starting gcr-ssh-agent.socket...")
         run_cmd(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
         run_cmd(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
     keygen = run_cmd(["ssh-keygen", "-lf", str(key_path)])
@@ -31,25 +30,21 @@ def import_ssh_key(key_file: str):
     log.info("SSH key added.")
 
 
-def import_gpg_key(gpg_key: str, GPG_PATH: Path):
+def import_gpg_key(GPG_PATH: Path):
     gpg = gnupg.GPG(gnupghome=str(GPG_PATH.parent))
     with GPG_PATH.open("rb") as f:
-        import_result = gpg.import_keys(f.read())
-    if not import_result.fingerprints:
-        log.error(f"Failed to import GPG key {gpg_key}.")
-        return
-    fingerprint = import_result.fingerprints[0]
-    if any(fingerprint == k["fingerprint"] for k in gpg.list_keys()):
-        log.info(f"GPG key {fingerprint} already imported.")
-    else:
-        log.info(f"GPG key imported: {fingerprint}")
-    trust_result = run_cmd(
-        ["gpg", "--import-ownertrust"], input_text=f"{fingerprint}:6:\n"
-    )
-    if trust_result and trust_result.returncode == 0:
-        log.info(f"GPG key trusted (ultimate): {fingerprint}")
-    else:
-        log.error("Failed to set trust for GPG key.")
+        if import_result := gpg.import_keys(f.read()).fingerprints:
+            if fingerprint := import_result[0]:
+                log.info(f"{fingerprint} already imported.")
+            else:
+                log.info(f"Imported: {fingerprint}")
+            trust_result = run_cmd(
+                ["gpg", "--import-ownertrust"], input_text=f"{fingerprint}:6:\n"
+            )
+            if trust_result and trust_result.returncode == 0:
+                log.info(f"GPG key trusted (ultimate): {fingerprint}")
+            else:
+                log.error("Failed to set trust for GPG key.")
 
 
 def initialize_gocrypt(enc_dir: Path):

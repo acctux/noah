@@ -22,13 +22,15 @@ def ensure_github_known_hosts(kh: Path = HOME / ".ssh" / "known_hosts"):
 
 def clone_repos(git_user: str, repo_path: Path, name: str):
     repo_path.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "git",
-        "clone",
-        f"git@github.com:{git_user}/{name}.git",
-        str(repo_path),
-    ]
-    run_cmd(cmd, check=True)
+    run_cmd(
+        [
+            "git",
+            "clone",
+            f"git@github.com:{git_user}/{name}.git",
+            str(repo_path),
+        ],
+        check=True,
+    )
     log.info(f"Cloned {name} into {repo_path}")
 
 
