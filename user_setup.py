@@ -149,7 +149,7 @@ def main():
             initialize_gocrypt(ENC_DIR)
         if not not any((HOME / ".local/share/icons/WhiteSur-dark").rglob("*")):
             install_icon_theme()
-        set_folder_icons(HOME, custom_dir_icons)
+        set_folder_icons(custom_dir_icons)
         ensure_github_known_hosts()
         for path, name in GIT_REPOS:
             repo_path = path / name.capitalize()
