@@ -147,7 +147,8 @@ def main():
             import_gpg_key(GPG_PATH)
         if not ENC_DIR.exists() or not len(list(ENC_DIR.iterdir())) > 0:
             initialize_gocrypt(ENC_DIR)
-        if not not any((HOME / ".local/share/icons/WhiteSur-dark").iterdir()):
+        check_dir = HOME / ".local/share/icons/WhiteSur-dark"
+        if not check_dir.exists() or not any((check_dir).iterdir()):
             install_icon_theme()
         set_folder_icons(custom_dir_icons)
         ensure_github_known_hosts()
