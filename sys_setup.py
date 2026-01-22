@@ -116,10 +116,10 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         #############-CP Files to User Home-###############
         copy_file_list(user_name, mountpoint, usb_cp_files, usb_key_dir)
         copy_dir(str(script_dir), (mountpoint / user_home / script_dir.name))
-        user_service(script_dir.name, mountpoint, user_name, user_home)
 
         #############-Own Everything-###############
         run_cc([f"chown -R {user_name}:{user_name} /{user_home}"], mountpoint)
+        user_service(script_dir.name, mountpoint, user_name, user_home)
 
         installation.genfstab()
         modify_fstab(mountpoint)
