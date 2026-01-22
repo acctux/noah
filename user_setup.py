@@ -16,6 +16,9 @@ from noah_user.usr_app_dir import (
 
 # TODO investigate Ayugram vs Telegram dependencies
 # cleanup service
+# unmount
+# virt machine version
+#
 CACHE_FILE = nl.HOME / ".cache" / "first_done"
 log = get_logger("Noah")
 
@@ -41,7 +44,7 @@ def run_sudo_commands():
         "sudo rm /etc/resolv.conf",
         "sudo resolvconf -u",
         "sudo firewall-cmd --set-default-zone=block",
-        "paru -R telegram-desktop",
+        "sudo systemctl restart iwd",
     ]
     for cmd in commands:
         result = run_cmd(cmd.split(), True)
@@ -49,11 +52,12 @@ def run_sudo_commands():
             log.error(f"Command failed: {cmd}")
 
 
-def setup_service(user_script: str) -> None:
+def setup_service(user_script: str, script_dir: str | None = None) -> None:
     run_script = nl.HOME / user_script
-    service_dir = nl.HOME / ".config/systemd/user"
+    if script_dir:
+        run_script = nl.HOME / script_dir / user_script
     service_name = f"{run_script.stem}.service"
-    service_path = service_dir / service_name
+    service_path = nl.HOME / ".config" / "systemd" / "user" / service_name
     service_path.write_text(f"""[Unit]
 Description=Open Alacritty running {user_script} on login
 After=graphical-session.target
@@ -93,7 +97,7 @@ def launch_apps():
 
 def verify_install():
     for path, repo in nl.git_repos:
-        repo_path = path / repo
+        repo_path = path / repo.capitalize()
         if not repo_path.exists() or len(list(repo_path.iterdir())) == 0:
             log.error(f"Git repository {repo} is empty or missing.")
             return False
@@ -108,6 +112,8 @@ def main():
     if not CACHE_FILE.exists():
         cmd = ["chsh", "-s", "/usr/bin/zsh"]
         run_interactive(cmd)
+        cmd = ["paru", "-R", "telegram-desktop"]
+        run_interactive(cmd)
         run_sudo_commands()
         import_ssh_key(nl.ssh_key)
         import_gpg_key(nl.gpg_key)
@@ -117,8 +123,9 @@ def main():
         set_folder_icons(nl.HOME, nl.dir_icons)
         clone_repos(nl.git_user, nl.git_repos, nl.ssh_dir)
         hide_app_icons(nl.hide_apps)
-        deploy_dotfiles(dc.dots_dir, dc.HOME, dc.dirs_to_link, dc.ind_dirs)
-        setup_service(nl.user_script)
+        if nl.dot_dir.exists():
+            deploy_dotfiles(dc.dots_dir, dc.HOME, dc.dirs_to_link, dc.ind_dirs)
+        setup_service(nl.user_script, "archinstall")
         if verify_install():
             CACHE_FILE.touch()
         else:

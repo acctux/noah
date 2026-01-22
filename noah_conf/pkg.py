@@ -59,7 +59,7 @@ pkgs = [
     "otf-firamono-nerd",
     "rofimoji",
     "tesseract-data-eng",
-    "ttf-jetbrains-mono",
+    "ttf-jetbrains-mono-nerd",
     ########-Multimedia-########
     "cava",
     "evince",
