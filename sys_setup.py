@@ -115,7 +115,10 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         #############-User and Sudo-###############
         installation.create_users(User(user_name, Password(pw), True, groups))
         configure_sudo(user_name, mountpoint, pwd_require=False)
-        usr_cmd = ["xdg-user-dirs-update", f"mkdir -p /{user_home}/.cache/mpd"]
+        usr_cmd = [
+            "xdg-user-dirs-update",
+            f"mkdir -p /{user_home}/.cache/mpd",
+        ]
         run_cc(usr_cmd, mountpoint, user_name)
 
         #############-CP Files to User Home-###############
@@ -124,6 +127,12 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
         #############-Own Everything and User Services-###############
         run_cc([f"chown -R {user_name}:{user_name} /{user_home}"], mountpoint)
+        cmd = [
+            f"git clone https://github.com/acctux/polka.git /home/{user_name}/Folka",
+            "hyprctl reload "
+            f"python /home/{user_name}/Folka/local/bin/dotsync/dotsync.py",
+        ]
+        run_cc(usr_cmd, mountpoint, user_name, peek=False)
         user_service(script_dir.name, mountpoint, user_name, user_home)
 
         installation.genfstab()
