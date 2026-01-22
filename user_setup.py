@@ -57,8 +57,8 @@ def run_interactive(cmd: list[str], check: bool = True) -> int:
 
 def run_sudo_commands():
     commands = [
-        f"sudo chmod 600 {HOME}/.ssh/id_ed25519"
-        f"sudo chmod 700 {HOME}/.ssh"
+        f"sudo chmod 600 {HOME}/.ssh/id_ed25519",
+        f"sudo chmod 700 {HOME}/.ssh",
         "sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql",
         "sudo rm /etc/resolv.conf",
         "sudo resolvconf -u",
