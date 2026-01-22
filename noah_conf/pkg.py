@@ -194,7 +194,6 @@ pkgs = [
     "jdk-openjdk",
     "mariadb",
     ###########-Gaming-###########
-    "gamemode",
     "gnome-chess",
     "gnuchess",
     "lib32-gamemode",

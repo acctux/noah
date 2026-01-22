@@ -66,7 +66,7 @@ def modify_fstab(mnt_point: Path) -> None:
     fstab_path.write_text(content)
 
 
-def mkinit_hooks(mnt_point: Path, hooks: list[str]):
+def modify_mkinit(mnt_point: Path, hooks: list[str]):
     mkinitcpio_conf_path = f"{mnt_point}/etc/mkinitcpio.conf"
     with open(mkinitcpio_conf_path, "r+") as mkinit:
         content = mkinit.read()

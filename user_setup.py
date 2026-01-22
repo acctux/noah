@@ -138,7 +138,7 @@ def main():
         else:
             run_cmd(["systemctl", "reboot"], True)
     else:
-        pass_and_input(nl.pass_word_path)
+        pass_and_input(nl.pass_manager_pass)
         launch_apps()
         cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
         run_interactive(cmd)

@@ -4,4 +4,4 @@
 # and extra arguments to `paccache` when running paccache.service.
 # See `man 8 paccache` or `paccache --help` for further information.
 
-PACCACHE_ARGS="-k 1"
+PACCACHE_ARGS="-k 2"

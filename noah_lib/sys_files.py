@@ -1,6 +1,6 @@
 from pathlib import Path
 import shutil
-from utils import UserSrv
+from pydantic import BaseModel
 from noah_lib.sys_functions import run_cc
 from utils import get_logger
 
@@ -19,6 +19,12 @@ def copy_dir(dir: str, dest: Path, set_root: bool = False):
                 path.chmod(0o600)
         shutil.chown(dest, user="root", group="root")
         dest.chmod(0o700)
+
+
+class UserSrv(BaseModel):
+    target: str
+    services: list[str]
+    source_dir: Path = Path("/usr/lib/systemd/user")
 
 
 def enable_user_services(
@@ -76,19 +82,36 @@ WantedBy=graphical-session.target
     )
 
 
-def copy_file_list(key_files: list[str], usb_key_dir: str, dest: Path):
+def copy_file_list(
+    user_name: str,
+    mnt_point: Path,
+    key_files: list[str],
+    usb_key_dir: str,
+    gpg_key: str = "my_sec_gpg.asc",
+    ssh_key: str = "id_ed25519",
+):
+    mnt_home = mnt_point / "home" / user_name
+    ssh_dir = mnt_home / ".ssh"
+    gpg_dir = mnt_home / ".gnupg"
+    key_dirs = [ssh_dir, gpg_dir]
+    for d in key_dirs:
+        d.mkdir(parents=True, exist_ok=True)
+        d.chmod(0o700)
     src = Path("/root") / usb_key_dir
     if not src.is_dir():
         log.error(f"{src} does not exist")
         return
-    dest.mkdir(parents=True, exist_ok=True)
-    dest.chmod(0o700)
     for name in key_files[:3]:
         src_file = src / name
+        dest = mnt_home / usb_key_dir / name
+        if name == ssh_key:
+            dest = ssh_dir / name
+        if name == gpg_key:
+            dest = gpg_dir / name
         if not src_file.is_file():
             log.error(f"{src_file} does not exist")
             continue
         dest_file = dest / name
         shutil.copy2(src_file, dest_file)
-        if name in key_files[:2]:
+        if name == ssh_key:
             dest_file.chmod(0o600)

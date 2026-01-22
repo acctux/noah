@@ -1,16 +1,15 @@
 import os
 import getpass
 from pathlib import Path
-import logging
 import subprocess
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+from noah_conf.conf import HOME
+from utils import get_logger
+
+log = get_logger("Noah")
 
 
 def run_cmd(command, check=False, input_text=None):
-    """Helper function to run a command and capture its output."""
     try:
         result = subprocess.run(
             command,
@@ -25,8 +24,8 @@ def run_cmd(command, check=False, input_text=None):
         return None
 
 
-def import_ssh_key(key_path: Path):
-    """Imports an SSH key if it doesn't exist in the SSH agent."""
+def import_ssh_key(key_file: str):
+    key_path = HOME / ".ssh" / key_file
     if not key_path.exists():
         log.error(f"SSH key file {key_path} does not exist.")
         return
@@ -52,8 +51,7 @@ def import_ssh_key(key_path: Path):
 
 
 def import_gpg_key(gpg_key: str):
-    """Imports a GPG key and sets trust if not already imported."""
-    if not Path(gpg_key).exists():
+    if not (HOME / ".gnugpg" / gpg_key).exists():
         log.error(f"GPG key file {gpg_key} does not exist.")
         return
     show = run_cmd(
@@ -94,7 +92,6 @@ def import_gpg_key(gpg_key: str):
 
 
 def initialize_gocrypt(enc_dir: Path):
-    """Initializes a gocryptfs encrypted directory."""
     if enc_dir.exists() and len(list(enc_dir.iterdir())) > 0:
         log.info(f"gocryptfs directory {enc_dir} already initialized.")
         return
