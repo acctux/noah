@@ -1,4 +1,5 @@
 from pathlib import Path
+from utils import UserSrv
 
 
 HOME = Path.home()
@@ -90,8 +91,9 @@ sys_services = [
 
 disable_svcs = [
     "getty@tty1",  # LY requires this be disabled
-    "systemd-networkd-wait-online",  # automatically enabled by systemd-networkd but not needed to be, caused wg-quick@.service to hang at desktop
+    "systemd-networkd-wait-online",
 ]
+
 
 ###########################################################
 # USB PASED FILES CONF

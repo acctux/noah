@@ -93,8 +93,7 @@ def copy_file_list(
     mnt_home = mnt_point / "home" / user_name
     ssh_dir = mnt_home / ".ssh"
     gpg_dir = mnt_home / ".gnupg"
-    key_dirs = [ssh_dir, gpg_dir]
-    for d in key_dirs:
+    for d in [ssh_dir, gpg_dir]:
         d.mkdir(parents=True, exist_ok=True)
         d.chmod(0o700)
     src = Path("/root") / usb_key_dir
@@ -111,7 +110,6 @@ def copy_file_list(
         if not src_file.is_file():
             log.error(f"{src_file} does not exist")
             continue
-        dest_file = dest / name
-        shutil.copy2(src_file, dest_file)
+        shutil.copy2(src_file, dest)
         if name == ssh_key:
-            dest_file.chmod(0o600)
+            dest.chmod(0o600)

@@ -1,10 +1,23 @@
 import os
+from pathlib import Path
 import subprocess
 import sys
 import pyperclip
 from utils import get_logger, run_cmd
-import noah_conf.conf as nl
-import noah_conf.dot_conf as dc
+from noah_conf.conf import (
+    DOTS_DIR,
+    ENC_DIR,
+    HOME,
+    ssh_key,
+    git_repos,
+    git_user,
+    gpg_key,
+    dir_icons,
+    dirs_to_link,
+    ind_dirs,
+    pass_manager_pass_path,
+    hide_apps,
+)
 from noah_user.usr_key_crypt import import_ssh_key, import_gpg_key, initialize_gocrypt
 from noah_user.usr_dotsync import deploy_dotfiles
 from noah_user.usr_app_dir import (
@@ -18,8 +31,7 @@ from noah_user.usr_app_dir import (
 # cleanup service
 # unmount
 # virt machine version
-#
-CACHE_FILE = nl.HOME / ".cache" / "first_done"
+CACHE_FILE = HOME / ".cache" / "first_done"
 log = get_logger("Noah")
 
 
@@ -55,11 +67,11 @@ def run_sudo_commands():
 def setup_service(
     user_script: str = "user_setup.py", script_dir: str | None = None
 ) -> None:
-    run_script = nl.HOME / user_script
+    run_script = HOME / user_script
     if script_dir:
-        run_script = nl.HOME / script_dir / user_script
+        run_script = HOME / script_dir / user_script
     service_name = f"{run_script.stem}.service"
-    service_path = nl.HOME / ".config" / "systemd" / "user" / service_name
+    service_path = HOME / ".config" / "systemd" / "user" / service_name
     service_path.write_text(f"""[Unit]
 Description=Open Alacritty running {user_script} on login
 After=graphical-session.target
@@ -97,13 +109,13 @@ def launch_apps():
         log.info(f"{app} closed")
 
 
-def verify_install():
-    for path, repo in nl.git_repos:
+def verify_install(git_repos: list[tuple[Path, str]]):
+    for path, repo in git_repos:
         repo_path = path / repo.capitalize()
         if not repo_path.exists() or len(list(repo_path.iterdir())) == 0:
             log.error(f"Git repository {repo} is empty or missing.")
             return False
-    icon_folder = nl.HOME / ".local/share/icons/WhiteSur-dark"
+    icon_folder = HOME / ".local/share/icons/WhiteSur-dark"
     if not icon_folder.exists():
         log.error("Icon folder 'WhiteSur-dark' not found.")
         return False
@@ -114,21 +126,19 @@ def main():
     if not CACHE_FILE.exists():
         cmd = ["chsh", "-s", "/usr/bin/zsh"]
         run_interactive(cmd)
-        cmd = ["paru", "-R", "telegram-desktop"]
-        run_interactive(cmd)
         run_sudo_commands()
-        import_ssh_key(nl.ssh_key)
-        import_gpg_key(nl.gpg_key)
-        initialize_gocrypt(nl.enc_dir)
-        if not (nl.HOME / ".local/share/icons/WhiteSur-dark").exists():
+        import_ssh_key(ssh_key)
+        import_gpg_key(gpg_key)
+        initialize_gocrypt(ENC_DIR)
+        if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
             install_icon_theme()
-        set_folder_icons(nl.HOME, nl.dir_icons)
-        clone_repos(nl.git_user, nl.git_repos)
-        hide_app_icons(nl.hide_apps)
-        if nl.dot_dir.exists():
-            deploy_dotfiles(dc.dots_dir, dc.HOME, dc.dirs_to_link, dc.ind_dirs)
+        set_folder_icons(HOME, dir_icons)
+        clone_repos(git_user, git_repos)
+        hide_app_icons(hide_apps)
+        if DOTS_DIR.exists():
+            deploy_dotfiles(DOTS_DIR, HOME, dirs_to_link, ind_dirs)
         setup_service(script_dir="archinstall")
-        if verify_install():
+        if verify_install(git_repos):
             CACHE_FILE.touch()
         else:
             log.error("Installation verification failed. Cache file not updated.")
@@ -138,7 +148,7 @@ def main():
         else:
             run_cmd(["systemctl", "reboot"], True)
     else:
-        pass_and_input(nl.pass_manager_pass)
+        pass_and_input(pass_manager_pass_path)
         launch_apps()
         cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
         run_interactive(cmd)

@@ -36,8 +36,8 @@ def chaotic_repo(mnt_point: Path | None = None):
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
 
 
+# No leading slashes for NoExtract
 def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10):
-    # No leadinf slashes for NoExtract
     pacman_content = textwrap.dedent(f"""\
         [options]
         HoldPkg     = pacman glibc

@@ -1,25 +1,28 @@
 import subprocess
 from pathlib import Path
+from archinstall.lib.configuration import ConfigurationOutput
+from archinstall.lib.disk.filesystem import FilesystemHandler
+from archinstall.lib.global_menu import DiskLayoutConfigurationMenu
+from archinstall.lib.installer import Bootloader, Installer
+from archinstall.lib.models.device import DiskLayoutType, EncryptionType
+from archinstall.tui import Tui
+from utils import run_cmd, get_logger
+from archinstall.lib.interactions.general_conf import (
+    PostInstallationAction,
+    ask_post_installation,
+)
 from archinstall.lib.args import (
     LocaleConfiguration,
     Password,
     User,
     arch_config_handler,
 )
-from archinstall.lib.configuration import ConfigurationOutput
-from archinstall.lib.disk.filesystem import FilesystemHandler
-from archinstall.lib.global_menu import DiskLayoutConfigurationMenu
-from archinstall.lib.installer import Bootloader, Installer
-from archinstall.lib.interactions.general_conf import (
-    PostInstallationAction,
-    ask_post_installation,
-)
-from archinstall.lib.models.device import DiskLayoutType, EncryptionType
-from archinstall.tui import Tui
-import noah_conf.pkg as pkg
-from utils import run_cmd, get_logger
+from noah_conf.pkg import pkgs
 from noah_lib.sys_pac import chaotic_repo, config_pac_conf
 from noah_lib.sys_etc import configure_sudo, modify_fstab, modify_mkinit, sys_dots
+from noah_lib.sys_files import copy_file_list, user_service, copy_dir
+from noah_lib.sys_functions import ensure_password, run_cc, modify_systemd
+from noah_lib.usb_mnt_cp import mnt_cp_keys
 from noah_conf.conf import (
     usb_key_dir,
     user_name,
@@ -35,14 +38,10 @@ from noah_conf.conf import (
     min_usb_size,
     usb_fs_type,
 )
-from noah_lib.sys_files import (
-    copy_file_list,
-    user_service,
-    copy_dir,
-)
-from noah_lib.sys_functions import ensure_password, run_cc, modify_systemd
-from noah_lib.usb_mnt_cp import mnt_cp_keys
 
+###########################################################
+# CONSTANTS
+###########################################################
 script_dir = Path(__file__).resolve().parent
 user_home = f"home/{user_name}"
 log = get_logger("Noah")
@@ -74,23 +73,23 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.minimal_installation(
             [], True, hostname, LocaleConfiguration("us", "en_US", "UTF-8")
         )
-
-        # Install reflector to manage pacman mirrors
+        # Install reflector
         installation.add_additional_packages("reflector")
         cmd = f"reflector {' '.join(refl_options)} --save /etc/pacman.d/mirrorlist"
         ref_cmd = cmd
         run_cc([ref_cmd], mountpoint)
-
         # Install and configure systemd
         installation.add_bootloader(Bootloader.Systemd)
         modify_systemd(mountpoint)
+
+        # Copy WiFi Password Over and Set Timezone
         installation.copy_iso_network_config()
         installation.set_timezone("US/Eastern")
 
         # Pkg Management
         config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
-        installation.add_additional_packages(pkg.pkgs)
+        installation.add_additional_packages(pkgs)
 
         # Etc Management
         modify_mkinit(mountpoint, mkinit_hooks)

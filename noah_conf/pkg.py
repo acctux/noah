@@ -26,6 +26,7 @@ pkgs = [
     "bluez-utils",  # for loggy
     "brightnessctl",
     "btop",
+    "rocm-smi-lib",  # btop dependency for amd gpu
     "dosfstools",
     "exfatprogs",
     "gvfs-mtp",  # Nemo/Android
@@ -34,7 +35,6 @@ pkgs = [
     "partitionmanager",
     "powertop",
     "realtime-privileges",
-    "rocm-smi-lib",  # btop dependency for amd gpu
     "smartmontools",
     "tlp",
     "udisks2-btrfs",
@@ -128,7 +128,11 @@ pkgs = [
     "baobab",
     "bustle",
     "featherpad",
+    "gnucash",
     "gocryptfs",
+    "khal",
+    "libreoffice-fresh",
+    "coin-or-mp",  # For LibreOffice Calc Solver
     "logrotate",
     "ly",
     "nemo-audio-tab",
@@ -138,20 +142,14 @@ pkgs = [
     "qt5ct",
     "qt6ct",
     "qjournalctl",
-    "telegram-desktop",
+    "thunderbird-i18n-en-us",
+    "thunderbird-dark-reader",
+    "thunderbird-ublock-origin",
+    "systray-x-common",  # Thunderbird tray support
     "unrar",  # File roller
     "wl-clipboard",
     "wl-clip-persist",
     "xdg-user-dirs",
-    ###########-Office-###########
-    "coin-or-mp",  # For LibreOffice Calc Solver
-    "gnucash",
-    "khal",
-    "libreoffice-fresh",
-    "systray-x-common",  # Thunderbird tray support
-    "thunderbird-i18n-en-us",
-    "thunderbird-dark-reader",
-    "thunderbird-ublock-origin",
     ###########-Coding-###########
     "inotify-tools",  # Nvim: WARNING libuv-watchdirs has known performance issues. Consider installing inotify-tools.
     "luarocks",
@@ -196,7 +194,6 @@ pkgs = [
     ###########-Gaming-###########
     "gnome-chess",
     "gnuchess",
-    "lib32-gamemode",
     "lib32-mangohud",
     "lutris",
     "mangohud",
