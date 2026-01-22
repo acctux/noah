@@ -96,7 +96,7 @@ def copy_file_list(
         return
     for name in key_files[:3]:
         src_file = src / name
-        dest = mnt_home / usb_key_dir / name
+        dest = mnt_home / usb_key_dir
         if name == ssh_key:
             dest = ssh_dir
         if name == gpg_key:
