@@ -2,78 +2,44 @@ from pathlib import Path
 import gnupg
 import sys
 
-input = "test.txt"
+FILE_NAME = "test.txt"
+PASSPHRASE = "mypassword"
 
 
-def encrypt_file_symmetric(
-    input_path: Path,
-    passphrase: str,
-    output_path: Path | None = None,
-    gpg: gnupg.GPG | None = None,
-) -> Path:
-    if not input_path.exists():
-        raise FileNotFoundError(input_path)
-    gpg = gpg or gnupg.GPG()
-    output_path = output_path or input_path.with_suffix(input_path.suffix + ".gpg")
+def encrypt_file(input_path: Path, output_path: Path, gpg: gnupg.GPG) -> None:
     with input_path.open("rb") as f:
         status = gpg.encrypt_file(
             f,
             recipients=None,
             symmetric=True,
-            passphrase=passphrase,
+            passphrase=PASSPHRASE,
             output=str(output_path),
         )
     if not status.ok:
         raise RuntimeError(f"Encryption failed: {status.status}")
-    return output_path
 
 
-def decrypt_file_symmetric(
-    input_path: Path,
-    passphrase: str,
-    output_path: Path,
-    gpg: gnupg.GPG | None = None,
-) -> Path:
-    if not input_path.exists():
-        raise FileNotFoundError(input_path)
-    gpg = gpg or gnupg.GPG()
+def decrypt_file(input_path: Path, output_path: Path, gpg: gnupg.GPG) -> None:
     with input_path.open("rb") as f:
-        status = gpg.decrypt_file(
-            f,
-            passphrase=passphrase,
-            output=str(output_path),
-        )
+        status = gpg.decrypt_file(f, passphrase=PASSPHRASE, output=str(output_path))
     if not status.ok:
         raise RuntimeError(f"Decryption failed: {status.status}")
-    return output_path
 
 
-def main() -> None:
+def main():
     home = Path.home()
-    plaintext = home / input
-    encrypted = home / f"{input}.gpg"
-    decrypted = plaintext  # restore to original name
-    passphrase = "mypassword"
+    plaintext = home / FILE_NAME
+    encrypted = home / f"{FILE_NAME}.gpg"
     gpg = gnupg.GPG()
     try:
         if encrypted.exists():
             print("Encrypted file found → decrypting...")
-            decrypt_file_symmetric(
-                input_path=encrypted,
-                passphrase=passphrase,
-                output_path=decrypted,
-                gpg=gpg,
-            )
+            decrypt_file(encrypted, plaintext, gpg)
             encrypted.unlink()
             print(f"Decrypted and removed: {encrypted}")
         elif plaintext.exists():
             print("Plaintext file found → encrypting...")
-            encrypt_file_symmetric(
-                input_path=plaintext,
-                passphrase=passphrase,
-                output_path=encrypted,
-                gpg=gpg,
-            )
+            encrypt_file(plaintext, encrypted, gpg)
             plaintext.unlink()
             print(f"Encrypted and removed: {plaintext}")
         else:
@@ -85,3 +51,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

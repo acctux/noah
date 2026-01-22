@@ -8,19 +8,22 @@ from noah_conf.conf import (
     DOTS_DIR,
     ENC_DIR,
     HOME,
+    GPG_DIR,
+    SSH_DIR,
     ssh_key,
-    git_repos,
+    GIT_REPOS,
     git_user,
     gpg_key,
-    dir_icons,
+    custom_dir_icons,
     dirs_to_link,
     ind_dirs,
-    pass_manager_pass_path,
     hide_apps,
+    pass_manager_pass,
 )
 from noah_user.usr_key_crypt import import_ssh_key, import_gpg_key, initialize_gocrypt
 from noah_user.usr_dotsync import deploy_dotfiles
 from noah_user.usr_app_dir import (
+    ensure_github_known_hosts,
     install_icon_theme,
     set_folder_icons,
     hide_app_icons,
@@ -32,6 +35,8 @@ from noah_user.usr_app_dir import (
 # unmount
 # virt machine version
 CACHE_FILE = HOME / ".cache" / "first_done"
+GPG_PATH = HOME / GPG_DIR / gpg_key
+SSH_PATH = HOME / SSH_DIR / ssh_key
 log = get_logger("Noah")
 
 
@@ -87,8 +92,8 @@ WantedBy=graphical-session.target
     run_cmd(["systemctl", "--user", "enable", service_name])
 
 
-def pass_and_input(password_file):
-    password = password_file.read_text().strip()
+def pass_and_input(password_file: str, pass_dir: Path):
+    password = (pass_dir / password_file).read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
     log.info("Password copied to clipboard.")
@@ -112,12 +117,19 @@ def launch_apps():
 def verify_install(git_repos: list[tuple[Path, str]]):
     for path, repo in git_repos:
         repo_path = path / repo.capitalize()
-        if not repo_path.exists() or len(list(repo_path.iterdir())) == 0:
-            log.error(f"Git repository {repo} is empty or missing.")
+        if not repo_path.exists() or not any(repo_path.iterdir()):
+            log.error(f"Git repository {repo} is empty or missing: {repo_path}")
             return False
     icon_folder = HOME / ".local/share/icons/WhiteSur-dark"
     if not icon_folder.exists():
         log.error("Icon folder 'WhiteSur-dark' not found.")
+        return False
+    nvim_config = HOME / ".config/nvim"
+    if not nvim_config.exists():
+        log.error("nvim config folder '~/.config/nvim' does not exist.")
+        return False
+    if not nvim_config.is_symlink():
+        log.error("nvim config folder '~/.config/nvim' is not a symlink.")
         return False
     return True
 
@@ -127,18 +139,25 @@ def main():
         cmd = ["chsh", "-s", "/usr/bin/zsh"]
         run_interactive(cmd)
         run_sudo_commands()
-        import_ssh_key(ssh_key)
-        import_gpg_key(gpg_key)
-        initialize_gocrypt(ENC_DIR)
-        if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
+        if SSH_PATH.exists():
+            import_ssh_key(ssh_key)
+        if GPG_PATH.exists():
+            import_gpg_key(gpg_key, GPG_PATH)
+        if not ENC_DIR.exists() and not len(list(ENC_DIR.iterdir())) > 0:
+            initialize_gocrypt(ENC_DIR)
+        if not not any((HOME / ".local/share/icons/WhiteSur-dark").rglob("*")):
             install_icon_theme()
-        set_folder_icons(HOME, dir_icons)
-        clone_repos(git_user, git_repos)
+        set_folder_icons(HOME, custom_dir_icons)
+        ensure_github_known_hosts()
+        for path, name in GIT_REPOS:
+            repo_path = path / name.capitalize()
+            if not repo_path.exists():
+                clone_repos(git_user, repo_path, name)
         hide_app_icons(hide_apps)
         if DOTS_DIR.exists():
             deploy_dotfiles(DOTS_DIR, HOME, dirs_to_link, ind_dirs)
         setup_service(script_dir="archinstall")
-        if verify_install(git_repos):
+        if verify_install(GIT_REPOS):
             CACHE_FILE.touch()
         else:
             log.error("Installation verification failed. Cache file not updated.")
@@ -148,7 +167,7 @@ def main():
         else:
             run_cmd(["systemctl", "reboot"], True)
     else:
-        pass_and_input(pass_manager_pass_path)
+        pass_and_input(pass_manager_pass, SSH_DIR)
         launch_apps()
         cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
         run_interactive(cmd)

@@ -8,6 +8,8 @@ from noah_lib.sys_files import UserSrv
 HOME = Path.home()
 SHARE = HOME / ".local" / "share"
 CONF = HOME / ".config"
+SSH_DIR = HOME / ".ssh"
+GPG_DIR = HOME / ".gnupg"
 BASE = HOME / "Lit" / "Docs" / "base"
 DESKTOP = HOME / "Desktop"
 GIT_DIR = HOME / "Lit"
@@ -32,18 +34,6 @@ refl_options = [
     "--sort rate",
     "--number 3",
 ]
-mkinit_hooks = [
-    "base",
-    "systemd",
-    "autodetect",
-    "microcode",
-    "modconf",
-    "kms",
-    "sd-vconsole",
-    "block",
-    "filesystems",
-    "fsck",
-]
 
 ###########################################################
 # GROUPS
@@ -57,7 +47,7 @@ groups = [
 ]
 
 ###########################################################
-# SERVICES
+# SYS SERVICES
 ###########################################################
 sys_services = [
     "ananicy-cpp",
@@ -86,6 +76,26 @@ disable_svcs = [
     "getty@tty1",
     "systemd-networkd-wait-online",
 ]
+
+###########################################################
+# MKINITCPIO HOOKS
+###########################################################
+mkinit_hooks = [
+    "base",
+    "systemd",
+    "autodetect",
+    "microcode",
+    "modconf",
+    "kms",
+    "sd-vconsole",
+    "block",
+    "filesystems",
+    "fsck",
+]
+
+###########################################################
+# USER SERVICES
+###########################################################
 user_services = [
     UserSrv(
         target="default.target.wants",
@@ -107,20 +117,19 @@ user_pass_file = "pass.py"
 ssh_key = "id_ed25519"
 gpg_key = "my_sec_gpg.asc"
 wireguard_dir = "wireguard"
-pass_manager_pass_path = HOME / ".ssh" / "pass.txt"
+pass_manager_pass = ".pass.txt"
 usb_cp_files = [
     ssh_key,
     gpg_key,
-    pass_manager_pass_path.name,
+    pass_manager_pass,
     user_pass_file,
 ]
-
 
 ###########################################################
 # GIT
 ###########################################################
 git_user = "acctux"
-git_repos = [
+GIT_REPOS = [
     (GIT_DIR, "Docs"),
     (GIT_DIR, "noah"),
     (HOME, "Polka"),
@@ -129,7 +138,7 @@ git_repos = [
 ###########################################################
 # ICONS
 ###########################################################
-dir_icons = [
+custom_dir_icons = [
     [GAMES_DIR, "folder-games.svg"],
     [GIT_DIR, "folder-github.svg"],
     [GIT_DIR / "Noah", "folder-root.svg"],
@@ -141,7 +150,6 @@ dir_icons = [
 ###########################################################
 # SYMLINK/DOT FILE
 ############################################################
-
 dirs_to_link = ["config/systemd/user", "config/nvim", "local/bin"]
 ind_dirs = [
     ((BASE / "fonts"), (SHARE / "fonts")),

@@ -152,8 +152,6 @@ pkgs = [
     "xdg-user-dirs",
     ###########-Coding-###########
     "inotify-tools",  # Nvim: WARNING libuv-watchdirs has known performance issues. Consider installing inotify-tools.
-    "luarocks",
-    "lua-sec",
     "npm",
     "neovim-lspconfig",
     "rust",
@@ -176,21 +174,21 @@ pkgs = [
     "tree-sitter-javascript",
     "tree-sitter-python",
     "tree-sitter-rust",
-    ###########-Python-###########
-    "python-dbus-fast",  # loggy
-    "python-imaplib2",  # emailcheck
-    "python-mpd2",
-    "python-mysqlclient",
-    "python-pandas",
-    "python-pydantic",
-    "python-pygit2",
-    "python-pyperclip",
-    "python-systemd",  # loggy
-    "python-wand",  # wallpaper script
     #########-SQL Server-##########
     "dbeaver",
     "jdk-openjdk",
     "mariadb",
+    "python-pymysql",
+    ###########-Python-###########
+    "python-dbus-fast",  # loggy
+    "python-gnugp",  # noah dependency
+    "python-imaplib2",  # emailcheck
+    "python-mpd2",
+    "python-pandas",
+    "python-pydantic",
+    "python-pyperclip",  # noah dependency
+    "python-systemd",  # loggy
+    "python-wand",  # wallpaper script
     ###########-Gaming-###########
     "gnome-chess",
     "gnuchess",

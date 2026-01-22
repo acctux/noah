@@ -47,6 +47,9 @@ user_home = f"home/{user_name}"
 log = get_logger("Noah")
 
 
+###########################################################
+# Installer
+###########################################################
 def perform_installation(mountpoint=Path("/mnt")) -> None:
     config = arch_config_handler.config
     if not config.disk_config:
@@ -55,12 +58,12 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
     disk_config = config.disk_config
 
     with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
-        # Ensure user password exists
+        ############-Ensure User Pass Exists-##########
         pw = ensure_password(usb_key_dir, usb_cp_files, user_name)
+
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()
-        # Generate disk encryption key files when encryption is enabled
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             if (
                 disk_config.disk_encryption
@@ -68,51 +71,51 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
                 != EncryptionType.NoEncryption
             ):
                 installation.generate_key_files()
-
         installation.setup_swap()
         installation.minimal_installation(
             [], True, hostname, LocaleConfiguration("us", "en_US", "UTF-8")
         )
-        # Install reflector
+
+        ###############-Install reflector-###############
         installation.add_additional_packages("reflector")
         cmd = f"reflector {' '.join(refl_options)} --save /etc/pacman.d/mirrorlist"
         ref_cmd = cmd
         run_cc([ref_cmd], mountpoint)
-        # Install and configure systemd
+
+        ####################-System D-####################
         installation.add_bootloader(Bootloader.Systemd)
         modify_systemd(mountpoint)
 
-        # Copy WiFi Password Over and Set Timezone
+        ###########-WiFi Pass and Time Zone-############
         installation.copy_iso_network_config()
         installation.set_timezone("US/Eastern")
 
-        # Pkg Management
+        #############-Pkg Management-###############
         config_pac_conf(mountpoint)
         chaotic_repo(mountpoint)
         installation.add_additional_packages(pkgs)
 
-        # Etc Management
+        #############-Etc Management-###############
         modify_mkinit(mountpoint, mkinit_hooks)
         sys_dots(mountpoint, script_dir, sys_dir_to_cp)
         copy_dir(wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
         installation.enable_service(sys_services)
         run_cc([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
 
-        # Create user account with groups and sudo privileges
+        #############-User and Sudo-###############
         installation.create_users(User(user_name, Password(pw), True, groups))
         configure_sudo(user_name, mountpoint, pwd_require=False)
         usr_cmd = ["xdg-user-dirs-update", f"mkdir -p /{user_home}/.cache/mpd"]
         run_cc(usr_cmd, mountpoint, user_name)
 
-        # Copy encryption key files into the user home directory
+        #############-CP Files to User Home-###############
         copy_file_list(user_name, mountpoint, usb_cp_files, usb_key_dir)
-
-        # Copy user scripts into the home directory and start service
         copy_dir(str(script_dir), (mountpoint / user_home / script_dir.name))
         user_service(script_dir.name, mountpoint, user_name, user_home)
+
+        #############-Own Everything-###############
         run_cc([f"chown -R {user_name}:{user_name} /{user_home}"], mountpoint)
 
-        # Generate filesystem table entries and fix
         installation.genfstab()
         modify_fstab(mountpoint)
         if not arch_config_handler.args.silent:
