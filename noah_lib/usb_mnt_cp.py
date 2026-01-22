@@ -28,13 +28,13 @@ def yes_no_prompt(prompt: str) -> bool:
         print("Please enter 'y' or 'n'.")
 
 
-def check_usb_files(key_dir, key_files):
-    missing_files = False
+def check_usb_files(key_dir, key_files) -> list[str]:
+    missing_files = []
     for key_file in key_files:
         file_path = Path(f"/root/{key_dir}/{key_file}")
         if not file_path.exists():
-            missing_files = True
-            log.warning(f"Needed: {file_path}")
+            missing_files.append(file_path)
+    log.warning(f"Needed: {', '.join(missing_files)}")
     return missing_files
 
 

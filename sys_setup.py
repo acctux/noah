@@ -29,11 +29,16 @@ from noah_conf.conf import (
     usb_cp_files,
     hostname,
     refl_options,
+    sys_lang,
+    sys_enc,
     mkinit_hooks,
     wireguard_dir,
+    timezone,
+    kb_layout,
     sys_services,
     sys_dir_to_cp,
     disable_svcs,
+    kernel,
     pass_manager_pass,
     groups,
     min_usb_size,
@@ -58,7 +63,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         return
     disk_config = config.disk_config
 
-    with Installer(mountpoint, disk_config, [], ["linux"]) as installation:
+    with Installer(mountpoint, disk_config, [], kernel) as installation:
         ############-Ensure User Pass Exists-##########
         if pw := src_pass_file(usb_key_dir, pass_manager_pass, user_name):
             log.info("Password Sourced")
@@ -77,7 +82,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
                 installation.generate_key_files()
         installation.setup_swap()
         installation.minimal_installation(
-            [], True, hostname, LocaleConfiguration("us", "en_US", "UTF-8")
+            [], True, hostname, LocaleConfiguration(kb_layout, sys_lang, sys_enc)
         )
 
         ###############-Install reflector-###############
@@ -93,7 +98,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
 
         ###########-WiFi Pass and Time Zone-############
         installation.copy_iso_network_config()
-        installation.set_timezone("US/Eastern")
+        installation.set_timezone(timezone)
 
         #############-Pkg Management-###############
         config_pac_conf(mountpoint)
@@ -117,7 +122,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         copy_file_list(user_name, mountpoint, usb_cp_files, usb_key_dir)
         copy_dir(str(script_dir), (mountpoint / user_home / script_dir.name))
 
-        #############-Own Everything-###############
+        #############-Own Everything and User Services-###############
         run_cc([f"chown -R {user_name}:{user_name} /{user_home}"], mountpoint)
         user_service(script_dir.name, mountpoint, user_name, user_home)
 

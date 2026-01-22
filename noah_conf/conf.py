@@ -22,6 +22,11 @@ GAMES_DIR = DESKTOP / "Games"
 ###########################################################
 user_name = "nick"
 hostname = "yulia"
+kernel = ["linux"]
+kb_layout = "us"
+sys_lang = "en_US"
+sys_enc = "UTF-8"
+timezone = "US/Eastern"
 sys_dir_to_cp = [
     "etc",
     "usr",
