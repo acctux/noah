@@ -18,23 +18,33 @@ def run_cmd(cmd, check=False):
         return e
 
 
+def yes_no_prompt(prompt: str) -> bool:
+    while True:
+        response = input(f"{prompt} (y/n): ").strip().lower()
+        if response in ("y", "yes"):
+            return True
+        if response in ("n", "no"):
+            return False
+        print("Please enter 'y' or 'n'.")
+
+
 def check_usb_files(key_dir, key_files):
     missing_files = False
     for key_file in key_files:
         file_path = Path(f"/root/{key_dir}/{key_file}")
         if not file_path.exists():
             missing_files = True
-            log.error(f"Needed: {file_path}")
+            log.warning(f"Needed: {file_path}")
     return missing_files
 
 
 def check_wireguard_dir():
     wireguard_dir = Path("/root/wireguard")
     if not wireguard_dir.is_dir():
-        log.error(f"Needed: {wireguard_dir} is not a directory")
+        log.warning(f"Needed: {wireguard_dir} is not a directory")
         return True
     if not any(wireguard_dir.iterdir()):
-        log.error(f"Needed: {wireguard_dir} is empty")
+        log.warning(f"Needed: {wireguard_dir} is empty")
         return True
     return False
 
@@ -152,11 +162,14 @@ def mnt_cp_keys(
 ):
     if key_dir and key_files or wireguard_dir or pass_file:
         if check_usb_files(key_dir, key_files):
-            mnt_keys_partition(usb_mnt, min_size, usb_fs_type)
-            if key_dir and key_files:
-                usb_cp_keys(usb_mnt, key_dir, key_files)
-            if wireguard_dir:
-                usb_cp_folder(usb_mnt, wireguard_dir)
-            unmount_partition(usb_mnt)
+            if yes_no_prompt(
+                "Do you want to mount a USB drive to check for missing files?"
+            ):
+                mnt_keys_partition(usb_mnt, min_size, usb_fs_type)
+                if key_dir and key_files:
+                    usb_cp_keys(usb_mnt, key_dir, key_files)
+                if wireguard_dir:
+                    usb_cp_folder(usb_mnt, wireguard_dir)
+                unmount_partition(usb_mnt)
     else:
         log.info("All required files present.")

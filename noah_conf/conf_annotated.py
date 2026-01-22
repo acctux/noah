@@ -1,5 +1,4 @@
 from pathlib import Path
-from utils import UserSrv
 
 
 HOME = Path.home()
