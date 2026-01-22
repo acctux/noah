@@ -15,6 +15,7 @@ from noah_conf.conf import (
     git_user,
     gpg_key,
     custom_dir_icons,
+    usb_key_dir,
     dirs_to_link,
     ind_dirs,
     hide_apps,
@@ -170,7 +171,7 @@ def main():
         else:
             run_cmd(["systemctl", "reboot"], True)
     else:
-        pass_and_input(pass_manager_pass, SSH_DIR)
+        pass_and_input(pass_manager_pass, (HOME / usb_key_dir))
         launch_apps()
         cmd = ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
         run_interactive(cmd)
