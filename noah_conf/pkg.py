@@ -181,7 +181,7 @@ pkgs = [
     "python-pymysql",
     ###########-Python-###########
     "python-dbus-fast",  # loggy
-    "python-gnugp",  # noah dependency
+    "python-gnupg",  # noah dependency
     "python-imaplib2",  # emailcheck
     "python-mpd2",
     "python-pandas",
