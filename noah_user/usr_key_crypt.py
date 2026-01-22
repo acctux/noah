@@ -30,33 +30,23 @@ def import_ssh_key(key_path: Path):
     if not key_path.exists():
         log.error(f"SSH key file {key_path} does not exist.")
         return
-
-    # Check permissions and set to 600 if not
     if key_path.stat().st_mode & 0o777 != 0o600:
         os.chmod(key_path, 0o600)
         log.info(f"SSH key permissions for {key_path} set to 600.")
-
-    # Ensure SSH agent is running
     socket = f"/run/user/{os.getuid()}/gcr/ssh"
     os.environ["SSH_AUTH_SOCK"] = socket
     if not Path(socket).exists():
         log.info("Starting gcr-ssh-agent.socket...")
         run_cmd(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
         run_cmd(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-
-    # Get SSH key fingerprint
     keygen = run_cmd(["ssh-keygen", "-lf", str(key_path)])
     if not keygen or not keygen.stdout:
         log.error("Failed to read SSH key fingerprint.")
         return
-
-    # Check if key is already added to SSH agent
     ssh_list = run_cmd(["ssh-add", "-l"])
     if ssh_list and keygen.stdout.strip().split()[1] in ssh_list.stdout:
         log.info("SSH key already imported.")
         return
-
-    # Add SSH key to the agent
     run_cmd(["ssh-add", str(key_path)], True)
     log.info("SSH key added.")
 
