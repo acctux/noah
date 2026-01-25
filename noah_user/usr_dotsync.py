@@ -95,8 +95,3 @@ def deploy_dotfiles(
         subprocess.run(["hyprctl", "reload"], check=False)
         log.info("Hyprland reloaded")
     log.info(f"Linked: {linked}")
-
-
-if __name__ == "__main__":
-    deploy_dotfiles()
-

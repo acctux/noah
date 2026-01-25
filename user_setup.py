@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 import subprocess
-import gnupg
 import pyperclip
 from utils import get_logger, run_cmd
 from noah_user.usr_key_crypt import import_ssh_key, initialize_gocrypt
@@ -38,25 +37,43 @@ log = get_logger("Noah")
 
 
 def import_gpg_key(gpg_path: Path):
-    gpg = gnupg.GPG(gnupghome=str(gpg_path.parent))
-    with gpg_path.open("r") as f:
-        import_result = gpg.import_keys(f.read())
-    if not import_result.fingerprints:
-        log.error(f"Failed to import GPG key {gpg_path}.")
-        return
-    if fingerprint := import_result.fingerprints[0]:
-        cmd = ["gpg", "--import", str(gpg_path)]
-        run_cmd(cmd, True)
-        log.info(f"GPG key {fingerprint} already imported.")
-    else:
-        log.info(f"GPG key imported: {fingerprint}")
-    trust_result = run_cmd(
-        ["gpg", "--import-ownertrust"], input_text=f"{fingerprint}:6:\n"
+    proc = subprocess.run(
+        ["gpg", "--import", str(gpg_path)],
+        text=True,
     )
-    if trust_result and trust_result.returncode == 0:
+    if proc.returncode != 0:
+        log.error(f"Failed to import GPG key from {gpg_path}.")
+        return
+    proc = subprocess.run(
+        [
+            "gpg",
+            "--with-colons",
+            "--import-options",
+            "show-only",
+            "--import",
+            str(gpg_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    fingerprint = None
+    for line in proc.stdout.splitlines():
+        if line.startswith("fpr:"):
+            fingerprint = line.split(":")[9]
+            break
+    if not fingerprint:
+        log.error("Failed to determine GPG key fingerprint.")
+        return
+    log.info(f"GPG key imported: {fingerprint}")
+    proc = subprocess.run(
+        ["gpg", "--import-ownertrust"],
+        input=f"{fingerprint}:6:\n",
+        text=True,
+    )
+    if proc.returncode == 0:
         log.info(f"GPG key trusted (ultimate): {fingerprint}")
     else:
-        log.error("Failed to set trust for GPG key.")
+        log.error(f"Failed to set trust for GPG key: {fingerprint}")
 
 
 def setup_service(
