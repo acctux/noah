@@ -88,6 +88,7 @@ pkgs = [
     "eza",
     "fd",
     "fzf",
+    "git-delta",
     "github-cli",
     "lazygit",
     "less",
