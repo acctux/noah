@@ -1,7 +1,6 @@
 import os
 import getpass
 from pathlib import Path
-import gnupg
 from noah_conf.conf import HOME
 from utils import get_logger, run_cmd
 
@@ -10,28 +9,19 @@ log = get_logger("Noah")
 
 def import_ssh_key(key_file: str):
     key_path = HOME / ".ssh" / key_file
-    if key_path.stat().st_mode & 0o777 != 0o600:
-        os.chmod(key_path, 0o600)
-        log.info(f"SSH key permissions for {key_path} set to 600.")
     socket = f"/run/user/{os.getuid()}/gcr/ssh"
     os.environ["SSH_AUTH_SOCK"] = socket
     if not Path(socket).exists():
         run_cmd(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
         run_cmd(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-    keygen = run_cmd(["ssh-keygen", "-lf", str(key_path)])
-    if not keygen or not keygen.stdout:
-        log.error("Failed to read SSH key fingerprint.")
-        return
-    ssh_list = run_cmd(["ssh-add", "-l"])
-    if ssh_list and keygen.stdout.strip().split()[1] in ssh_list.stdout:
-        log.info("SSH key already imported.")
-        return
-    run_cmd(["ssh-add", str(key_path)], True)
-    log.info("SSH key added.")
+    if run_cmd(["ssh-add", str(key_path)], check=True):
+        log.info(f"SSH key {key_path} added or already present.")
+    else:
+        log.error(f"Failed to add SSH key {key_path}.")
 
 
 def import_gpg_key(gpg_path: Path):
-    if run_cmd(["gpg", "--import", str(gpg_path)], text=True).returncode != 0:
+    if run_cmd(["gpg", "--import", str(gpg_path)], True).returncode != 0:
         log.error(f"Failed to import GPG key from {gpg_path}.")
     else:
         log.info(f"GPG key imported from {gpg_path}.")

@@ -1,5 +1,4 @@
 #################-PACMAN CONF-#################
-chaotic_repo_include = True
 noextract_lines = [
     "NoExtract = etc/xdg/autostart/firewall-applet.desktop",
     "NoExtract = usr/share/icons/capitaine-cursors/*",

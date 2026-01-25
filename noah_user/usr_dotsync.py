@@ -3,26 +3,9 @@ import subprocess
 import logging
 from pathlib import Path
 
-log = logging.getLogger(__name__)
+from noah_conf.conf import HOME
 
-############################
-# Config
-############################
-HOME = Path.home()
-SHARE = HOME / ".local" / "share"
-CONF = HOME / ".config"
-BASE = HOME / "Lit" / "Docs" / "base"
-DOTS_DIR = HOME / "Polka"
-dirs_to_link = [
-    "config/systemd/user",
-    "config/nvim",
-    "local/bin",
-]
-individual_dirs = [
-    (BASE / "fonts", SHARE / "fonts"),
-    (BASE / "task", CONF / "task"),
-    (BASE / "zsh", CONF / "zsh"),
-]
+log = logging.getLogger(__name__)
 
 
 ############################
@@ -44,7 +27,7 @@ def link_path(src: Path, dst: Path) -> bool:
     return True
 
 
-def dotted_destination(src: Path, source_dir: Path, target_dir: Path = HOME) -> Path:
+def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
     """
     Map DOTS_DIR/config/nvim/init.lua → ~/.config/nvim/init.lua
     "." + parts[0]=config->.config"," *parts[1:] tuple
@@ -54,6 +37,7 @@ def dotted_destination(src: Path, source_dir: Path, target_dir: Path = HOME) -> 
 
 
 def file_candidates(
+    target_dir: Path,
     dotfiles_dir: Path,
     dirs_to_link: list[str],
     individual_dirs: list[tuple[Path, Path]],
@@ -65,11 +49,11 @@ def file_candidates(
                 continue
             if any(rel.is_relative_to(Path(d)) for d in dirs_to_link):
                 continue
-            yield src, dotted_destination(src, dotfiles_dir)
+            yield src, dotted_destination(src, dotfiles_dir, target_dir)
     for d in dirs_to_link:
         src = dotfiles_dir / d
         if src.is_dir():
-            yield src, dotted_destination(src, dotfiles_dir)
+            yield src, dotted_destination(src, dotfiles_dir, target_dir)
     for src_dir, dst_dir in individual_dirs:
         if not src_dir.is_dir():
             continue
@@ -82,13 +66,13 @@ def file_candidates(
 # Main
 ############################
 def deploy_dotfiles(
-    dotfiles_dir=DOTS_DIR, dirs_to_link=dirs_to_link, individual_dirs=individual_dirs
+    dot_dir: Path, dirs_to_link: list[str], ind_dirs: list[tuple[Path, Path]]
 ):
-    if not dotfiles_dir.is_dir():
-        log.error(f"Dotfiles directory not found: {dotfiles_dir}")
+    if not dot_dir.is_dir():
+        log.error(f"Dotfiles directory not found: {dot_dir}")
         return
     linked = 0
-    for src, dst in file_candidates(dotfiles_dir, dirs_to_link, individual_dirs):
+    for src, dst in file_candidates(HOME, dot_dir, dirs_to_link, ind_dirs):
         if link_path(src, dst):
             linked += 1
     if shutil.which("hyprctl"):

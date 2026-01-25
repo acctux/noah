@@ -6,6 +6,29 @@ from utils import get_logger, run_cmd
 log = get_logger("Noah")
 
 
+def setup_service(
+    user_script: str = "user_setup.py", script_dir: str | None = None
+) -> None:
+    run_script = HOME / user_script
+    if script_dir:
+        run_script = HOME / script_dir / user_script
+    service_name = f"{run_script.stem}.service"
+    service_path = HOME / ".config" / "systemd" / "user" / service_name
+    service_path.write_text(f"""[Unit]
+Description=Open Alacritty running {user_script} on login
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/alacritty -e python {run_script}
+Restart=no
+
+[Install]
+WantedBy=graphical-session.target
+""")
+    run_cmd(["systemctl", "--user", "enable", service_name])
+
+
 def ensure_github_known_hosts(HOME: Path):
     kh = HOME / ".ssh" / "known_hosts"
     kh.parent.mkdir(parents=True, exist_ok=True)
@@ -34,15 +57,8 @@ def install_icon_theme():
     tmp = Path("/tmp/whitesur-icons")
     if tmp.exists():
         shutil.rmtree(tmp)
-    run_cmd(
-        [
-            "git",
-            "clone",
-            "https://github.com/vinceliuice/WhiteSur-icon-theme.git",
-            str(tmp),
-        ],
-        True,
-    )
+    icon_git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
+    run_cmd(["git", "clone", icon_git, str(tmp)], True)
     run_cmd(["bash", f"{tmp}/install.sh"], True)
 
 

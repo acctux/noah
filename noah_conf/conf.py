@@ -3,19 +3,6 @@ from utils import UserSrv
 
 
 ###########################################################
-# FOLDER DECLARATIONS
-###########################################################
-HOME = Path.home()
-SHARE = HOME / ".local" / "share"
-CONF = HOME / ".config"
-BASE = HOME / "Lit" / "Docs" / "base"
-DESKTOP = HOME / "Desktop"
-GIT_DIR = HOME / "Lit"
-DOTS_DIR = HOME / "Polka"
-DOCS = GIT_DIR / "Docs"
-ENC_DIR = DESKTOP / "Encrypted"
-GAMES_DIR = DESKTOP / "Games"
-###########################################################
 # ARCHINSTALL CONF
 ###########################################################
 user_name = "nick"
@@ -113,29 +100,42 @@ user_pass_file = "pass.py"
 wireguard_dir = "wireguard"
 usb_cp_files = [ssh_key, gpg_key, pass_manager_pass]
 ###########################################################
+# FOLDER DECLARATIONS
+###########################################################
+HOME = Path.home()
+SHARE = HOME / ".local" / "share"
+CONF = HOME / ".config"
+DESKTOP = HOME / "Desktop"
+base = HOME / "Lit" / "Docs" / "base"
+git_dir = HOME / "Lit"
+dots_dir = HOME / "Polka"
+cust_docs = git_dir / "Docs"
+enc_dir = DESKTOP / "Encrypted"
+games_dir = DESKTOP / "Games"
+###########################################################
 # GIT
 ###########################################################
 git_user = "acctux"
-GIT_REPOS = [(GIT_DIR, "Docs"), (GIT_DIR, "noah"), (HOME, "Polka")]
+git_repos = [(git_dir, "Docs"), (git_dir, "noah"), (HOME, "Polka")]
 ###########################################################
 # ICONS
 ###########################################################
 custom_dir_icons = [
-    (GAMES_DIR, "folder-games.svg"),
-    (GIT_DIR, "folder-github.svg"),
-    (GIT_DIR / "Noah", "folder-root.svg"),
-    (DOCS, "folder-bookmark.svg"),
-    (DOTS_DIR, "folder-html.svg"),
-    (ENC_DIR, "folder-locked.svg"),
+    (games_dir, "folder-games.svg"),
+    (git_dir, "folder-github.svg"),
+    (git_dir / "Noah", "folder-root.svg"),
+    (cust_docs, "folder-bookmark.svg"),
+    (dots_dir, "folder-html.svg"),
+    (enc_dir, "folder-locked.svg"),
 ]
 ###########################################################
 # SYMLINK/DOT FILE
 ############################################################
 dirs_to_link = ["config/systemd/user", "config/nvim", "local/bin"]
 ind_dirs = [
-    ((BASE / "fonts"), (SHARE / "fonts")),
-    ((BASE / "task"), (CONF / "task")),
-    ((BASE / "zsh"), (CONF / "zsh")),
+    ((base / "fonts"), (SHARE / "fonts")),
+    ((base / "task"), (CONF / "task")),
+    ((base / "zsh"), (CONF / "zsh")),
 ]
 ###########################################################
 # HIDE APPS
