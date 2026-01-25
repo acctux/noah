@@ -94,7 +94,6 @@ pkgs = [
     "less",
     "man-pages",
     "mcfly",
-    "rebuild-detector",
     "ripgrep-all",
     "sd",
     "starship",
@@ -153,6 +152,7 @@ pkgs = [
     "qt5ct",
     "qt6ct",
     "qjournalctl",
+    "rebuild-detector",
     "unrar",  # File roller
     "wl-clipboard",
     "wl-clip-persist",

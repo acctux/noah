@@ -1,3 +1,4 @@
+import getpass
 from pathlib import Path
 from utils import get_logger, run_cmd
 from noah_user.usr_key_crypt import import_ssh_key, initialize_gocrypt, import_gpg_key
@@ -19,7 +20,7 @@ from noah_conf.conf import (
     git_repos,
     git_user,
     gpg_key,
-    custom_dir_icons,
+    dirs_icons,
     usb_key_dir,
     dirs_to_link,
     ind_dirs,
@@ -51,7 +52,7 @@ def verify_install(HOME: Path, git_repos: list[tuple[Path, str]]):
 def main(
     ssh_key=ssh_key,
     enc_dir=enc_dir,
-    custom_dir_icons=custom_dir_icons,
+    custom_dir_icons=dirs_icons,
     git_repos=git_repos,
     git_user=git_user,
     hide_apps=hide_apps,
@@ -70,7 +71,7 @@ def main(
     if not (HOME / ".cache" / cache_file).exists():
         run_interactive(["chsh", "-s", "/usr/bin/zsh"])
         run_sudo_commands()
-        enable_mariadb()
+        enable_mariadb(getpass.getuser)
         if (ssh_dir / ssh_key).exists():
             import_ssh_key(ssh_key)
         if (gnupg_dir / gpg_key).exists():

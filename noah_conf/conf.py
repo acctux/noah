@@ -100,42 +100,31 @@ user_pass_file = "pass.py"
 wireguard_dir = "wireguard"
 usb_cp_files = [ssh_key, gpg_key, pass_manager_pass]
 ###########################################################
-# FOLDER DECLARATIONS
-###########################################################
-HOME = Path.home()
-SHARE = HOME / ".local" / "share"
-CONF = HOME / ".config"
-DESKTOP = HOME / "Desktop"
-base = HOME / "Lit" / "Docs" / "base"
-git_dir = HOME / "Lit"
-dots_dir = HOME / "Polka"
-cust_docs = git_dir / "Docs"
-enc_dir = DESKTOP / "Encrypted"
-games_dir = DESKTOP / "Games"
-###########################################################
 # GIT
 ###########################################################
 git_user = "acctux"
-git_repos = [(git_dir, "Docs"), (git_dir, "noah"), (HOME, "Polka")]
+git_dir = "Lit"
+git_repos = [(git_dir, "Docs"), (git_dir, "noah"), (git_dir, "Polka")]
+dots_dir = f"{git_dir}/Polka"
 ###########################################################
 # ICONS
 ###########################################################
-custom_dir_icons = [
-    (games_dir, "folder-games.svg"),
+dirs_icons = [
+    ("Desktop/Games", "folder-games.svg"),
     (git_dir, "folder-github.svg"),
-    (git_dir / "Noah", "folder-root.svg"),
-    (cust_docs, "folder-bookmark.svg"),
+    (f"{git_dir}/Noah", "folder-root.svg"),
+    (f"{git_dir}/Docs", "folder-bookmark.svg"),
     (dots_dir, "folder-html.svg"),
-    (enc_dir, "folder-locked.svg"),
+    ("Desktop/Encrypted", "folder-locked.svg"),
 ]
 ###########################################################
 # SYMLINK/DOT FILE
 ############################################################
 dirs_to_link = ["config/systemd/user", "config/nvim", "local/bin"]
 ind_dirs = [
-    ((base / "fonts"), (SHARE / "fonts")),
-    ((base / "task"), (CONF / "task")),
-    ((base / "zsh"), (CONF / "zsh")),
+    ((f"{git_dir}/Docs/fonts"), (".local/share/fonts")),
+    ((f"{git_dir}/Docs/task"), (".config/task")),
+    ((f"{git_dir}/Docs/zsh"), (".config/zsh")),
 ]
 ###########################################################
 # HIDE APPS

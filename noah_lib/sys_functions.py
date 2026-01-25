@@ -1,5 +1,4 @@
 #################-MAIN FUNCTIONS-#################
-import getpass
 from pathlib import Path
 import shlex
 from utils import get_logger
@@ -29,26 +28,3 @@ def run_chroot(
         cmd = f"su - {user_name} -c {shlex.quote(cmd)}"
     SysCommand(f"arch-chroot -S {mnt_point} {cmd}")
     chroot_path.unlink()
-
-
-def type_password(user_name: str) -> str:
-    while True:
-        pwd1 = getpass.getpass(f"Enter password for {user_name}: ")
-        pwd2 = getpass.getpass("Re-enter password: ")
-        if not pwd1 or pwd1 != pwd2:
-            log.info("Try again.")
-            continue
-        return pwd1
-
-
-def src_pass_file(usb_key_dir: str, pass_file: str, user_name: str) -> str:
-    key_path = Path("/root") / usb_key_dir / pass_file
-    if key_path.exists():
-        try:
-            pw = key_path.read_text().strip()
-            log.info(f"Password loaded from '{key_path}'.")
-            return pw
-        except Exception as e:
-            log.error(f"Failed to read password from '{key_path}': {e}")
-    log.warning(f"Password file '{key_path}' not found or unreadable.")
-    return type_password(user_name)

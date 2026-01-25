@@ -1,7 +1,3 @@
-import subprocess
-from pathlib import Path
-
-###########################################################
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.global_menu import DiskLayoutConfigurationMenu
@@ -20,10 +16,14 @@ from archinstall.lib.args import (
 )
 
 ###########################################################
-from utils import run_cmd, get_logger
+import subprocess
+from pathlib import Path
+
+###########################################################
+from utils import run_cmd, get_logger, ask_pass, src_pass_file
 from noah_lib.sys_pac import chaotic_repo, config_pac_conf
 from noah_lib.sys_user_setup import user_service, copy_dir
-from noah_lib.sys_functions import src_pass_file, type_password, run_chroot
+from noah_lib.sys_functions import run_chroot
 from noah_lib.usb_mnt_cp import mnt_cp_keys
 from noah_lib.sys_etc import (
     configure_sudo,
@@ -77,8 +77,8 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
     disk_config = config.disk_config
     with Installer(mountpoint, disk_config, [], kernel) as installation:
         ############-Ensure User Pass Exists-##########
-        if not (pw := src_pass_file(usb_key_dir, user_pass_file, user_name)):
-            pw = type_password(user_name)
+        if not (pw := src_pass_file(usb_key_dir, user_pass_file)):
+            pw = ask_pass(user_name)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()

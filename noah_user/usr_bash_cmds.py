@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import getpass
 import time
 from utils import run_cmd, get_logger, ping
 
@@ -35,13 +36,20 @@ def run_sudo_commands(
         result = run_cmd(cmd, True)
         if result and result.returncode != 0:
             log.error(f"Failed: {cmd}")
-    time.sleep(1)
+    time.sleep(3)
     iwctl_scan()
     if not ping:
         iwctl_scan()
 
 
-def enable_mariadb():
+def enable_mariadb(user_name):
+    while True:
+        p1 = getpass.getpass("Mariadb password: ")
+        p2 = getpass.getpass("Confirm: ")
+        if p1 == p2:
+            password = p1
+            break
+        print("Passwords do not match, try again.")
     commands = [
         [
             "sudo",
@@ -56,7 +64,7 @@ def enable_mariadb():
             "/usr/bin/mariadb",
             "-e",
             (
-                "CREATE USER 'user_name'@'localhost' IDENTIFIED BY 'password'; "
+                f"CREATE USER '{user_name}'@'localhost' IDENTIFIED BY '{password}'; "
                 "GRANT ALL PRIVILEGES ON mydb.* TO 'user_name'@'localhost'; "
                 "FLUSH PRIVILEGES;"
             ),

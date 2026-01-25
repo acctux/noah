@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import re
 from noah_conf.conf import HOME
 from utils import get_logger, run_cmd
 
@@ -44,6 +45,22 @@ def ensure_github_known_hosts(HOME: Path):
             log.warning("Failed to scan github.com for known_hosts")
 
 
+def fix_git_url(repo_path: Path, git_user: str, repo_name: str):
+    config_path = repo_path / ".git" / "config"
+    if config_path.exists():
+        with open(config_path, "r") as config_file:
+            config = config_file.read()
+        match = re.search(r"url = (git@.*\.git|https://.*\.git)", config)
+        if match:
+            current_url = match.group(0).split("=")[1].strip()
+            if "git@" not in current_url:
+                new_url = f"git@github.com:{git_user}/{repo_name}.git"
+                config = config.replace(current_url, new_url)
+                with open(config_path, "w") as config_file:
+                    config_file.write(config)
+                log.info(f"Fixed URL in {repo_path}: {current_url} -> {new_url}")
+
+
 def clone_repos(git_user: str, git_repos: list[tuple[Path, str]]):
     for path, name in git_repos:
         repo_path = path / name.capitalize()
@@ -56,9 +73,10 @@ def clone_repos(git_user: str, git_repos: list[tuple[Path, str]]):
                 str(repo_path),
             ]
             if run_cmd(cmd, check=True):
-                log.info(f"Cloned {name} into {repo_path}")
+                print(f"Cloned {name} into {repo_path}")
             else:
-                log.error(f"Failed {cmd}")
+                print(f"Failed to clone {name}.")
+        fix_git_url(repo_path, git_user, name)
 
 
 def install_icon_theme():
