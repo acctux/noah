@@ -37,7 +37,7 @@ log = get_logger("Noah")
 
 
 def import_gpg_key(gpg_path: Path):
-    if subprocess.run(["gpg", "--import", str(gpg_path)], text=True).returncode != 0:
+    if run_cmd(["gpg", "--import", str(gpg_path)], True).returncode != 0:
         log.error(f"Failed to import GPG key from {gpg_path}.")
     else:
         log.info(f"GPG key imported from {gpg_path}.")
