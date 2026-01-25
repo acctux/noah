@@ -1,0 +1,411 @@
+{
+  "kb_layout": "us",
+  "sys_lang": "en_US",
+  "sys_enc": "UTF-8",
+  "timezone": "US/Eastern",
+  "kernel": [
+    "linux"
+  ],
+  "groups": [
+    "adm",
+    "games",
+    "realtime",
+    "storage",
+    "video"
+  ],
+  "services": {
+    "system": {
+      "enable": [
+        "ananicy-cpp",
+        "bluetooth",
+        "tlp",
+        "iwd",
+        "ly@tty1",
+        "named",
+        "firewalld",
+        "swayosd-libinput-backend",
+        "systemd-networkd",
+        "systemd-oomd",
+        "systemd-timesyncd",
+        "btrfs-scrub@-.timer",
+        "btrfs-scrub@home.timer",
+        "fstrim.timer",
+        "logrotate.timer",
+        "man-db.timer",
+        "paccache.timer",
+        "reflector.timer",
+        "loggy",
+        "wireguard-list"
+      ],
+      "disable": [
+        "getty@tty1",
+        "systemd-networkd-wait-online"
+      ]
+    },
+    "user": [
+      {
+        "target": "default.target.wants",
+        "services": [
+          "pipewire-pulse.service"
+        ],
+        "source_dir": "/usr/lib/systemd/user"
+      },
+      {
+        "target": "sockets.target.wants",
+        "services": [
+          "pipewire-pulse.socket"
+        ],
+        "source_dir": "/usr/lib/systemd/user"
+      }
+    ]
+  },
+  "mkinitcpio": {
+    "hooks": [
+      "base",
+      "systemd",
+      "autodetect",
+      "microcode",
+      "modconf",
+      "kms",
+      "sd-vconsole",
+      "block",
+      "filesystems",
+      "fsck"
+    ]
+  },
+  "filesystem": {
+    "script_pwd_to_copy": [
+      "etc",
+      "usr"
+    ]
+  },
+  "reflector": {
+    "options": [
+      "--country US",
+      "--protocol https",
+      "--latest 10",
+      "--sort rate",
+      "--number 3"
+    ]
+  },
+  "usb": {
+    "fs_type": "exfat",
+    "min_size": "20G",
+    "key_dir": "keys",
+    "ssh_key": "id_ed25519",
+    "gpg_key": "my_sec_gpg.asc",
+    "pass_manager_pass": "pass.txt",
+    "sec_conf_file": "pass.py",
+    "wireguard_dir": "wireguard",
+    "copy_files": [
+      "id_ed25519",
+      "my_sec_gpg.asc",
+      "pass.txt"
+    ]
+  },
+  "git": {
+    "user": "acctux",
+    "base_dir": "Lit",
+    "repos": [
+      {
+        "target_dir": "Lit",
+        "repos": [
+          "Docs",
+          "noah"
+        ]
+      },
+      {
+        "target_dir": "",
+        "repos": [
+          "Polka"
+        ]
+      }
+    ],
+    "dots_dir": "Polka",
+    "enc_dir": "Desktop/Encrypted"
+  },
+  "icons": {
+    "dirs": [
+      [
+        "Desktop/Games",
+        "folder-games.svg"
+      ],
+      [
+        "Lit",
+        "folder-github.svg"
+      ],
+      [
+        "Lit/Noah",
+        "folder-root.svg"
+      ],
+      [
+        "Lit/Docs",
+        "folder-bookmark.svg"
+      ],
+      [
+        "Polka",
+        "folder-html.svg"
+      ],
+      [
+        "Desktop/Encrypted",
+        "folder-locked.svg"
+      ]
+    ]
+  },
+  "symlinks": {
+    "dirs_to_link": [
+      "config/systemd/user",
+      "config/nvim",
+      "local/bin"
+    ],
+    "individual": [
+      [
+        "Lit/Docs/fonts",
+        ".local/share/fonts"
+      ],
+      [
+        "Lit/Docs/task",
+        ".config/task"
+      ],
+      [
+        "Lit/Docs/zsh",
+        ".config/zsh"
+      ]
+    ]
+  },
+  "hide_apps": [
+    "avahi-discover.desktop",
+    "bssh.desktop",
+    "btop.desktop",
+    "bvnc.desktop",
+    "com.github.FontManager.FontViewer.desktop",
+    "jshell-java-openjdk.desktop",
+    "jconsole-java-openjdk.desktop",
+    "khal.desktop",
+    "libreoffice-base.desktop",
+    "libreoffice-draw.desktop",
+    "libreoffice-math.desktop",
+    "nvtop.desktop",
+    "octopi-cachecleaner.desktop",
+    "octopi-notifier.desktop",
+    "octopi-repoeditor.desktop",
+    "org.gnome.Nautilus.desktop",
+    "org.gnome.baobab.desktop",
+    "org.kde.kdeconnect.nonplasma.desktop",
+    "qt5ct.desktop",
+    "qt6ct.desktop",
+    "qv4l2.desktop",
+    "qvidcap.desktop",
+    "taskwarrior-tui.desktop",
+    "uuctl.desktop",
+    "xgps.desktop",
+    "xgpsspeed.desktop"
+  ],
+  "noextract_lines": [
+    "NoExtract = etc/xdg/autostart/firewall-applet.desktop",
+    "NoExtract = usr/share/icons/capitaine-cursors/*"
+  ],
+  "pkgs": [
+    "alacritty",
+    "ananicy-cpp",
+    "anki",
+    "aria2",
+    "ayugram-desktop-git",
+    "baobab",
+    "base-devel",
+    "bash-completion",
+    "bash-language-server",
+    "bat-extras",
+    "betterbird-bin",
+    "bind",
+    "bluetui",
+    "bluez-utils",
+    "brightnessctl",
+    "btop",
+    "bustle",
+    "capitaine-cursors",
+    "cava",
+    "clang",
+    "coin-or-mp",
+    "dbeaver",
+    "deluge-gtk",
+    "dosfstools",
+    "dxvk-mingw-git",
+    "evince",
+    "exfatprogs",
+    "eza",
+    "fd",
+    "featherpad",
+    "firedragon",
+    "firewalld",
+    "font-manager",
+    "fuzzel",
+    "fzf",
+    "gimp",
+    "git-delta",
+    "github-cli",
+    "gnome-chess",
+    "gnome-keyring",
+    "gnucash",
+    "gnuchess",
+    "gocryptfs",
+    "gsimplecal",
+    "gst-plugin-pipewire",
+    "guvcview",
+    "gvfs-mtp",
+    "hunspell-en_us",
+    "hyphen-en",
+    "hypridle",
+    "hyprland",
+    "hyprlock",
+    "hyprshot",
+    "hyprsunset",
+    "impala",
+    "imv",
+    "inotify-tools",
+    "jdk-openjdk",
+    "kdeconnect",
+    "khal",
+    "kvantum",
+    "kvantum-qt5",
+    "lazygit",
+    "less",
+    "lib32-mangohud",
+    "lib32-nvidia-utils",
+    "libpulse",
+    "libreoffice-fresh",
+    "libva-nvidia-driver",
+    "libva-utils",
+    "libxnvctrl",
+    "logiops",
+    "logrotate",
+    "lua-language-server",
+    "lutris",
+    "ly",
+    "mangohud",
+    "man-pages",
+    "mariadb",
+    "mcfly",
+    "mesa",
+    "mgba-qt",
+    "mpd",
+    "mpd-mpris",
+    "mpv-mpris",
+    "nchat-git",
+    "nemo-audio-tab",
+    "nemo-fileroller",
+    "neovim-lspconfig",
+    "neovim-symlinks",
+    "noto-fonts-emoji",
+    "npm",
+    "ntfs-3g",
+    "nvidia-open",
+    "nvidia-prime",
+    "nvtop",
+    "nwg-clipman",
+    "ocrmypdf",
+    "octopi",
+    "opencl-nvidia",
+    "openresolv",
+    "otf-firamono-nerd",
+    "partitionmanager",
+    "paru",
+    "pavucontrol",
+    "pipewire",
+    "pipewire-alsa",
+    "pipewire-jack",
+    "pipewire-pulse",
+    "pkgfile",
+    "playerctl",
+    "plymouth",
+    "polkit-gnome",
+    "powertop",
+    "profile-sync-daemon",
+    "proton-ge-custom-bin",
+    "protonmail-bridge",
+    "pyright",
+    "python-dbus-fast",
+    "python-gnupg",
+    "python-imaplib2",
+    "python-mpd2",
+    "python-pandas",
+    "python-pydantic",
+    "python-pymysql",
+    "python-pyperclip",
+    "python-systemd",
+    "python-wand",
+    "qalculate-qt",
+    "qjournalctl",
+    "qt5ct",
+    "qt5-wayland",
+    "qt6ct",
+    "qt6-imageformats",
+    "qt6-wayland",
+    "realtime-privileges",
+    "rebuild-detector",
+    "ripgrep-all",
+    "rmpc",
+    "rocm-smi-lib",
+    "rofimoji",
+    "rpcs3-git",
+    "ruff",
+    "rust",
+    "rust-analyzer",
+    "satty",
+    "sd",
+    "seahorse",
+    "smartmontools",
+    "snixembed",
+    "sshfs",
+    "starship",
+    "steam",
+    "swaync",
+    "swayosd",
+    "swww",
+    "systemd-language-server",
+    "tailwindcss-language-server",
+    "taskwarrior-tui",
+    "tesseract-data-eng",
+    "tlp",
+    "tmuxp",
+    "trash-cli",
+    "tree-sitter-bash",
+    "tree-sitter-cli",
+    "tree-sitter-javascript",
+    "tree-sitter-python",
+    "tree-sitter-rust",
+    "ttf-hack-nerd",
+    "ttf-liberation",
+    "udisks2-btrfs",
+    "ugrep",
+    "umu-launcher",
+    "unrar",
+    "usb_modeswitch",
+    "uv",
+    "uwsm",
+    "vkd3d",
+    "vscode-json-languageserver",
+    "vulkan-radeon",
+    "waybar",
+    "wine-mono",
+    "wine-staging",
+    "winetricks",
+    "wireguard-tools",
+    "wireless-regdb",
+    "wireplumber",
+    "wl-clipboard",
+    "wl-clip-persist",
+    "xdg-desktop-portal-gnome",
+    "xdg-desktop-portal-hyprland",
+    "xdg-user-dirs",
+    "xf86-video-amdgpu",
+    "xf86-video-ati",
+    "yaml-language-server",
+    "yazi",
+    "yt-dlp",
+    "zoxide",
+    "zsh-autocomplete",
+    "zsh-completions",
+    "zsh-syntax-highlighting"
+  ]
+}

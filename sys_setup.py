@@ -1,7 +1,7 @@
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.global_menu import DiskLayoutConfigurationMenu
-from archinstall.lib.installer import Bootloader, Installer
+from archinstall.lib.installer import Bootloader, Installer, SysCommand
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.tui import Tui
 from archinstall.lib.interactions.general_conf import (
@@ -14,30 +14,23 @@ from archinstall.lib.args import (
     User,
     arch_config_handler,
 )
-
-###########################################################
 import subprocess
 from pathlib import Path
+from getpass import getpass
+import json
+import re
+import shlex
+import shutil
+import textwrap
+from typing import Any, Callable
+import gnupg
+from pydantic import BaseModel
 
 ###########################################################
-from utils import run_cmd, get_logger, ask_pass, src_pass_file
-from noah_lib.sys_pac import chaotic_repo, config_pac_conf
-from noah_lib.sys_user_setup import user_service, copy_dir
-from noah_lib.sys_functions import run_chroot
-from noah_lib.usb_mnt_cp import mnt_cp_keys
-from noah_lib.sys_etc import (
-    configure_sudo,
-    modify_fstab,
-    modify_mkinit,
-    sys_dots,
-    modify_systemd,
-)
-
-###########################################################
+from utils import log
 from noah_conf.pkg import noextract_lines, pkgs
 from noah_conf.conf import (
     usb_key_dir,
-    user_pass_file,
     user_name,
     usb_cp_files,
     hostname,
@@ -47,6 +40,7 @@ from noah_conf.conf import (
     mkinit_hooks,
     wireguard_dir,
     timezone,
+    sec_conf_file,
     kb_layout,
     sys_services,
     script_pwd_to_cp,
@@ -57,13 +51,570 @@ from noah_conf.conf import (
     usb_fs_type,
 )
 
-
 ###########################################################
 # CONSTANTS
 ###########################################################
 script_dir = Path(__file__).resolve().parent
 user_home = f"home/{user_name}"
-log = get_logger("Noah")
+HOME = Path.home()
+
+
+###########################################################
+# CLASSES
+###########################################################
+class UserSrv(BaseModel):
+    target: str
+    services: list[str]
+    source_dir: Path = Path("/usr/lib/systemd/user")
+
+
+class UserGitRepo(BaseModel):
+    target_dir: str
+    repos: list[str]
+
+
+class NoahConfig:
+    def __init__(self, file_path: str):
+        self._file_path = Path(file_path)
+        self._config: dict[str, Any] = {}
+        self.reload()
+
+    def reload(self) -> None:
+        if not self._file_path.exists():
+            log.error(f"Config file not found: {self._file_path}")
+        try:
+            self._config = json.loads(self._file_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            log.error(f"Invalid JSON in {self._file_path}: {e}")
+
+    def get(self, key_path: str, default: Any = None) -> Any:
+        value: Any = self._config
+        for key in key_path.split("."):
+            try:
+                value = value[key] if isinstance(value, dict) else value[int(key)]
+            except (KeyError, IndexError, ValueError, TypeError):
+                return default
+        return value
+
+    def _objects(self, key: str, factory: Callable[[dict], Any]) -> list[Any]:
+        return [factory(item) for item in self.get(key, [])]
+
+    def user_services(self) -> list[UserSrv]:
+        return self._objects(
+            "services.user",
+            lambda s: UserSrv(
+                target=s["target"],
+                services=s["services"],
+                source_dir=Path(s["source_dir"]),
+            ),
+        )
+
+    def git_repos(self) -> list[UserGitRepo]:
+        return self._objects(
+            "git.repos",
+            lambda r: UserGitRepo(target_dir=r["target_dir"], repos=r["repos"]),
+        )
+
+
+#########################
+# USB CP
+##########################
+def usb_run_cmd(cmd, check=False):
+    try:
+        log.info(f"Running: {cmd}")
+        result = subprocess.run(cmd, text=True, shell=True, check=check)
+        return result
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed: {cmd}\nExit code: {e.returncode}")
+        return e
+
+
+def yes_no_prompt(prompt: str) -> bool:
+    while True:
+        response = input(f"{prompt} (y/n): ").strip().lower()
+        if response in ("y", "yes"):
+            return True
+        if response in ("n", "no"):
+            return False
+        print("Please enter 'y' or 'n'.")
+
+
+def check_usb_files(key_dir, key_files) -> list[str]:
+    missing_files = []
+    for key_file in key_files:
+        file_path = Path(f"/root/{key_dir}/{key_file}")
+        if not file_path.exists():
+            missing_files.append(file_path)
+    log.warning(f"Needed: {', '.join(map(str, missing_files))}")
+    return missing_files
+
+
+def check_wireguard_dir():
+    wireguard_dir = Path("/root/wireguard")
+    if not wireguard_dir.is_dir():
+        log.warning(f"Needed: {wireguard_dir} is not a directory")
+        return True
+    if not any(wireguard_dir.iterdir()):
+        log.warning(f"Needed: {wireguard_dir} is empty")
+        return True
+    return False
+
+
+def string_to_float_size(size_str):
+    if not size_str:
+        return 0.0
+    K = 1024
+    M = 1024**2
+    G = 1024**3
+    T = 1024**4
+    size_str = size_str.strip().upper()
+    units = {"K": K, "M": M, "G": G, "T": T}
+    return float(size_str[:-1]) * units.get(size_str[-1], 1.0)
+
+
+def mnt_keys_partition(usb_mnt: Path, min_size: str, usb_fs_type: str):
+    output = subprocess.check_output(
+        ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
+    )
+    data = json.loads(output)
+    candidates = []
+
+    def recurse(devices):
+        for dev in devices:
+            if (
+                dev["type"] == "part"
+                and dev.get("fstype") == usb_fs_type
+                and dev.get("mountpoint") is None
+                and string_to_float_size(dev["size"]) > string_to_float_size(min_size)
+            ):
+                candidates.append(
+                    (
+                        dev["name"],
+                        dev["size"],
+                        dev.get("fstype"),
+                    )
+                )
+            if "children" in dev:
+                recurse(dev["children"])
+
+    recurse(data["blockdevices"])
+    while True:
+        print(f"{'No.':<5} {'Name':<8} {'Size':<8} {'FS Type':>8}")
+        print("-" * 45)
+        for i, (name, size, fstype) in enumerate(candidates, 1):
+            print(f"{i:<5} {name:<8} {size:<8} {fstype:>8}")
+        choice = input(f"Enter 1-{len(candidates)}: ").strip()
+        if not choice.isdigit():
+            log.error("Not a number.")
+            continue
+        choice_num = int(choice)
+        if not (1 <= choice_num <= len(candidates)):
+            log.error("Out of range.")
+            continue
+        selected_path = f"/dev/{candidates[choice_num - 1][0]}"
+        break
+    usb_mnt.mkdir(parents=True, exist_ok=True)
+    try:
+        usb_run_cmd([f"mount {selected_path} {usb_mnt}"], check=True)
+        return selected_path
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed to mount {selected_path}: {e}")
+
+
+def usb_cp_keys(usb_mount, key_dir, key_files):
+    print("Preparing to copy key files from USB...")
+    dest_dir = Path.home() / key_dir
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for key_file in key_files:
+        src = Path(usb_mount) / key_dir / key_file
+        dest = dest_dir / key_file
+        if not dest.exists():
+            try:
+                shutil.copy2(src, dest)
+                log.info(f"Copied {key_file} to {dest}")
+            except FileNotFoundError:
+                log.error(f"Source file {src} not found on USB.")
+        else:
+            log.error(f"{key_file} already exists in {dest_dir}, skipping copy.")
+
+
+def usb_cp_folder(usb_mount, folder_name):
+    log.info("Preparing to copy folder from USB...")
+    src_dir = Path(usb_mount) / folder_name
+    dest_dir = Path.home() / folder_name
+    if not dest_dir.exists():
+        try:
+            shutil.copytree(src_dir, dest_dir)
+            log.info(f"Copied folder {folder_name} to {dest_dir}")
+        except FileNotFoundError:
+            log.error(f"Source folder {src_dir} not found on USB.")
+        except Exception as e:
+            log.error(f"Failed to copy folder {folder_name} from USB: {e}")
+
+
+def unmount_partition(usb_mount: Path):
+    usb_run_cmd(["umount", f"{usb_mount}"], check=True)
+    log.info(f"Unmounted USB from {usb_mount}.")
+    if usb_mount.exists():
+        try:
+            Path(usb_mount).unlink()
+        except OSError:
+            pass
+
+
+def mnt_cp_keys(
+    min_size: str,
+    usb_fs_type: str,
+    key_dir: str | None = None,
+    key_files: list[str] | None = None,
+    wireguard_dir: str | None = None,
+    usb_mnt=Path("/mnt/usb"),
+):
+    if key_dir and key_files or wireguard_dir:
+        if check_usb_files(key_dir, key_files):
+            if yes_no_prompt(
+                "Do you want to mount a USB drive to check for missing files?"
+            ):
+                mnt_keys_partition(usb_mnt, min_size, usb_fs_type)
+                if key_dir and key_files:
+                    usb_cp_keys(usb_mnt, key_dir, key_files)
+                if wireguard_dir:
+                    usb_cp_folder(usb_mnt, wireguard_dir)
+                unmount_partition(usb_mnt)
+    else:
+        log.info("All required files present.")
+
+
+def run_chroot(
+    commands: list[str],
+    mnt_point: Path,
+    user_name: str | None = None,
+    peek: bool = True,
+) -> None:
+    script_path = "var/tmp/user-commands.sh"
+    chroot_path = mnt_point / script_path
+    chroot_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(chroot_path, "w") as script:
+        script.write("#!/bin/bash\n")
+        if peek:
+            script.write("set -e\n")
+        for cmd in commands:
+            script.write(cmd + "\n")
+    chroot_path.chmod(0o755)
+    cmd = f"bash /{script_path}"
+    if user_name:
+        cmd = f"su - {user_name} -c {shlex.quote(cmd)}"
+    SysCommand(f"arch-chroot -S {mnt_point} {cmd}")
+    chroot_path.unlink()
+
+
+def chaotic_repo(mnt_point: Path | None = None):
+    log.info("Setting up Chaotic-AUR repository.")
+    chaotic_key_id = "3056513887B78AEB"
+    key_serv = "keyserver.ubuntu.com"
+    chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
+    cmds_setup = [
+        ["pacman-key", "--init"],
+        ["pacman-key", "--recv-key", chaotic_key_id, "--keyserver", key_serv],
+        ["pacman-key", "--lsign-key", chaotic_key_id],
+        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
+        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
+    ]
+    cmds_update = ["pacman", "-Sy"]
+    if mnt_point:
+        for cmd in cmds_setup:
+            run_chroot([" ".join(cmd)], mnt_point)
+        pacman_conf = mnt_point / "etc/pacman.conf"
+        run_chroot([" ".join(cmds_update)], mnt_point)
+    else:
+        for cmd in cmds_setup:
+            run_cmd(cmd, check=True)
+        pacman_conf = Path("/etc/pacman.conf")
+        run_cmd(cmds_update, check=True)
+    section = "[chaotic-aur]"
+    content = pacman_conf.read_text()
+    if section not in content:
+        with pacman_conf.open("a") as f:
+            f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+
+
+def copy_dir(dir: str, dest: Path, own_it_by: str | bool = False, chmod_it=False):
+    src = Path("/root") / dir
+    if not src.is_dir():
+        log.error(f"{src} does not exist")
+    shutil.copytree(src, dest, dirs_exist_ok=True)
+    for path in dest.rglob("*"):
+        if own_it_by:
+            shutil.chown(path, user=f"{own_it_by}", group=f"{own_it_by}")
+        if chmod_it:
+            path.chmod(0o600)
+    if own_it_by:
+        shutil.chown(dest, user=f"{own_it_by}", group=f"{own_it_by}")
+    if chmod_it:
+        dest.chmod(0o700)
+
+
+#########################
+# USR_SVC
+#########################
+def enable_user_services(
+    units: UserSrv | list[UserSrv],
+    mnt_point: Path,
+    user_name: str,
+) -> None:
+    if isinstance(units, UserSrv):
+        units = [units]
+    user_commands: list[str] = []
+    base_dir = Path(f"/home/{user_name}/.config/systemd/user")
+    for unit in units:
+        for service in unit.services:
+            target_dir = base_dir / unit.target
+            user_commands.append(f"mkdir -p {target_dir}")
+            src = unit.source_dir / service
+            dst = target_dir / service
+            user_commands.append(f"ln -sf {src} {dst}")
+    run_chroot([f"chown -R {user_name}:{user_name} /home/{user_name}/"], mnt_point)
+    run_chroot(user_commands, mnt_point, user_name)
+
+
+def user_service(
+    script_dir: str,
+    mnt_point: Path,
+    user_name: str,
+    user_setup_script: str = "user_setup.py",
+) -> None:
+    serv_dir = f"home/{user_name}/.config/systemd/user"
+    (mnt_point / serv_dir).mkdir(parents=True, exist_ok=True)
+    run_script = f"/home/{user_name}/{script_dir}/{user_setup_script}"
+    svc_name = f"{user_setup_script.partition('.')[0]}.service"
+    (mnt_point / serv_dir / svc_name).write_text(f"""[Unit]
+Description=Open Alacritty running {run_script} on login
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/alacritty -e python {run_script}
+Restart=no
+
+[Install]
+WantedBy=graphical-session.target
+""")
+    enable_user_services(
+        units=UserSrv(
+            target="graphical-session.target.wants",
+            services=[svc_name],
+            source_dir=Path(f"/{serv_dir}"),
+        ),
+        mnt_point=mnt_point,
+        user_name=user_name,
+    )
+
+
+#########################
+# ETC/BOOT
+#########################
+def config_pac_conf(
+    mnt_point: Path | None,
+    parallel_downloads: int = 10,
+    noextract_lines: list[str] = [],
+):
+    pacman_content = textwrap.dedent(f"""\
+        [options]
+        HoldPkg = pacman glibc
+        Architecture = auto
+        Color
+        ILoveCandy
+        ParallelDownloads = {parallel_downloads}
+        DownloadUser = alpm
+        SigLevel    = Required DatabaseOptional
+        LocalFileSigLevel = Optional
+        {"\n".join(noextract_lines)}
+
+        [core]
+        Include = /etc/pacman.d/mirrorlist
+
+        [extra]
+        Include = /etc/pacman.d/mirrorlist
+
+        [multilib]
+        Include = /etc/pacman.d/mirrorlist
+    """)
+    pacman_conf_path = Path("/etc/pacman.conf")
+    if mnt_point:
+        pacman_conf_path = mnt_point / "etc/pacman.conf"
+    pacman_conf_path.write_text(pacman_content.strip())
+    if mnt_point:
+        run_chroot(["pacman -Sy"], mnt_point)
+    else:
+        run_cmd(["pacman", "-Sy"], True)
+
+
+def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
+    for dir_name in sys_dir_cp:
+        source_dir = script_dir / dir_name
+        target_dir = mnt_point / dir_name
+        log.info("Processing %s -> %s", source_dir, target_dir)
+        if not source_dir.exists():
+            log.error("Source directory not found: %s", source_dir)
+            continue
+        shutil.copytree(
+            source_dir, target_dir, dirs_exist_ok=True, copy_function=shutil.copy2
+        )
+        log.info("Copied %s to %s", source_dir, target_dir)
+
+
+def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
+    sudoers_file = mnt_point / f"etc/sudoers.d/00_{user_name}"
+    if not pwd_require:
+        sudoers_line = f"{user_name} ALL=(ALL:ALL) NOPASSWD:ALL"
+        prt_val = "without password requirement"
+    else:
+        sudoers_line = f"{user_name} ALL=(ALL:ALL) ALL"
+        prt_val = "with password requirement"
+    sudoers_content = textwrap.dedent(f"""\
+        {sudoers_line}
+        Defaults    insults
+        Defaults    passwd_tries=10
+        Defaults    lecture=never
+        Defaults    passwd_timeout=0
+        Defaults    timestamp_timeout=20
+        Defaults    timestamp_type=global
+        Defaults    editor=/usr/sbin/nvim, !env_editor
+    """)
+    sudoers_file.write_text(sudoers_content.strip())
+    sudoers_file.chmod(0o440)
+    log.info(f"Created {sudoers_file} {prt_val} for {user_name}")
+
+
+def modify_systemd(mnt_point: Path, boot_opts: list[str] = ["quiet", "splash"]) -> None:
+    entries_dir = mnt_point / "boot" / "loader" / "entries"
+    for entry in entries_dir.iterdir():
+        lines = entry.read_text().splitlines()
+        new_lines = []
+        for line in lines:
+            if line.startswith("options "):
+                existing_opts = line[len("options ") :].split()
+                for opt in boot_opts:
+                    if opt not in existing_opts:
+                        existing_opts.append(opt)
+                line = "options " + " ".join(existing_opts)
+            new_lines.append(line)
+        entry.write_text("\n".join(new_lines) + "\n")
+    loader_file = mnt_point / "boot" / "loader" / "loader.conf"
+    loader_file.write_text("default @saved\ntimeout 1\neditor no\n")
+    loader_file.chmod(0o644)
+    log.info(f"Modified {loader_file}")
+
+
+def modify_fstab(mnt_point: Path) -> None:
+    fstab_path = mnt_point / "etc" / "fstab"
+    content = fstab_path.read_text()
+    # ^(?!#) → ignore comments, .*? → match any characters up to the option we want
+    # \bfmask=\d+  → word boundary, then  digits
+    # \bdmask=\d+  → word boundary, then  digits
+    content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
+    content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
+    fstab_path.write_text(content)
+
+
+def modify_mkinit(mnt_point: Path, hooks: list[str]):
+    mkinitcpio_conf_path = f"{mnt_point}/etc/mkinitcpio.conf"
+    with open(mkinitcpio_conf_path, "r+") as mkinit:
+        content = mkinit.read()
+        content = re.sub(r"\nHOOKS=.*", f"\nHOOKS=({' '.join(hooks)})", content)
+        mkinit.seek(0)
+        mkinit.truncate()
+        mkinit.write(content)
+
+
+#########################
+# run_cmd
+#########################
+def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
+    try:
+        log.info(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(
+            cmd, text=True, check=check, capture_output=True, input=input_text
+        )
+        if result.stdout:
+            log.info(f"stdout: {result.stdout.strip()}")
+        return result
+    except subprocess.CalledProcessError as e:
+        log.error(f"Command failed: {' '.join(cmd)} (exit {e.returncode})")
+        if e.stdout:
+            log.info(f"stdout: {e.stdout.strip()}")
+        if e.stderr:
+            log.error(f"stderr: {e.stderr.strip()}")
+        return e
+
+
+#########################
+# PASSWORD
+#########################
+def ask_pass(prompt="Password: ", min_len=8, confirm=True, retries=3) -> str:
+    for _ in range(retries):
+        pwd = getpass(prompt)
+        if len(pwd) < min_len:
+            print(f"Password must be at least {min_len} characters.")
+            continue
+        if confirm and pwd != getpass("Confirm password: "):
+            print("Passwords do not match.")
+            continue
+        return pwd
+    raise ValueError("Too many failed attempts.")
+
+
+#########################
+# PING
+#########################
+def ping(host: str) -> bool:
+    return (
+        subprocess.run(
+            ["ping", "-c", "1", host],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode
+        == 0
+    )
+
+
+#########################
+# GNUPG
+#########################
+def gpg_toggle(file_dir=Path.home(), dec_name="test.txt"):
+    enc_name = f"{dec_name.split('.')[0]}.gpg"
+    dec_path = file_dir / dec_name
+    enc_path = file_dir / enc_name
+    if enc_path.exists():
+        gpg = gnupg.GPG()
+        log.info(f"Decrypting: {enc_path.name}")
+        with enc_path.open("rb") as f:
+            result = gpg.decrypt_file(
+                f,
+                passphrase=ask_pass(min_len=4, confirm=False),
+                output=str(dec_path),
+            )
+        if not result.ok:
+            log.error(f"Decryption failed: {result.status}")
+        enc_path.unlink()
+        log.info(f"Decrypted: {dec_path.name}")
+    elif dec_path.exists():
+        gpg = gnupg.GPG()
+        log.info(f"Encrypting: {dec_path.name}")
+        with dec_path.open("rb") as f:
+            result = gpg.encrypt_file(
+                f,
+                recipients=None,
+                symmetric=True,
+                passphrase=ask_pass(min_len=4),
+                output=str(enc_path),
+            )
+        if not result.ok:
+            log.error(f"Failed: {result.status}")
+        dec_path.unlink()
+        log.info(f"Encrypted: {enc_path.name}")
+    else:
+        log.info(f"Neither {dec_path} nor {enc_path} exists.")
 
 
 ###########################################################
@@ -77,7 +628,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
     disk_config = config.disk_config
     with Installer(mountpoint, disk_config, [], kernel) as installation:
         ############-Ensure User Pass Exists-##########
-        if not (pw := src_pass_file(usb_key_dir, user_pass_file)):
+        if not (pw := src_pass_file(usb_key_dir, sec_conf_file)):
             pw = ask_pass(user_name)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()

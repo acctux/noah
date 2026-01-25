@@ -1,7 +1,8 @@
 {
-  "archinstall_conf": {
+  "archinstall": {
     "user_name": "nick",
     "hostname": "yulia",
+    "password": "6623",
     "kernel": [
       "linux"
     ],
@@ -17,160 +18,166 @@
     "storage",
     "video"
   ],
-  "sys_services": [
-    "ananicy-cpp",
-    "bluetooth",
-    "tlp",
-    "iwd",
-    "ly@tty1",
-    "named",
-    "firewalld",
-    "swayosd-libinput-backend",
-    "systemd-networkd",
-    "systemd-oomd",
-    "systemd-timesyncd",
-    "btrfs-scrub@-.timer",
-    "btrfs-scrub@home.timer",
-    "fstrim.timer",
-    "logrotate.timer",
-    "man-db.timer",
-    "paccache.timer",
-    "reflector.timer",
-    "loggy",
-    "wireguard-list"
-  ],
-  "disable_svcs": [
-    "getty@tty1",
-    "systemd-networkd-wait-online"
-  ],
-  "mkinit_hooks": [
-    "base",
-    "systemd",
-    "autodetect",
-    "microcode",
-    "modconf",
-    "kms",
-    "sd-vconsole",
-    "block",
-    "filesystems",
-    "fsck"
-  ],
-  "user_services": [
-    {
-      "target": "default.target.wants",
-      "services": [
-        "pipewire-pulse.service"
+  "services": {
+    "system": {
+      "enable": [
+        "ananicy-cpp",
+        "bluetooth",
+        "tlp",
+        "iwd",
+        "ly@tty1",
+        "named",
+        "firewalld",
+        "swayosd-libinput-backend",
+        "systemd-networkd",
+        "systemd-oomd",
+        "systemd-timesyncd",
+        "btrfs-scrub@-.timer",
+        "btrfs-scrub@home.timer",
+        "fstrim.timer",
+        "logrotate.timer",
+        "man-db.timer",
+        "paccache.timer",
+        "reflector.timer",
+        "loggy",
+        "wireguard-list"
       ],
-      "source_dir": "/usr/lib/systemd/user"
+      "disable": [
+        "getty@tty1",
+        "systemd-networkd-wait-online"
+      ]
     },
-    {
-      "target": "sockets.target.wants",
-      "services": [
-        "pipewire-pulse.socket"
-      ],
-      "source_dir": "/usr/lib/systemd/user"
-    }
-  ],
-  "script_pwd_to_cp": [
-    "etc",
-    "usr"
-  ],
-  "refl_options": [
-    "--country US",
-    "--protocol https",
-    "--latest 10",
-    "--sort rate",
-    "--number 3"
-  ],
-  "usb_config": {
-    "usb_fs_type": "exfat",
-    "min_usb_size": "20G",
-    "usb_key_dir": "keys",
+    "user": [
+      {
+        "target": "default.target.wants",
+        "services": [
+          "pipewire-pulse.service"
+        ],
+        "source_dir": "/usr/lib/systemd/user"
+      },
+      {
+        "target": "sockets.target.wants",
+        "services": [
+          "pipewire-pulse.socket"
+        ],
+        "source_dir": "/usr/lib/systemd/user"
+      }
+    ]
+  },
+  "mkinitcpio": {
+    "hooks": [
+      "base",
+      "systemd",
+      "autodetect",
+      "microcode",
+      "modconf",
+      "kms",
+      "sd-vconsole",
+      "block",
+      "filesystems",
+      "fsck"
+    ]
+  },
+  "filesystem": {
+    "script_pwd_to_copy": [
+      "etc",
+      "usr"
+    ]
+  },
+  "reflector": {
+    "options": [
+      "--country US",
+      "--protocol https",
+      "--latest 10",
+      "--sort rate",
+      "--number 3"
+    ]
+  },
+  "usb": {
+    "fs_type": "exfat",
+    "min_size": "20G",
+    "key_dir": "keys",
     "ssh_key": "id_ed25519",
     "gpg_key": "my_sec_gpg.asc",
     "pass_manager_pass": "pass.txt",
-    "user_pass_file": "pass.py",
+    "sec_conf_file": "pass.py",
     "wireguard_dir": "wireguard",
-    "usb_cp_files": [
+    "copy_files": [
       "id_ed25519",
       "my_sec_gpg.asc",
       "pass.txt"
     ]
   },
-  "folders": {
-    "HOME": "/home/nick",
-    "SHARE": "/home/nick/.local/share",
-    "CONF": "/home/nick/.config",
-    "DESKTOP": "/home/nick/Desktop",
-    "base": "/home/nick/Lit/Docs/base",
-    "git_dir": "/home/nick/Lit",
-    "dots_dir": "/home/nick/Polka",
-    "cust_docs": "/home/nick/Lit/Docs",
-    "enc_dir": "/home/nick/Desktop/Encrypted",
-    "games_dir": "/home/nick/Desktop/Games"
-  },
   "git": {
-    "git_user": "acctux",
-    "git_repos": [
+    "user": "acctux",
+    "base_dir": "Lit",
+    "repos": [
+      {
+        "target_dir": "Lit",
+        "repos": [
+          "Docs",
+          "noah"
+        ]
+      },
+      {
+        "target_dir": "",
+        "repos": [
+          "Polka"
+        ]
+      }
+    ],
+    "dots_dir": "Polka",
+    "enc_dir": "Desktop/Encrypted"
+  },
+  "icons": {
+    "dirs": [
       [
-        "/home/nick/Lit",
-        "Docs"
+        "Desktop/Games",
+        "folder-games.svg"
       ],
       [
-        "/home/nick/Lit",
-        "noah"
+        "Lit",
+        "folder-github.svg"
       ],
       [
-        "/home/nick",
-        "Polka"
+        "Lit/Noah",
+        "folder-root.svg"
+      ],
+      [
+        "Lit/Docs",
+        "folder-bookmark.svg"
+      ],
+      [
+        "Polka",
+        "folder-html.svg"
+      ],
+      [
+        "Desktop/Encrypted",
+        "folder-locked.svg"
       ]
     ]
   },
-  "custom_dir_icons": [
-    [
-      "/home/nick/Desktop/Games",
-      "folder-games.svg"
+  "symlinks": {
+    "dirs_to_link": [
+      "config/systemd/user",
+      "config/nvim",
+      "local/bin"
     ],
-    [
-      "/home/nick/Lit",
-      "folder-github.svg"
-    ],
-    [
-      "/home/nick/Lit/Noah",
-      "folder-root.svg"
-    ],
-    [
-      "/home/nick/Lit/Docs",
-      "folder-bookmark.svg"
-    ],
-    [
-      "/home/nick/Polka",
-      "folder-html.svg"
-    ],
-    [
-      "/home/nick/Desktop/Encrypted",
-      "folder-locked.svg"
+    "individual": [
+      [
+        "Lit/Docs/fonts",
+        ".local/share/fonts"
+      ],
+      [
+        "Lit/Docs/task",
+        ".config/task"
+      ],
+      [
+        "Lit/Docs/zsh",
+        ".config/zsh"
+      ]
     ]
-  ],
-  "dirs_to_link": [
-    "config/systemd/user",
-    "config/nvim",
-    "local/bin"
-  ],
-  "ind_dirs": [
-    [
-      "/home/nick/Lit/Docs/base/fonts",
-      "/home/nick/.local/share/fonts"
-    ],
-    [
-      "/home/nick/Lit/Docs/base/task",
-      "/home/nick/.config/task"
-    ],
-    [
-      "/home/nick/Lit/Docs/base/zsh",
-      "/home/nick/.config/zsh"
-    ]
-  ],
+  },
   "hide_apps": [
     "avahi-discover.desktop",
     "bssh.desktop",

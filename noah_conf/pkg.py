@@ -66,7 +66,7 @@ pkgs = [
     "rofimoji",
     "tesseract-data-eng",
     "ttf-hack-nerd",
-    "ttf-liberation"
+    "ttf-liberation",
     ########-Multimedia-########
     "cava",
     "evince",

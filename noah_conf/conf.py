@@ -1,5 +1,5 @@
 from pathlib import Path
-from utils import UserSrv
+from sys_setup import UserGitRepo, UserSrv
 
 
 ###########################################################
@@ -73,6 +73,7 @@ user_services = [
         source_dir=Path("/usr/lib/systemd/user"),
     ),
 ]
+
 ###########################################################
 # FOLDERS TO COPY FROM SCRIPT DIR TO /mnt
 ###########################################################
@@ -96,7 +97,7 @@ usb_key_dir = "keys"
 ssh_key = "id_ed25519"
 gpg_key = "my_sec_gpg.asc"
 pass_manager_pass = "pass.txt"
-user_pass_file = "pass.py"
+sec_conf_file = "pass.py"
 wireguard_dir = "wireguard"
 usb_cp_files = [ssh_key, gpg_key, pass_manager_pass]
 ###########################################################
@@ -104,8 +105,12 @@ usb_cp_files = [ssh_key, gpg_key, pass_manager_pass]
 ###########################################################
 git_user = "acctux"
 git_dir = "Lit"
-git_repos = [(git_dir, "Docs"), (git_dir, "noah"), (git_dir, "Polka")]
-dots_dir = f"{git_dir}/Polka"
+git_repos = [
+    UserGitRepo(target_dir=git_dir, repos=["Docs", "noah"]),
+    UserGitRepo(target_dir="", repos=["Polka"]),
+]
+dots_dir = "Polka"
+enc_dir = "Desktop/Encrypted"
 ###########################################################
 # ICONS
 ###########################################################
@@ -115,7 +120,7 @@ dirs_icons = [
     (f"{git_dir}/Noah", "folder-root.svg"),
     (f"{git_dir}/Docs", "folder-bookmark.svg"),
     (dots_dir, "folder-html.svg"),
-    ("Desktop/Encrypted", "folder-locked.svg"),
+    (enc_dir, "folder-locked.svg"),
 ]
 ###########################################################
 # SYMLINK/DOT FILE
