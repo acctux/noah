@@ -44,13 +44,21 @@ def ensure_github_known_hosts(HOME: Path):
             log.warning("Failed to scan github.com for known_hosts")
 
 
-def clone_repos(git_user: str, repo_path: Path, name: str):
-    repo_path.mkdir(parents=True, exist_ok=True)
-    cmd = ["git", "clone", f"git@github.com:{git_user}/{name}.git", str(repo_path)]
-    if run_cmd(cmd, check=True):
-        log.info(f"Cloned {name} into {repo_path}")
-    else:
-        log.error(f"Failed {cmd}")
+def clone_repos(git_user: str, git_repos: list[tuple[Path, str]]):
+    for path, name in git_repos:
+        repo_path = path / name.capitalize()
+        if not any(repo_path.iterdir()):
+            repo_path.mkdir(parents=True, exist_ok=True)
+            cmd = [
+                "git",
+                "clone",
+                f"git@github.com:{git_user}/{name}.git",
+                str(repo_path),
+            ]
+            if run_cmd(cmd, check=True):
+                log.info(f"Cloned {name} into {repo_path}")
+            else:
+                log.error(f"Failed {cmd}")
 
 
 def install_icon_theme():

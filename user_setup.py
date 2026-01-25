@@ -82,10 +82,7 @@ def main(
             install_icon_theme()
         set_folder_icons(custom_dir_icons)
         ensure_github_known_hosts(HOME)
-        for path, name in git_repos:
-            repo_path = path / name.capitalize()
-            if not any(repo_path.iterdir()):
-                clone_repos(git_user, repo_path, name)
+        clone_repos(git_user, git_repos)
         hide_app_icons(hide_apps)
         if dots_dir.exists():
             deploy_dotfiles(dots_dir, dirs_to_link, ind_dirs)
