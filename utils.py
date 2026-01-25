@@ -64,3 +64,14 @@ def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
         if e.stderr:
             log.error(f"stderr: {e.stderr.strip()}")
         return e
+
+
+def ping(host: str) -> bool:
+    return (
+        subprocess.run(
+            ["ping", "-c", "1", host],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode
+        == 0
+    )

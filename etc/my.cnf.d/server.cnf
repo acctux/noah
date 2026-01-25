@@ -1,3 +1,2 @@
 [mariadb]
 bind-address = localhost
-skip-networking

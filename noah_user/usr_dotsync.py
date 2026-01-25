@@ -1,11 +1,33 @@
-from pathlib import Path
 import shutil
 import subprocess
-from utils import get_logger
+import logging
+from pathlib import Path
 
-log = get_logger("Noah")
+log = logging.getLogger(__name__)
+
+############################
+# Config
+############################
+HOME = Path.home()
+SHARE = HOME / ".local" / "share"
+CONF = HOME / ".config"
+BASE = HOME / "Lit" / "Docs" / "base"
+DOTS_DIR = HOME / "Polka"
+dirs_to_link = [
+    "config/systemd/user",
+    "config/nvim",
+    "local/bin",
+]
+individual_dirs = [
+    (BASE / "fonts", SHARE / "fonts"),
+    (BASE / "task", CONF / "task"),
+    (BASE / "zsh", CONF / "zsh"),
+]
 
 
+############################
+# Helpers
+############################
 def link_path(src: Path, dst: Path) -> bool:
     dst.parent.mkdir(parents=True, exist_ok=True)
     rel = src.relative_to(dst.parent, walk_up=True)
@@ -22,50 +44,59 @@ def link_path(src: Path, dst: Path) -> bool:
     return True
 
 
-def dotted_destination(src: Path, source_root: Path, target_root: Path) -> Path:
-    parts = src.relative_to(source_root).parts
-    return target_root / Path("." + parts[0], *parts[1:])
+def dotted_destination(src: Path, source_dir: Path, target_dir: Path = HOME) -> Path:
+    """
+    Map DOTS_DIR/config/nvim/init.lua → ~/.config/nvim/init.lua
+    "." + parts[0]=config->.config"," *parts[1:] tuple
+    """
+    parts = src.relative_to(source_dir).parts
+    return target_dir / Path("." + parts[0], *parts[1:])
 
 
-def deploy_dotfiles(
+def file_candidates(
     dotfiles_dir: Path,
-    home_dir: Path,
     dirs_to_link: list[str],
     individual_dirs: list[tuple[Path, Path]],
 ):
-    linked = 0
-    if not dotfiles_dir.is_dir():
-        log.error(f"Dotfiles directory does not exist: {dotfiles_dir}")
-        return
     for src in dotfiles_dir.rglob("*"):
-        if not src.is_file():
-            continue
-        if src.relative_to(dotfiles_dir).as_posix().startswith(".git") or any(
-            src.relative_to(dotfiles_dir).is_relative_to(d) for d in dirs_to_link
-        ):
-            continue
-        dst = dotted_destination(src, dotfiles_dir, home_dir)
-        if link_path(src, dst):
-            linked += 1
+        if src.is_file():
+            rel = src.relative_to(dotfiles_dir)
+            if rel.as_posix().startswith(".git"):
+                continue
+            if any(rel.is_relative_to(Path(d)) for d in dirs_to_link):
+                continue
+            yield src, dotted_destination(src, dotfiles_dir)
     for d in dirs_to_link:
         src = dotfiles_dir / d
-        if not src.is_dir():
-            log.error(f"{src} not found.")
-            continue
-        dst = dotted_destination(src, dotfiles_dir, home_dir)
-        if link_path(src, dst):
-            linked += 1
+        if src.is_dir():
+            yield src, dotted_destination(src, dotfiles_dir)
     for src_dir, dst_dir in individual_dirs:
         if not src_dir.is_dir():
-            log.error(f"Directory does not exist: {src_dir}")
             continue
-        for src_file in src_dir.rglob("*"):
-            if not src_file.is_file():
-                continue
-            dst_file = dst_dir / src_file.relative_to(src_dir)
-            if link_path(src_file, dst_file):
-                linked += 1
+        for src in src_dir.rglob("*"):
+            if src.is_file():
+                yield src, dst_dir / src.relative_to(src_dir)
+
+
+############################
+# Main
+############################
+def deploy_dotfiles(
+    dotfiles_dir=DOTS_DIR, dirs_to_link=dirs_to_link, individual_dirs=individual_dirs
+):
+    if not dotfiles_dir.is_dir():
+        log.error(f"Dotfiles directory not found: {dotfiles_dir}")
+        return
+    linked = 0
+    for src, dst in file_candidates(dotfiles_dir, dirs_to_link, individual_dirs):
+        if link_path(src, dst):
+            linked += 1
     if shutil.which("hyprctl"):
         subprocess.run(["hyprctl", "reload"], check=False)
         log.info("Hyprland reloaded")
-    log.info(f"Linked:{linked}")
+    log.info(f"Linked: {linked}")
+
+
+if __name__ == "__main__":
+    deploy_dotfiles()
+

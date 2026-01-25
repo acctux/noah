@@ -30,12 +30,12 @@ def import_ssh_key(key_file: str):
     log.info("SSH key added.")
 
 
-def import_gpg_key(GPG_PATH: Path):
-    gpg = gnupg.GPG(gnupghome=str(GPG_PATH.parent))
-    with GPG_PATH.open("r") as f:
+def import_gpg_key(gpg_path: Path):
+    gpg = gnupg.GPG(gnupghome=str(gpg_path.parent))
+    with gpg_path.open("r") as f:
         import_result = gpg.import_keys(f.read())
     if not import_result.fingerprints:
-        log.error(f"Failed to import GPG key {GPG_PATH}.")
+        log.error(f"Failed to import GPG key {gpg_path}.")
         return
     if fingerprint := import_result.fingerprints[0]:
         log.info(f"GPG key {fingerprint} already imported.")

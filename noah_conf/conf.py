@@ -8,8 +8,6 @@ from utils import UserSrv
 HOME = Path.home()
 SHARE = HOME / ".local" / "share"
 CONF = HOME / ".config"
-SSH_DIR = HOME / ".ssh"
-GPG_DIR = HOME / ".gnupg"
 BASE = HOME / "Lit" / "Docs" / "base"
 DESKTOP = HOME / "Desktop"
 GIT_DIR = HOME / "Lit"
@@ -30,13 +28,7 @@ timezone = "US/Eastern"
 ###########################################################
 # GROUPS
 ###########################################################
-groups = [
-    "adm",
-    "games",
-    "realtime",
-    "storage",
-    "video",
-]
+groups = ["adm", "games", "realtime", "storage", "video"]
 ###########################################################
 # SYS SERVICES
 ###########################################################
@@ -63,10 +55,7 @@ sys_services = [
     "loggy",
     "wireguard-list",
 ]
-disable_svcs = [
-    "getty@tty1",
-    "systemd-networkd-wait-online",
-]
+disable_svcs = ["getty@tty1", "systemd-networkd-wait-online"]
 ###########################################################
 # MKINITCPIO HOOKS
 ###########################################################
@@ -89,26 +78,25 @@ user_services = [
     UserSrv(
         target="default.target.wants",
         services=["pipewire-pulse.service"],
+        source_dir=Path("/usr/lib/systemd/user"),
     ),
     UserSrv(
         target="sockets.target.wants",
         services=["pipewire-pulse.socket"],
+        source_dir=Path("/usr/lib/systemd/user"),
     ),
 ]
 ###########################################################
 # FOLDERS TO COPY FROM SCRIPT DIR TO /mnt
 ###########################################################
-sys_dir_to_cp = [
-    "etc",
-    "usr",
-]
+script_pwd_to_cp = ["etc", "usr"]
 ###########################################################
 # REFLECTOR OPTIONS
 ###########################################################
 refl_options = [
     "--country US",
     "--protocol https",
-    "--latest 15",
+    "--latest 10",
     "--sort rate",
     "--number 3",
 ]
@@ -123,21 +111,12 @@ gpg_key = "my_sec_gpg.asc"
 pass_manager_pass = "pass.txt"
 user_pass_file = "pass.py"
 wireguard_dir = "wireguard"
-usb_cp_files = [
-    ssh_key,
-    gpg_key,
-    pass_manager_pass,
-    user_pass_file,
-]
+usb_cp_files = [ssh_key, gpg_key, pass_manager_pass]
 ###########################################################
 # GIT
 ###########################################################
 git_user = "acctux"
-GIT_REPOS = [
-    (GIT_DIR, "Docs"),
-    (GIT_DIR, "noah"),
-    (HOME, "Polka"),
-]
+GIT_REPOS = [(GIT_DIR, "Docs"), (GIT_DIR, "noah"), (HOME, "Polka")]
 ###########################################################
 # ICONS
 ###########################################################
@@ -164,11 +143,15 @@ ind_dirs = [
 hide_apps = [
     "avahi-discover.desktop",
     "bssh.desktop",
+    "btop.desktop",
     "bvnc.desktop",
     "com.github.FontManager.FontViewer.desktop",
     "jshell-java-openjdk.desktop",
     "jconsole-java-openjdk.desktop",
     "khal.desktop",
+    "libreoffice-base.desktop",
+    "libreoffice-draw.desktop",
+    "libreoffice-math.desktop",
     "nvtop.desktop",
     "octopi-cachecleaner.desktop",
     "octopi-notifier.desktop",
@@ -176,6 +159,8 @@ hide_apps = [
     "org.gnome.Nautilus.desktop",
     "org.gnome.baobab.desktop",
     "org.kde.kdeconnect.nonplasma.desktop",
+    "qt5ct.desktop",
+    "qt6ct.desktop",
     "qv4l2.desktop",
     "qvidcap.desktop",
     "taskwarrior-tui.desktop",

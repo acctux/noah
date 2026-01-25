@@ -1,3 +1,10 @@
+#################-PACMAN CONF-#################
+chaotic_repo_include = True
+noextract_lines = [
+    "NoExtract = etc/xdg/autostart/firewall-applet.desktop",
+    "NoExtract = usr/share/icons/capitaine-cursors/*",
+]
+#############-PACMAN CONF-#############
 pkgs = [
     ############-Amd-############
     "mesa",
@@ -60,6 +67,7 @@ pkgs = [
     "rofimoji",
     "tesseract-data-eng",
     "ttf-hack-nerd",
+    "ttf-liberation"
     ########-Multimedia-########
     "cava",
     "evince",
@@ -85,6 +93,7 @@ pkgs = [
     "lazygit",
     "less",
     "man-pages",
+    "mcfly",
     "rebuild-detector",
     "ripgrep-all",
     "sd",
@@ -126,39 +135,37 @@ pkgs = [
     "xdg-desktop-portal-hyprland",
     ###########-Basic-###########
     "baobab",
+    "base-devel",
     "bustle",
     "featherpad",
     "gnucash",
     "gocryptfs",
     "khal",
     "libreoffice-fresh",
-    "coin-or-mp",  # For LibreOffice Calc Solver
+    "coin-or-mp",  # LibreOffice Calc Solver
     "logrotate",
     "ly",
     "nemo-audio-tab",
     "nemo-fileroller",
+    "pkgfile",
     "plymouth",
     "qalculate-qt",
     "qt5ct",
     "qt6ct",
     "qjournalctl",
-    "thunderbird-i18n-en-us",
-    "thunderbird-dark-reader",
-    "thunderbird-ublock-origin",
-    "systray-x-common",  # Thunderbird tray support
     "unrar",  # File roller
     "wl-clipboard",
     "wl-clip-persist",
     "xdg-user-dirs",
     ###########-Coding-###########
-    "inotify-tools",  # Nvim: WARNING libuv-watchdirs has known performance issues. Consider installing inotify-tools.
+    "clang",
+    "inotify-tools",  # nvim
     "npm",
     "neovim-lspconfig",
     "rust",
     "uv",
     # Language Servers
     "bash-language-server",
-    "clang",
     "lua-language-server",
     "pyright",
     "rust-analyzer",
@@ -181,12 +188,12 @@ pkgs = [
     "python-pymysql",
     ###########-Python-###########
     "python-dbus-fast",  # loggy
-    "python-gnupg",  # noah dependency
+    "python-gnupg",  # noah
     "python-imaplib2",  # emailcheck
     "python-mpd2",
     "python-pandas",
-    "python-pydantic",
-    "python-pyperclip",  # noah dependency
+    "python-pydantic",  # noah
+    "python-pyperclip",  # noah
     "python-systemd",  # loggy
     "python-wand",  # wallpaper script
     ###########-Gaming-###########
@@ -205,6 +212,8 @@ pkgs = [
     ########-CHAOTIC PKGS-########
     "anki",
     "ayugram-desktop-git",
+    "qt6-imageformats",  # AyuGram missing dependency
+    "betterbird-bin",
     "dxvk-mingw-git",
     "firedragon",
     "logiops",

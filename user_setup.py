@@ -1,15 +1,23 @@
 import os
 from pathlib import Path
 import subprocess
-import sys
+import gnupg
 import pyperclip
 from utils import get_logger, run_cmd
+from noah_user.usr_key_crypt import import_ssh_key, initialize_gocrypt
+from noah_user.usr_dotsync import deploy_dotfiles
+from noah_user.usr_bash_cmds import run_sudo_commands, enable_mariadb, run_interactive
+from noah_user.usr_app_dir import (
+    ensure_github_known_hosts,
+    install_icon_theme,
+    set_folder_icons,
+    hide_app_icons,
+    clone_repos,
+)
 from noah_conf.conf import (
     DOTS_DIR,
     ENC_DIR,
     HOME,
-    GPG_DIR,
-    SSH_DIR,
     ssh_key,
     GIT_REPOS,
     git_user,
@@ -21,55 +29,34 @@ from noah_conf.conf import (
     hide_apps,
     pass_manager_pass,
 )
-from noah_user.usr_key_crypt import import_ssh_key, import_gpg_key, initialize_gocrypt
-from noah_user.usr_dotsync import deploy_dotfiles
-from noah_user.usr_app_dir import (
-    ensure_github_known_hosts,
-    install_icon_theme,
-    set_folder_icons,
-    hide_app_icons,
-    clone_repos,
-)
 
-# TODO investigate Ayugram vs Telegram dependencies
 # cleanup service
 # unmount
 # virt machine version
-CACHE_FILE = HOME / ".cache" / "first_done"
-GPG_PATH = HOME / GPG_DIR / gpg_key
-SSH_PATH = HOME / SSH_DIR / ssh_key
+# rm ~/archinstall ~/keys/pass.txt
 log = get_logger("Noah")
 
 
-def run_interactive(cmd: list[str], check: bool = True) -> int:
-    log.info(f"Running (interactive): {' '.join(cmd)}")
-    proc = subprocess.Popen(
-        cmd,
-        stdin=sys.stdin,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-        text=True,
+def import_gpg_key(gpg_path: Path):
+    gpg = gnupg.GPG(gnupghome=str(gpg_path.parent))
+    with gpg_path.open("r") as f:
+        import_result = gpg.import_keys(f.read())
+    if not import_result.fingerprints:
+        log.error(f"Failed to import GPG key {gpg_path}.")
+        return
+    if fingerprint := import_result.fingerprints[0]:
+        cmd = ["gpg", "--import", str(gpg_path)]
+        run_cmd(cmd, True)
+        log.info(f"GPG key {fingerprint} already imported.")
+    else:
+        log.info(f"GPG key imported: {fingerprint}")
+    trust_result = run_cmd(
+        ["gpg", "--import-ownertrust"], input_text=f"{fingerprint}:6:\n"
     )
-    returncode = proc.wait()
-    if check and returncode != 0:
-        raise subprocess.CalledProcessError(returncode, cmd)
-    return returncode
-
-
-def run_sudo_commands():
-    commands = [
-        f"sudo chmod 600 {HOME}/.ssh/id_ed25519",
-        f"sudo chmod 700 {HOME}/.ssh",
-        "sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql",
-        "sudo rm /etc/resolv.conf",
-        "sudo resolvconf -u",
-        "sudo firewall-cmd --set-default-zone=block",
-        "sudo systemctl restart iwd",
-    ]
-    for cmd in commands:
-        result = run_cmd(cmd.split(), True)
-        if result and result.returncode != 0:
-            log.error(f"Command failed: {cmd}")
+    if trust_result and trust_result.returncode == 0:
+        log.info(f"GPG key trusted (ultimate): {fingerprint}")
+    else:
+        log.error("Failed to set trust for GPG key.")
 
 
 def setup_service(
@@ -137,32 +124,49 @@ def verify_install(git_repos: list[tuple[Path, str]]):
     return True
 
 
-def main():
-    if not CACHE_FILE.exists():
+def main(
+    ssh_key=ssh_key,
+    enc_dir=ENC_DIR,
+    custom_dir_icons=custom_dir_icons,
+    git_repos=GIT_REPOS,
+    git_user=git_user,
+    hide_apps=hide_apps,
+    dots_dir=DOTS_DIR,
+    dirs_to_link=dirs_to_link,
+    ind_dirs=ind_dirs,
+    pass_manager_pass=pass_manager_pass,
+    usb_key_dir=usb_key_dir,
+    gnupg_dir=HOME / ".gnupg",
+    ssh_dir=HOME / ".ssh",
+    cache_file=HOME / ".cache" / "first_done",
+    HOME=Path.home(),
+):
+    if not (HOME / ".cache" / cache_file).exists():
         cmd = ["chsh", "-s", "/usr/bin/zsh"]
         run_interactive(cmd)
         run_sudo_commands()
-        if SSH_PATH.exists():
+        # enable_mariadb()
+        if (ssh_dir / ssh_key).exists():
             import_ssh_key(ssh_key)
-        if GPG_PATH.exists():
-            import_gpg_key(GPG_PATH)
-        if not ENC_DIR.exists() or not len(list(ENC_DIR.iterdir())) > 0:
-            initialize_gocrypt(ENC_DIR)
+        if (gnupg_dir / gpg_key).exists():
+            import_gpg_key(gnupg_dir / gpg_key)
+        if not enc_dir.exists() or not any(enc_dir.iterdir()):
+            initialize_gocrypt(enc_dir)
         check_dir = HOME / ".local/share/icons/WhiteSur-dark"
-        if not check_dir.exists() or not any((check_dir).iterdir()):
+        if not check_dir.exists() or not any(check_dir.iterdir()):
             install_icon_theme()
         set_folder_icons(custom_dir_icons)
-        ensure_github_known_hosts()
-        for path, name in GIT_REPOS:
+        ensure_github_known_hosts(HOME)
+        for path, name in git_repos:
             repo_path = path / name.capitalize()
             if not any(repo_path.iterdir()):
                 clone_repos(git_user, repo_path, name)
         hide_app_icons(hide_apps)
-        if DOTS_DIR.exists():
-            deploy_dotfiles(DOTS_DIR, HOME, dirs_to_link, ind_dirs)
+        if dots_dir.exists():
+            deploy_dotfiles(dots_dir, dirs_to_link, ind_dirs)
         setup_service(script_dir="archinstall")
-        if verify_install(GIT_REPOS):
-            CACHE_FILE.touch()
+        if verify_install(git_repos):
+            cache_file.touch()
         else:
             log.error("Installation verification failed. Cache file not updated.")
             return
@@ -177,5 +181,6 @@ def main():
         run_interactive(cmd)
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+# main()
+import_gpg_key(HOME / ".gnupg" / gpg_key)

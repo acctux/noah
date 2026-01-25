@@ -8,7 +8,7 @@ from archinstall.lib.installer import SysCommand
 log = get_logger("User")
 
 
-def run_cc(
+def run_chroot(
     commands: list[str],
     mnt_point: Path,
     user_name: str | None = None,
@@ -29,29 +29,6 @@ def run_cc(
         cmd = f"su - {user_name} -c {shlex.quote(cmd)}"
     SysCommand(f"arch-chroot -S {mnt_point} {cmd}")
     chroot_path.unlink()
-
-
-def modify_systemd(
-    mnt_point: Path,
-    boot_opts: list[str] = ["quiet", "splash"],
-) -> None:
-    entries_dir = mnt_point / "boot" / "loader" / "entries"
-    for entry in entries_dir.iterdir():
-        lines = entry.read_text().splitlines()
-        new_lines = []
-        for line in lines:
-            if line.startswith("options "):
-                existing_opts = line[len("options ") :].split()
-                for opt in boot_opts:
-                    if opt not in existing_opts:
-                        existing_opts.append(opt)
-                line = "options " + " ".join(existing_opts)
-            new_lines.append(line)
-        entry.write_text("\n".join(new_lines) + "\n")
-    loader_file = mnt_point / "boot" / "loader" / "loader.conf"
-    loader_file.write_text("default @saved\ntimeout 1\neditor no\n")
-    loader_file.chmod(0o644)
-    log.info(f"Modified {loader_file}")
 
 
 def type_password(user_name: str) -> str:

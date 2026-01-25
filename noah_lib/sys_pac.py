@@ -1,6 +1,6 @@
 from pathlib import Path
 import textwrap
-from noah_lib.sys_functions import run_cc
+from noah_lib.sys_functions import run_chroot
 from utils import get_logger, run_cmd
 
 log = get_logger("Noah")
@@ -21,9 +21,9 @@ def chaotic_repo(mnt_point: Path | None = None):
     cmds_update = ["pacman", "-Sy"]
     if mnt_point:
         for cmd in cmds_setup:
-            run_cc([" ".join(cmd)], mnt_point)
+            run_chroot([" ".join(cmd)], mnt_point)
         pacman_conf = mnt_point / "etc/pacman.conf"
-        run_cc([" ".join(cmds_update)], mnt_point)
+        run_chroot([" ".join(cmds_update)], mnt_point)
     else:
         for cmd in cmds_setup:
             run_cmd(cmd, check=True)
@@ -36,11 +36,14 @@ def chaotic_repo(mnt_point: Path | None = None):
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
 
 
-# No leading slashes for NoExtract
-def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10):
+def config_pac_conf(
+    mnt_point: Path | None,
+    parallel_downloads: int = 10,
+    noextract_lines: list[str] = [],
+):
     pacman_content = textwrap.dedent(f"""\
         [options]
-        HoldPkg     = pacman glibc
+        HoldPkg = pacman glibc
         Architecture = auto
         Color
         ILoveCandy
@@ -48,8 +51,7 @@ def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10)
         DownloadUser = alpm
         SigLevel    = Required DatabaseOptional
         LocalFileSigLevel = Optional
-        NoExtract = etc/xdg/autostart/firewall-applet.desktop
-        NoExtract = usr/share/icons/capitaine-cursors/*
+        {"\n".join(noextract_lines)}
 
         [core]
         Include = /etc/pacman.d/mirrorlist
@@ -65,6 +67,6 @@ def config_pac_conf(mnt_point: Path | None = None, parallel_downloads: int = 10)
         pacman_conf_path = mnt_point / "etc/pacman.conf"
     pacman_conf_path.write_text(pacman_content.strip())
     if mnt_point:
-        run_cc(["pacman -Sy"], mnt_point)
+        run_chroot(["pacman -Sy"], mnt_point)
     else:
         run_cmd(["pacman", "-Sy"], True)

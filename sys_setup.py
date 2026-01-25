@@ -1,12 +1,13 @@
 import subprocess
 from pathlib import Path
+
+###########################################################
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.global_menu import DiskLayoutConfigurationMenu
 from archinstall.lib.installer import Bootloader, Installer
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.tui import Tui
-from utils import run_cmd, get_logger
 from archinstall.lib.interactions.general_conf import (
     PostInstallationAction,
     ask_post_installation,
@@ -17,12 +18,23 @@ from archinstall.lib.args import (
     User,
     arch_config_handler,
 )
-from noah_conf.pkg import pkgs
+
+###########################################################
+from utils import run_cmd, get_logger
 from noah_lib.sys_pac import chaotic_repo, config_pac_conf
-from noah_lib.sys_etc import configure_sudo, modify_fstab, modify_mkinit, sys_dots
-from noah_lib.sys_files import copy_file_list, user_service, copy_dir
-from noah_lib.sys_functions import src_pass_file, type_password, run_cc, modify_systemd
+from noah_lib.sys_user_setup import user_service, copy_dir
+from noah_lib.sys_functions import src_pass_file, type_password, run_chroot
 from noah_lib.usb_mnt_cp import mnt_cp_keys
+from noah_lib.sys_etc import (
+    configure_sudo,
+    modify_fstab,
+    modify_mkinit,
+    sys_dots,
+    modify_systemd,
+)
+
+###########################################################
+from noah_conf.pkg import noextract_lines, pkgs
 from noah_conf.conf import (
     usb_key_dir,
     user_pass_file,
@@ -37,13 +49,14 @@ from noah_conf.conf import (
     timezone,
     kb_layout,
     sys_services,
-    sys_dir_to_cp,
+    script_pwd_to_cp,
     disable_svcs,
     kernel,
     groups,
     min_usb_size,
     usb_fs_type,
 )
+
 
 ###########################################################
 # CONSTANTS
@@ -62,14 +75,10 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         log.error("No disk configuration provided")
         return
     disk_config = config.disk_config
-
     with Installer(mountpoint, disk_config, [], kernel) as installation:
         ############-Ensure User Pass Exists-##########
-        if pw := src_pass_file(usb_key_dir, user_pass_file, user_name):
-            log.info("Password Sourced")
-        else:
+        if not (pw := src_pass_file(usb_key_dir, user_pass_file, user_name)):
             pw = type_password(user_name)
-
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()
@@ -84,57 +93,49 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.minimal_installation(
             [], True, hostname, LocaleConfiguration(kb_layout, sys_lang, sys_enc)
         )
-
         ###############-Install reflector-###############
         installation.add_additional_packages("reflector")
-        cmd = f"reflector {' '.join(refl_options)} --save /etc/pacman.d/mirrorlist"
-        ref_cmd = cmd
+        ref_cmd = f"reflector {' '.join(refl_options)} --save /etc/pacman.d/mirrorlist"
         log.info("Running reflector to update mirror list.")
-        run_cc([ref_cmd], mountpoint)
-
+        run_chroot([ref_cmd], mountpoint)
         ####################-System D-####################
         installation.add_bootloader(Bootloader.Systemd)
         modify_systemd(mountpoint)
-
         ###########-WiFi Pass and Time Zone-############
         installation.copy_iso_network_config()
         installation.set_timezone(timezone)
-
         #############-Pkg Management-###############
-        config_pac_conf(mountpoint)
+        config_pac_conf(mountpoint, 10, noextract_lines)
         chaotic_repo(mountpoint)
         installation.add_additional_packages(pkgs)
-
         #############-Etc Management-###############
         modify_mkinit(mountpoint, mkinit_hooks)
-        sys_dots(mountpoint, script_dir, sys_dir_to_cp)
-        copy_dir(wireguard_dir, mountpoint / "etc" / "wireguard", set_root=True)
+        sys_dots(mountpoint, script_dir, script_pwd_to_cp)
+        copy_dir(wireguard_dir, mountpoint / "etc" / "wireguard")
         installation.enable_service(sys_services)
-        run_cc([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
-
+        run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
         #############-User and Sudo-###############
         installation.create_users(User(user_name, Password(pw), True, groups))
         configure_sudo(user_name, mountpoint, pwd_require=False)
-        usr_cmd = [
-            "xdg-user-dirs-update",
-            f"mkdir -p /{user_home}/.cache/mpd",
-        ]
-        run_cc(usr_cmd, mountpoint, user_name)
-
-        #############-CP Files to User Home-###############
-        copy_file_list(user_name, mountpoint, usb_cp_files, usb_key_dir)
+        usr_cmd = ["xdg-user-dirs-update", f"mkdir -p /{user_home}/.cache/mpd"]
+        run_chroot(usr_cmd, mountpoint, user_name)
+        #############-Copy Keys-#############
+        copy_dir(
+            str(script_dir), (mountpoint / user_home / usb_key_dir), user_name, True
+        )
+        #############-Copy Script-#############
         copy_dir(str(script_dir), (mountpoint / user_home / script_dir.name))
-
         #############-Own Everything and User Services-###############
-        run_cc([f"chown -R {user_name}:{user_name} /{user_home}"], mountpoint)
-        cmd = [
-            f"git clone https://github.com/acctux/polka.git /home/{user_name}/Folka",
-            "hyprctl reload "
-            f"python /home/{user_name}/Folka/local/bin/dotsync/dotsync.py",
-        ]
-        run_cc(usr_cmd, mountpoint, user_name, peek=False)
+        run_chroot([f"chown -R {user_name}:{user_name} /{user_home}"], mountpoint)
+        # Untested
+        # usr_cmd = [
+        #     f"git clone https://github.com/acctux/polka.git /home/{user_name}/Folka",
+        #     "hyprctl reload "
+        #     f"python /home/{user_name}/Folka/local/bin/dotsync/dotsync.py",
+        # ]
+        # run_chroot(usr_cmd, mountpoint, user_name, peek=False)
         user_service(script_dir.name, mountpoint, user_name, user_home)
-
+        #############-Own Everything and User Services-###############
         installation.genfstab()
         modify_fstab(mountpoint)
         if not arch_config_handler.args.silent:
@@ -152,6 +153,9 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
                         pass
 
 
+###########################################################
+# Main
+###########################################################
 def _minimal() -> None:
     with Tui():
         disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
@@ -170,16 +174,10 @@ def _minimal() -> None:
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         fs_handler.perform_filesystem_operations()
-    mnt_cp_keys(
-        min_usb_size,
-        usb_fs_type,
-        usb_key_dir,
-        usb_cp_files,
-        wireguard_dir,
-    )
+    mnt_cp_keys(min_usb_size, usb_fs_type, usb_key_dir, usb_cp_files, wireguard_dir)
     ref_cmd = ["reflector", *refl_options, "--save", "/etc/pacman.d/mirrorlist"]
     run_cmd(ref_cmd)
-    config_pac_conf()
+    config_pac_conf(None, 10, noextract_lines)
     chaotic_repo()
     perform_installation(Path("/mnt"))
 

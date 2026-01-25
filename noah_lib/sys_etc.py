@@ -7,11 +7,7 @@ from utils import get_logger
 log = get_logger("Noah")
 
 
-def sys_dots(
-    mnt_point: Path,
-    script_dir: Path,
-    sys_dir_cp: list[str],
-):
+def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
     for dir_name in sys_dir_cp:
         source_dir = script_dir / dir_name
         target_dir = mnt_point / dir_name
@@ -19,16 +15,10 @@ def sys_dots(
         if not source_dir.exists():
             log.error("Source directory not found: %s", source_dir)
             continue
-        try:
-            shutil.copytree(
-                source_dir,
-                target_dir,
-                dirs_exist_ok=True,
-                copy_function=shutil.copy2,
-            )
-            log.info("Copied %s to %s", source_dir, target_dir)
-        except Exception:
-            log.exception("Failed copying %s to %s", source_dir, target_dir)
+        shutil.copytree(
+            source_dir, target_dir, dirs_exist_ok=True, copy_function=shutil.copy2
+        )
+        log.info("Copied %s to %s", source_dir, target_dir)
 
 
 def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
@@ -52,6 +42,26 @@ def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
     sudoers_file.write_text(sudoers_content.strip())
     sudoers_file.chmod(0o440)
     log.info(f"Created {sudoers_file} {prt_val} for {user_name}")
+
+
+def modify_systemd(mnt_point: Path, boot_opts: list[str] = ["quiet", "splash"]) -> None:
+    entries_dir = mnt_point / "boot" / "loader" / "entries"
+    for entry in entries_dir.iterdir():
+        lines = entry.read_text().splitlines()
+        new_lines = []
+        for line in lines:
+            if line.startswith("options "):
+                existing_opts = line[len("options ") :].split()
+                for opt in boot_opts:
+                    if opt not in existing_opts:
+                        existing_opts.append(opt)
+                line = "options " + " ".join(existing_opts)
+            new_lines.append(line)
+        entry.write_text("\n".join(new_lines) + "\n")
+    loader_file = mnt_point / "boot" / "loader" / "loader.conf"
+    loader_file.write_text("default @saved\ntimeout 1\neditor no\n")
+    loader_file.chmod(0o644)
+    log.info(f"Modified {loader_file}")
 
 
 def modify_fstab(mnt_point: Path) -> None:

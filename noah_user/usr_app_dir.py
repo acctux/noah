@@ -6,7 +6,8 @@ from utils import get_logger, run_cmd
 log = get_logger("Noah")
 
 
-def ensure_github_known_hosts(kh: Path = HOME / ".ssh" / "known_hosts"):
+def ensure_github_known_hosts(HOME: Path):
+    kh = HOME / ".ssh" / "known_hosts"
     kh.parent.mkdir(parents=True, exist_ok=True)
     if not kh.exists():
         kh.touch()
@@ -22,25 +23,26 @@ def ensure_github_known_hosts(kh: Path = HOME / ".ssh" / "known_hosts"):
 
 def clone_repos(git_user: str, repo_path: Path, name: str):
     repo_path.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "git",
-        "clone",
-        f"git@github.com:{git_user}/{name}.git",
-        str(repo_path),
-    ]
+    cmd = ["git", "clone", f"git@github.com:{git_user}/{name}.git", str(repo_path)]
     if run_cmd(cmd, check=True):
         log.info(f"Cloned {name} into {repo_path}")
     else:
         log.error(f"Failed {cmd}")
 
 
-def install_icon_theme(
-    repo: str = "vinceliuice/WhiteSur-icon-theme.git",
-):
+def install_icon_theme():
     tmp = Path("/tmp/whitesur-icons")
     if tmp.exists():
         shutil.rmtree(tmp)
-    run_cmd(["git", "clone", "--depth=1", f"https://github.com/{repo}", str(tmp)], True)
+    run_cmd(
+        [
+            "git",
+            "clone",
+            "https://github.com/vinceliuice/WhiteSur-icon-theme.git",
+            str(tmp),
+        ],
+        True,
+    )
     run_cmd(["bash", f"{tmp}/install.sh"], True)
 
 
@@ -55,24 +57,13 @@ def recolor_icons(
             svg.write_text(text.replace(old, new))
 
 
-def set_folder_icons(
-    custom_folder_icons: list[tuple[Path, str]],
-    HOME: Path = HOME,
-):
+def set_folder_icons(custom_folder_icons: list[tuple[Path, str]], HOME: Path = HOME):
     for folder, icon in custom_folder_icons:
         folder.mkdir(parents=True, exist_ok=True)
-        icon_path = HOME / ".local/share/icons/WhiteSur-dark/places/scalable" / icon
-        if icon_path.exists():
-            run_cmd(
-                [
-                    "gio",
-                    "set",
-                    str(folder),
-                    "metadata::custom-icon",
-                    f"file://{icon_path}",
-                ],
-                True,
-            )
+        icon = HOME / ".local/share/icons/WhiteSur-dark/places/scalable" / icon
+        if icon.exists():
+            cmd = ["gio", "set", str(folder), "metadata::custom-icon", f"file://{icon}"]
+            run_cmd(cmd, True)
 
 
 def hide_app_icons(applications: list[str]) -> None:
