@@ -206,7 +206,6 @@
     "NoExtract = usr/share/icons/capitaine-cursors/*"
   ],
   "pkgs": [
-    "alacritty",
     "ananicy-cpp",
     "anki",
     "aria2",
@@ -266,6 +265,7 @@
     "jdk-openjdk",
     "kdeconnect",
     "khal",
+    "kitty",
     "kvantum",
     "kvantum-qt5",
     "lazygit",
@@ -403,6 +403,7 @@
     "yaml-language-server",
     "yazi",
     "yt-dlp",
+    "zbar",
     "zoxide",
     "zsh-autocomplete",
     "zsh-completions",

@@ -393,7 +393,7 @@ After=graphical-session.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/alacritty -e python {run_script}
+ExecStart=/usr/bin/kitty python {run_script}
 Restart=no
 
 [Install]

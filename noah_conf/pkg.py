@@ -81,7 +81,6 @@ pkgs = [
     "rmpc",
     "yt-dlp",
     ###########-CLI-############
-    "alacritty",
     "aria2",
     "bash-completion",
     "bat-extras",
@@ -90,6 +89,7 @@ pkgs = [
     "fzf",
     "git-delta",
     "github-cli",
+    "kitty",
     "lazygit",
     "less",
     "man-pages",
@@ -98,7 +98,6 @@ pkgs = [
     "sd",
     "starship",
     "taskwarrior-tui",
-    "tmuxp",
     "trash-cli",
     "ugrep",
     "yazi",
@@ -157,6 +156,7 @@ pkgs = [
     "wl-clipboard",
     "wl-clip-persist",
     "xdg-user-dirs",
+    "zbar",  # qr codes
     ###########-Coding-###########
     "clang",
     "inotify-tools",  # nvim
