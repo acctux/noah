@@ -22,7 +22,6 @@ groups = ["adm", "games", "realtime", "storage", "video"]
 sys_services = [
     "ananicy-cpp",
     "bluetooth",
-    "boltd",
     "firewalld",
     "iwd",
     "ly@tty1",
