@@ -602,7 +602,7 @@ def gpg_toggle(file_dir=Path.home(), dec_name="test.txt"):
         gpg = gnupg.GPG()
         log.info(f"Encrypting: {dec_path.name}")
         with dec_path.open("rb") as f:
-            result = gpg.encrypt_file(
+            result = gpg.encrypt(
                 f,
                 recipients=None,
                 symmetric=True,

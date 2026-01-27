@@ -31,16 +31,12 @@ class ColorFormatter(logging.Formatter):
         return message
 
 
-def get_logger(name, level=logging.INFO, use_color=True):
-    logger = logging.getLogger(name)
+def get_logger(log_name: str | None = None, level=logging.INFO):
+    logger = logging.getLogger(log_name)
     if logger.handlers:
         return logger
     handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(
-        ColorFormatter()
-        if use_color
-        else logging.Formatter("%(name)s %(levelname)s: %(message)s")
-    )
+    handler.setFormatter(ColorFormatter())
     logger.addHandler(handler)
     logger.setLevel(level)
     logger.propagate = False
@@ -113,31 +109,35 @@ def ping(host: str) -> bool:
     )
 
 
-def gpg_toggle(file_dir=Path.home(), dec_name="test.txt"):
-    enc_name = f"{dec_name.split('.')[0]}.gpg"
-    dec_path = file_dir / dec_name
-    enc_path = file_dir / enc_name
+def gpg_toggle(file_p=Path.home() / "test.txt", gpg=gnupg.GPG()):
+    enc_path = file_p.parent / f"{file_p.name}.gpg"
+
+    def handle_result(result, src_path: Path, output_path: Path, action):
+        if not result.ok:
+            log.error(f"{action} failed: {result.status}")
+        log.info(f"{action}ed: {src_path} -> {output_path.name}")
+        src_path.unlink()
+
     if enc_path.exists():
-        gpg = gnupg.GPG()
-        log.info(f"Decrypting: {enc_path.name}")
-        with enc_path.open("rb") as f:
-            passphrase = ask_pass(min_len=4, confirm=False)
-            result = gpg.decrypt_file(f, passphrase=passphrase, output=str(dec_path))
-        if not result.ok:
-            log.error(f"Decryption failed: {result.status}")
-        enc_path.unlink()
-        log.info(f"Decrypted: {dec_path.name}")
-    elif dec_path.exists():
-        gpg = gnupg.GPG()
-        log.info(f"Encrypting: {dec_path.name}")
-        with dec_path.open("rb") as f:
-            p = ask_pass(min_len=4)
-            result = gpg.encrypt_file(
-                f, recipients=None, symmetric=True, passphrase=p, output=str(enc_path)
-            )
-        if not result.ok:
-            raise RuntimeError(f"Failed: {result.status}")
-        dec_path.unlink()
-        log.info(f"Encrypted: {enc_path.name}")
-    else:
-        log.info(f"Neither {dec_path} nor {enc_path} exists.")
+        log.info(f"Decrypting: {enc_path.name} -> {file_p.name}")
+        passphrase = ask_pass(min_len=4, confirm=False)
+        result = gpg.decrypt(
+            enc_path.read_bytes(), passphrase=passphrase, output=str(file_p)
+        )
+        handle_result(result, enc_path, file_p, "Decrypt")
+        return
+
+    if file_p.exists():
+        log.info(f"Encrypting {file_p.name} -> {enc_path.name}")
+        passphrase = ask_pass(min_len=4)
+        result = gpg.encrypt(
+            file_p.read_bytes(),
+            recipients="",
+            symmetric=True,
+            passphrase=passphrase,
+            output=str(enc_path),
+        )
+        handle_result(result, file_p, enc_path, "Encrypt")
+        return
+
+    log.info(f"Neither {file_p} nor {enc_path} exists.")

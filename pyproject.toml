@@ -1,0 +1,10 @@
+[project]
+name = "noah"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "archinstall>=3.0.15",
+    "gnupg>=2.3.1",
+]

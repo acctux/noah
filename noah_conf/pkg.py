@@ -169,7 +169,6 @@ pkgs = [
     "lua-language-server",
     "pyright",
     "rust-analyzer",
-    "systemd-language-server",
     "tailwindcss-language-server",
     "vscode-json-languageserver",
     "yaml-language-server",
