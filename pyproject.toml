@@ -7,4 +7,5 @@ requires-python = ">=3.14"
 dependencies = [
     "archinstall>=3.0.15",
     "gnupg>=2.3.1",
+    "pyperclip>=1.11.0",
 ]

@@ -1,3 +1,6 @@
+from typing import Any, Callable
+import json
+from pydantic import BaseModel
 import logging
 from pathlib import Path
 import subprocess
@@ -44,11 +47,68 @@ def get_logger(log_name: str | None = None, level=logging.INFO):
 
 
 log = get_logger("Noah")
-#########################
 
 
 #########################
-# PASSWORD
+###########################################################
+# CLASSES
+###########################################################
+class UserSrv(BaseModel):
+    target: str
+    services: list[str]
+    source_dir: Path = Path("/usr/lib/systemd/user")
+
+
+class UserGitRepo(BaseModel):
+    target_dir: str
+    repos: list[str]
+
+
+class NoahConfig:
+    def __init__(self, file_path: str):
+        self._file_path = Path(file_path)
+        self._config: dict[str, Any] = {}
+        self.reload()
+
+    def reload(self) -> None:
+        if not self._file_path.exists():
+            log.error(f"Config file not found: {self._file_path}")
+        try:
+            self._config = json.loads(self._file_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            log.error(f"Invalid JSON in {self._file_path}: {e}")
+
+    def get(self, key_path: str, default: Any = None) -> Any:
+        value: Any = self._config
+        for key in key_path.split("."):
+            try:
+                value = value[key] if isinstance(value, dict) else value[int(key)]
+            except (KeyError, IndexError, ValueError, TypeError):
+                return default
+        return value
+
+    def _objects(self, key: str, factory: Callable[[dict], Any]) -> list[Any]:
+        return [factory(item) for item in self.get(key, [])]
+
+    def user_services(self) -> list[UserSrv]:
+        return self._objects(
+            "services.user",
+            lambda s: UserSrv(
+                target=s["target"],
+                services=s["services"],
+                source_dir=Path(s["source_dir"]),
+            ),
+        )
+
+    def git_repos(self) -> list[UserGitRepo]:
+        return self._objects(
+            "git.repos",
+            lambda r: UserGitRepo(target_dir=r["target_dir"], repos=r["repos"]),
+        )
+
+
+#########################
+# SRC PASSWORD
 #########################
 def src_pass_file(usb_key_dir: str, pass_file: str):
     key_path = Path("/root") / usb_key_dir / pass_file
@@ -62,7 +122,10 @@ def src_pass_file(usb_key_dir: str, pass_file: str):
     log.warning(f"{key_path} not found or unreadable.")
 
 
-def ask_pass(prompt="Password: ", min_len=8, confirm=True, retries=3) -> str:
+#########################
+# ASK PASSWORD
+#########################
+def ask_pass(prompt="Password: ", confirm=True, min_len=6, retries=3) -> str:
     for _ in range(retries):
         pwd = getpass(prompt)
         if len(pwd) < min_len:
@@ -80,11 +143,7 @@ def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
     try:
         log.info(f"Running: {' '.join(cmd)}")
         result = subprocess.run(
-            cmd,
-            text=True,
-            check=check,
-            capture_output=True,
-            input=input_text,
+            cmd, text=True, check=check, capture_output=True, input=input_text
         )
         if result.stdout:
             log.info(f"stdout: {result.stdout.strip()}")
@@ -109,35 +168,40 @@ def ping(host: str) -> bool:
     )
 
 
-def gpg_toggle(file_p=Path.home() / "test.txt", gpg=gnupg.GPG()):
-    enc_path = file_p.parent / f"{file_p.name}.gpg"
-
-    def handle_result(result, src_path: Path, output_path: Path, action):
-        if not result.ok:
-            log.error(f"{action} failed: {result.status}")
-        log.info(f"{action}ed: {src_path} -> {output_path.name}")
-        src_path.unlink()
-
+#########################
+# GNUPG
+#########################
+def gpg_toggle(file_dir=Path.home(), dec_name="test.txt"):
+    enc_name = f"{dec_name.split('.')[0]}.gpg"
+    dec_path = file_dir / dec_name
+    enc_path = file_dir / enc_name
     if enc_path.exists():
-        log.info(f"Decrypting: {enc_path.name} -> {file_p.name}")
-        passphrase = ask_pass(min_len=4, confirm=False)
-        result = gpg.decrypt(
-            enc_path.read_bytes(), passphrase=passphrase, output=str(file_p)
-        )
-        handle_result(result, enc_path, file_p, "Decrypt")
-        return
-
-    if file_p.exists():
-        log.info(f"Encrypting {file_p.name} -> {enc_path.name}")
-        passphrase = ask_pass(min_len=4)
-        result = gpg.encrypt(
-            file_p.read_bytes(),
-            recipients="",
-            symmetric=True,
-            passphrase=passphrase,
-            output=str(enc_path),
-        )
-        handle_result(result, file_p, enc_path, "Encrypt")
-        return
-
-    log.info(f"Neither {file_p} nor {enc_path} exists.")
+        gpg = gnupg.GPG()
+        log.info(f"Decrypting: {enc_path.name}")
+        with enc_path.open("rb") as f:
+            result = gpg.decrypt_file(
+                f,
+                passphrase=ask_pass(min_len=4, confirm=False),
+                output=str(dec_path),
+            )
+        if not result.ok:
+            log.error(f"Decryption failed: {result.status}")
+        enc_path.unlink()
+        log.info(f"Decrypted: {dec_path.name}")
+    elif dec_path.exists():
+        gpg = gnupg.GPG()
+        log.info(f"Encrypting: {dec_path.name}")
+        with dec_path.open("rb") as f:
+            result = gpg.encrypt(
+                f,
+                recipients=None,
+                symmetric=True,
+                passphrase=ask_pass(min_len=4),
+                output=str(enc_path),
+            )
+        if not result.ok:
+            log.error(f"Failed: {result.status}")
+        dec_path.unlink()
+        log.info(f"Encrypted: {enc_path.name}")
+    else:
+        log.info(f"Neither {dec_path} nor {enc_path} exists.")

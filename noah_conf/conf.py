@@ -1,5 +1,5 @@
 from pathlib import Path
-from sys_setup import UserGitRepo, UserSrv
+from utils import UserGitRepo, UserSrv
 
 
 ###########################################################
@@ -63,12 +63,12 @@ mkinit_hooks = [
 ###########################################################
 user_services = [
     UserSrv(
-        target="default.target.wants",
+        target="default",
         services=["pipewire-pulse.service"],
         source_dir=Path("/usr/lib/systemd/user"),
     ),
     UserSrv(
-        target="sockets.target.wants",
+        target="sockets",
         services=["pipewire-pulse.socket"],
         source_dir=Path("/usr/lib/systemd/user"),
     ),
@@ -106,8 +106,7 @@ usb_cp_files = [ssh_key, gpg_key, pass_manager_pass]
 git_user = "acctux"
 git_dir = "Lit"
 git_repos = [
-    UserGitRepo(target_dir=git_dir, repos=["Docs", "noah"]),
-    UserGitRepo(target_dir="", repos=["Polka"]),
+    UserGitRepo(target_dir=git_dir, repos=["Docs", "noah", "polka"]),
 ]
 dots_dir = "Polka"
 enc_dir = "Desktop/Encrypted"
@@ -150,7 +149,6 @@ hide_apps = [
     "octopi-cachecleaner.desktop",
     "octopi-notifier.desktop",
     "octopi-repoeditor.desktop",
-    "org.gnome.Nautilus.desktop",
     "org.gnome.baobab.desktop",
     "org.kde.kdeconnect.nonplasma.desktop",
     "qt5ct.desktop",
@@ -161,4 +159,13 @@ hide_apps = [
     "uuctl.desktop",
     "xgps.desktop",
     "xgpsspeed.desktop",
+]
+###########################################################
+# YAZI
+###########################################################
+yazi_plugins = [
+    "yazi-rs/plugins:jump-to-char",
+    "uhs-robert/sshfs",
+    "boydaihungst/gvfs",
+    "uhs-robert/recycle-bin",
 ]

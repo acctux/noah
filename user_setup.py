@@ -7,10 +7,8 @@ import gnupg
 import re
 import shutil
 import subprocess
-
-from pydantic import BaseModel
 import pyperclip
-from utils import get_logger, run_cmd, ping, ask_pass
+from utils import get_logger, run_cmd, ping, ask_pass, UserGitRepo
 from noah_conf.conf import (
     dots_dir,
     enc_dir,
@@ -23,6 +21,7 @@ from noah_conf.conf import (
     dirs_to_link,
     ind_dirs,
     hide_apps,
+    yazi_plugins,
     pass_manager_pass,
 )
 
@@ -30,39 +29,53 @@ log = get_logger("Noah")
 HOME = Path.home()
 
 
+# unmount
+# virt machine version
 def cleanup(HOME: Path):
     for f in [HOME / "keys" / "pass.txt"]:
         if f.exists():
             f.unlink()
-    for d in [HOME / "archinstall"]:
+    for d in [
+        HOME / "archinstall",
+        HOME / ".local" / "share" / "icons" / "WhiteSur-light",
+    ]:
         if d.exists():
             shutil.rmtree(d)
 
 
-def pass_and_input(password_file: str, pass_dir: Path):
-    password = (pass_dir / password_file).read_text().strip()
-    os.environ["CLIPBOARD_STATE"] = "sensitive"
-    pyperclip.copy(password)
-    log.info("Password copied to clipboard.")
-    cmd = ["firedragon", "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/"]
-    subprocess.Popen(cmd).wait()
-    pyperclip.copy("")
-    log.info("Clipboard cleared.")
-    os.environ.pop("CLIPBOARD_STATE", None)
+def run_interactive(cmd: list[str], check: bool = True) -> int:
+    log.info(f"Running (interactive): {' '.join(cmd)}")
+    returncode = subprocess.Popen(
+        cmd, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr, text=True
+    ).wait()
+    if check and returncode != 0:
+        raise subprocess.CalledProcessError(returncode, cmd)
+    return returncode
 
 
-def launch_apps():
-    apps = ["firedragon", "protonmail-bridge", "betterbird", "steam"]
-    processes = []
-    for app in apps:
-        processes.append(subprocess.Popen(app))
-    for app, process in zip(apps, processes):
-        process.wait()
-        log.info(f"{app} closed")
+def iwctl_scan():
+    result = run_cmd(["sudo", "iwctl", "station", "wlan0", "scan"], True)
+    if result and result.returncode != 0:
+        return
+    time.sleep(10)
+
+
+def run_sudo_commands(
+    sudo_cmds=[
+        ["sudo", "rm", "/etc/resolv.conf"],
+        ["sudo", "resolvconf", "-u"],
+        ["sudo", "firewall-cmd", "--set-default-zone=block"],
+        ["sudo", "systemctl", "restart", "iwd"],
+    ],
+):
+    for cmd in sudo_cmds:
+        result = run_cmd(cmd, True)
+        if result and result.returncode != 0:
+            log.error(f"Failed: {cmd}")
 
 
 ############################
-# Helpers
+# Dotfile Symlink
 ############################
 def link_path(src: Path, dst: Path) -> bool:
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -117,9 +130,6 @@ def file_candidates(
                 yield src, dst_dir / src.relative_to(src_dir)
 
 
-############################
-# Main
-############################
 def deploy_dotfiles(
     dot_dir: Path, dirs_to_link: list[str], ind_dirs: list[tuple[str, str]]
 ):
@@ -136,6 +146,9 @@ def deploy_dotfiles(
     log.info(f"Linked: {linked}")
 
 
+############################
+# Encryption/Keys
+############################
 def import_ssh_key(HOME: Path, key_file: str):
     key_path = HOME / ".ssh" / key_file
     socket = f"/run/user/{os.getuid()}/gcr/ssh"
@@ -193,41 +206,6 @@ WantedBy=graphical-session.target
     run_cmd(["systemctl", "--user", "enable", service_name])
 
 
-def run_interactive(cmd: list[str], check: bool = True) -> int:
-    log.info(f"Running (interactive): {' '.join(cmd)}")
-    returncode = subprocess.Popen(
-        cmd, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr, text=True
-    ).wait()
-    if check and returncode != 0:
-        raise subprocess.CalledProcessError(returncode, cmd)
-    return returncode
-
-
-def run_sudo_commands(
-    sudo_cmds=[
-        ["sudo", "rm", "/etc/resolv.conf"],
-        ["sudo", "resolvconf", "-u"],
-        ["sudo", "firewall-cmd", "--set-default-zone=block"],
-        ["sudo", "systemctl", "restart", "iwd"],
-    ],
-):
-    def iwctl_scan():
-        result = run_cmd(["sudo", "iwctl", "station", "wlan0", "scan"], True)
-        if result and result.returncode != 0:
-            log.error(f"Failed: {cmd}")
-            return
-        time.sleep(10)
-
-    for cmd in sudo_cmds:
-        result = run_cmd(cmd, True)
-        if result and result.returncode != 0:
-            log.error(f"Failed: {cmd}")
-    time.sleep(3)
-    iwctl_scan()
-    if not ping:
-        iwctl_scan()
-
-
 def enable_mariadb(user_name):
     while True:
         p1 = getpass.getpass("Mariadb password: ")
@@ -262,6 +240,9 @@ def enable_mariadb(user_name):
             log.error(f"Command failed: {cmd}")
 
 
+############################
+# Git/Repos
+############################
 def ensure_github_known_hosts(HOME: Path):
     kh = HOME / ".ssh" / "known_hosts"
     kh.parent.mkdir(parents=True, exist_ok=True)
@@ -293,14 +274,6 @@ def fix_git_url(repo_path: Path, git_user: str, repo_name: str):
                 log.info(f"Fixed URL in {repo_path}: {current_url} -> {new_url}")
 
 
-#########################
-# UserGitRepo
-#########################
-class UserGitRepo(BaseModel):
-    target_dir: str
-    repos: list[str]
-
-
 def clone_repos(git_user: str, git_repo: UserGitRepo):
     base_path = Path(git_repo.target_dir)
     for name in git_repo.repos:
@@ -321,6 +294,9 @@ def clone_repos(git_user: str, git_repo: UserGitRepo):
         fix_git_url(repo_path, git_user, name)
 
 
+############################
+# Icons/Folders
+############################
 def install_icon_theme():
     tmp = Path("/tmp/whitesur-icons")
     if tmp.exists():
@@ -346,14 +322,8 @@ def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME: Path = HO
         dir_path = HOME / folder
         dir_path.mkdir(parents=True, exist_ok=True)
         icon = HOME / f".local/share/icons/WhiteSur-dark/places/scalable/{icon}"
+        cmd = ["gio", "set", str(dir_path), "metadata::custom-icon", f"file://{icon}"]
         if icon.exists():
-            cmd = [
-                "gio",
-                "set",
-                str(dir_path),
-                "metadata::custom-icon",
-                f"file://{icon}",
-            ]
             run_cmd(cmd, True)
 
 
@@ -372,8 +342,31 @@ def hide_app_icons(applications: list[str]) -> None:
             log.info("Skipping %s, not found", system_file)
 
 
-# unmount
-# virt machine version
+############################
+# Launch Apps
+############################
+def pass_and_input(password_file: str, pass_dir: Path):
+    password = (pass_dir / password_file).read_text().strip()
+    os.environ["CLIPBOARD_STATE"] = "sensitive"
+    pyperclip.copy(password)
+    log.info("Password copied to clipboard.")
+    cmd = ["firedragon", "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/"]
+    subprocess.Popen(cmd).wait()
+    pyperclip.copy("")
+    log.info("Clipboard cleared.")
+    os.environ.pop("CLIPBOARD_STATE", None)
+
+
+def launch_apps():
+    apps = ["firedragon", "protonmail-bridge", "betterbird", "steam"]
+    processes = []
+    for app in apps:
+        processes.append(subprocess.Popen(app))
+    for app, process in zip(apps, processes):
+        process.wait()
+        log.info(f"{app} closed")
+
+
 def verify_install(HOME: Path, git_repos: UserGitRepo):
     base_path = HOME / git_repos.target_dir
     for target in git_repos:
@@ -392,20 +385,32 @@ def verify_install(HOME: Path, git_repos: UserGitRepo):
     return True
 
 
+############################
+# Yazi
+############################
+def handle_yazi_plugins(plugins: list[str]):
+    for plugin in plugins:
+        run_cmd(["ya", "pkg", "add", plugin])
+
+
+############################
+# Dotfile Symlink
+############################
 def main(HOME=Path.home()):
     script_dir = Path(__file__).resolve().parent.name
-    gnupg_dir = HOME / ".gnupg"
-    ssh_dir = HOME / ".ssh"
     cache_file = HOME / ".cache" / "noah_success.txt"
-
-    if not (HOME / ".cache" / cache_file).exists():
+    if not cache_file.exists():
         run_interactive(["chsh", "-s", "/usr/bin/zsh"])
         run_sudo_commands()
+        time.sleep(3)
+        iwctl_scan()
+        if not ping:
+            iwctl_scan()
         enable_mariadb(getpass.getuser)
-        if (ssh_dir / ssh_key).exists():
+        if (HOME / ".ssh" / ssh_key).exists():
             import_ssh_key(HOME, ssh_key)
-        if (gnupg_dir / gpg_key).exists():
-            import_gpg_key(gnupg_dir / gpg_key)
+        if (HOME / ".gnupg" / gpg_key).exists():
+            import_gpg_key(HOME / ".gnupg" / gpg_key)
         if not (HOME / enc_dir).exists() or not any((HOME / enc_dir).iterdir()):
             initialize_gocrypt(HOME / enc_dir)
         check_dir = HOME / ".local/share/icons/WhiteSur-dark"
@@ -416,6 +421,7 @@ def main(HOME=Path.home()):
         for target in git_repos:
             clone_repos(git_user, target)
         hide_app_icons(hide_apps)
+        handle_yazi_plugins(yazi_plugins)
         if any((HOME / dots_dir).iterdir()):
             deploy_dotfiles((HOME / dots_dir), dirs_to_link, ind_dirs)
         setup_service(script_dir)

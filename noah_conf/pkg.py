@@ -28,44 +28,46 @@ pkgs = [
     "wireplumber",
     #########-Hardware-#########
     "ananicy-cpp",
-    "bluetui",
     "bluez-utils",  # for loggy
     "brightnessctl",
-    "btop",
-    "rocm-smi-lib",  # btop dependency for amd gpu
     "dosfstools",
     "exfatprogs",
-    "gvfs-mtp",  # Nemo/Android
     "ntfs-3g",
-    "nvtop",
-    "partitionmanager",
-    "powertop",
     "realtime-privileges",
     "smartmontools",
     "tlp",
     "udisks2-btrfs",
     "usb_modeswitch",
+    ###########-Basic Sys-###########
+    "base-devel",
+    "logrotate",
+    "ly",
+    "pkgfile",
+    "plymouth",
+    "rebuild-detector",
+    "xdg-user-dirs",
+    #########-Android-#########
+    "kdeconnect",
+    "gvfs-mtp",  # Nautilus/Android
+    "sshfs",
+    "scrcpy",
     #########-Network-#########
     "bind",
     "deluge-gtk",
     "firewalld",
     "impala",
-    "kdeconnect",
     "openresolv",
     "profile-sync-daemon",
     "protonmail-bridge",
-    "sshfs",
     "wireguard-tools",
     "wireless-regdb",
     ########-Lang/Fonts-########
-    "font-manager",
     "hunspell-en_us",
     "hyphen-en",
     "noto-fonts-emoji",
     "otf-firamono-nerd",
     "rofimoji",
     "tesseract-data-eng",
-    "ttf-hack-nerd",
     "ttf-liberation",
     ########-Multimedia-########
     "cava",
@@ -81,9 +83,10 @@ pkgs = [
     "rmpc",
     "yt-dlp",
     ###########-CLI-############
-    "aria2",
-    "bash-completion",
     "bat-extras",
+    "bluetui",
+    "btop",
+    "rocm-smi-lib",  # btop dependency for amd gpu
     "eza",
     "fd",
     "fzf",
@@ -94,6 +97,8 @@ pkgs = [
     "less",
     "man-pages",
     "mcfly",
+    "nvtop",
+    "powertop",
     "ripgrep-all",
     "sd",
     "starship",
@@ -117,7 +122,6 @@ pkgs = [
     "hyprsunset",
     "kvantum",
     "kvantum-qt5",
-    "nwg-clipman",
     "polkit-gnome",
     "qt5-wayland",
     "qt6-wayland",
@@ -131,56 +135,54 @@ pkgs = [
     "waybar",
     "xdg-desktop-portal-gnome",
     "xdg-desktop-portal-hyprland",
-    ###########-Basic-###########
-    "baobab",
-    "base-devel",
-    "bustle",
-    "featherpad",
+    ###########-Office-###########
     "gnucash",
-    "gocryptfs",
-    "khal",
     "libreoffice-fresh",
     "coin-or-mp",  # LibreOffice Calc Solver
-    "logrotate",
-    "ly",
-    "nemo-audio-tab",
-    "nemo-fileroller",
-    "pkgfile",
-    "plymouth",
+    ###########-Basic User-###########
+    "authenticator",
+    "baobab",
+    "bustle",
+    "cliphist",
+    "featherpad",
+    "file-roller",
+    "gocryptfs",
+    "khal",
+    "partitionmanager",
     "qalculate-qt",
     "qt5ct",
     "qt6ct",
     "qjournalctl",
-    "rebuild-detector",
     "unrar",  # File roller
     "wl-clipboard",
     "wl-clip-persist",
-    "xdg-user-dirs",
     "zbar",  # qr codes
     ###########-Coding-###########
-    "clang",
     "inotify-tools",  # nvim
     "npm",
     "neovim-lspconfig",
     "rust",
     "uv",
-    # Language Servers
+    #### Language Servers
     "bash-language-server",
     "lua-language-server",
-    "pyright",
     "rust-analyzer",
     "tailwindcss-language-server",
+    "tombi",
+    "ty",
     "vscode-json-languageserver",
     "yaml-language-server",
-    # Linters
+    #### Formatters
+    "prettier",
     "ruff",
-    # Tree sitter
+    "shfmt",
+    "stylua",
+    ## Tree sitter
     "tree-sitter-bash",
     "tree-sitter-cli",
-    "tree-sitter-javascript",
     "tree-sitter-python",
     "tree-sitter-rust",
-    #########-SQL Server-##########
+    ##########-SQL Server-##########
     "dbeaver",
     "jdk-openjdk",
     "mariadb",
@@ -189,8 +191,7 @@ pkgs = [
     "python-dbus-fast",  # loggy
     "python-gnupg",  # noah
     "python-imaplib2",  # emailcheck
-    "python-mpd2",
-    "python-pandas",
+    "python-pandas",  # weather
     "python-pydantic",  # noah
     "python-pyperclip",  # noah
     "python-systemd",  # loggy
@@ -224,3 +225,4 @@ pkgs = [
     "proton-ge-custom-bin",
     "rpcs3-git",
 ]
+aur_pkgs = ["wvkbd-deskintl"]

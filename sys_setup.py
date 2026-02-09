@@ -14,21 +14,17 @@ from archinstall.lib.args import (
     User,
     arch_config_handler,
 )
+
+###########################################################
 import subprocess
 from pathlib import Path
-from getpass import getpass
 import json
 import re
 import shlex
 import shutil
 import textwrap
-from typing import Any, Callable
-import gnupg
-from pydantic import BaseModel
-
-###########################################################
-from utils import log
-from noah_conf.pkg import noextract_lines, pkgs
+from utils import log, UserSrv, src_pass_file, ask_pass, run_cmd
+from noah_conf.pkg import noextract_lines, pkgs, aur_pkgs
 from noah_conf.conf import (
     usb_key_dir,
     user_name,
@@ -57,63 +53,6 @@ from noah_conf.conf import (
 script_dir = Path(__file__).resolve().parent
 user_home = f"home/{user_name}"
 HOME = Path.home()
-
-
-###########################################################
-# CLASSES
-###########################################################
-class UserSrv(BaseModel):
-    target: str
-    services: list[str]
-    source_dir: Path = Path("/usr/lib/systemd/user")
-
-
-class UserGitRepo(BaseModel):
-    target_dir: str
-    repos: list[str]
-
-
-class NoahConfig:
-    def __init__(self, file_path: str):
-        self._file_path = Path(file_path)
-        self._config: dict[str, Any] = {}
-        self.reload()
-
-    def reload(self) -> None:
-        if not self._file_path.exists():
-            log.error(f"Config file not found: {self._file_path}")
-        try:
-            self._config = json.loads(self._file_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as e:
-            log.error(f"Invalid JSON in {self._file_path}: {e}")
-
-    def get(self, key_path: str, default: Any = None) -> Any:
-        value: Any = self._config
-        for key in key_path.split("."):
-            try:
-                value = value[key] if isinstance(value, dict) else value[int(key)]
-            except (KeyError, IndexError, ValueError, TypeError):
-                return default
-        return value
-
-    def _objects(self, key: str, factory: Callable[[dict], Any]) -> list[Any]:
-        return [factory(item) for item in self.get(key, [])]
-
-    def user_services(self) -> list[UserSrv]:
-        return self._objects(
-            "services.user",
-            lambda s: UserSrv(
-                target=s["target"],
-                services=s["services"],
-                source_dir=Path(s["source_dir"]),
-            ),
-        )
-
-    def git_repos(self) -> list[UserGitRepo]:
-        return self._objects(
-            "git.repos",
-            lambda r: UserGitRepo(target_dir=r["target_dir"], repos=r["repos"]),
-        )
 
 
 #########################
@@ -285,6 +224,9 @@ def mnt_cp_keys(
         log.info("All required files present.")
 
 
+#########################
+# GNUPG
+#########################
 def run_chroot(
     commands: list[str],
     mnt_point: Path,
@@ -308,52 +250,6 @@ def run_chroot(
     chroot_path.unlink()
 
 
-def chaotic_repo(mnt_point: Path | None = None):
-    log.info("Setting up Chaotic-AUR repository.")
-    chaotic_key_id = "3056513887B78AEB"
-    key_serv = "keyserver.ubuntu.com"
-    chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-    cmds_setup = [
-        ["pacman-key", "--init"],
-        ["pacman-key", "--recv-key", chaotic_key_id, "--keyserver", key_serv],
-        ["pacman-key", "--lsign-key", chaotic_key_id],
-        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
-        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
-    ]
-    cmds_update = ["pacman", "-Sy"]
-    if mnt_point:
-        for cmd in cmds_setup:
-            run_chroot([" ".join(cmd)], mnt_point)
-        pacman_conf = mnt_point / "etc/pacman.conf"
-        run_chroot([" ".join(cmds_update)], mnt_point)
-    else:
-        for cmd in cmds_setup:
-            run_cmd(cmd, check=True)
-        pacman_conf = Path("/etc/pacman.conf")
-        run_cmd(cmds_update, check=True)
-    section = "[chaotic-aur]"
-    content = pacman_conf.read_text()
-    if section not in content:
-        with pacman_conf.open("a") as f:
-            f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
-
-
-def copy_dir(dir: str, dest: Path, own_it_by: str | bool = False, chmod_it=False):
-    src = Path("/root") / dir
-    if not src.is_dir():
-        log.error(f"{src} does not exist")
-    shutil.copytree(src, dest, dirs_exist_ok=True)
-    for path in dest.rglob("*"):
-        if own_it_by:
-            shutil.chown(path, user=f"{own_it_by}", group=f"{own_it_by}")
-        if chmod_it:
-            path.chmod(0o600)
-    if own_it_by:
-        shutil.chown(dest, user=f"{own_it_by}", group=f"{own_it_by}")
-    if chmod_it:
-        dest.chmod(0o700)
-
-
 #########################
 # USR_SVC
 #########################
@@ -368,7 +264,7 @@ def enable_user_services(
     base_dir = Path(f"/home/{user_name}/.config/systemd/user")
     for unit in units:
         for service in unit.services:
-            target_dir = base_dir / unit.target
+            target_dir = base_dir / f"{unit.target}.target.wants"
             user_commands.append(f"mkdir -p {target_dir}")
             src = unit.source_dir / service
             dst = target_dir / service
@@ -411,8 +307,38 @@ WantedBy=graphical-session.target
 
 
 #########################
-# ETC/BOOT
+# PACMAN
 #########################
+def chaotic_repo(mnt_point: Path | None = None):
+    log.info("Setting up Chaotic-AUR repository.")
+    chaotic_key_id = "3056513887B78AEB"
+    key_serv = "keyserver.ubuntu.com"
+    chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
+    cmds_setup = [
+        ["pacman-key", "--init"],
+        ["pacman-key", "--recv-key", chaotic_key_id, "--keyserver", key_serv],
+        ["pacman-key", "--lsign-key", chaotic_key_id],
+        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
+        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
+    ]
+    cmds_update = ["pacman", "-Sy"]
+    if mnt_point:
+        for cmd in cmds_setup:
+            run_chroot([" ".join(cmd)], mnt_point)
+        pacman_conf = mnt_point / "etc/pacman.conf"
+        run_chroot([" ".join(cmds_update)], mnt_point)
+    else:
+        for cmd in cmds_setup:
+            run_cmd(cmd, check=True)
+        pacman_conf = Path("/etc/pacman.conf")
+        run_cmd(cmds_update, check=True)
+    section = "[chaotic-aur]"
+    content = pacman_conf.read_text()
+    if section not in content:
+        with pacman_conf.open("a") as f:
+            f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+
+
 def config_pac_conf(
     mnt_point: Path | None,
     parallel_downloads: int = 10,
@@ -449,6 +375,9 @@ def config_pac_conf(
         run_cmd(["pacman", "-Sy"], True)
 
 
+#########################
+# ETC/BOOT
+#########################
 def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
     for dir_name in sys_dir_cp:
         source_dir = script_dir / dir_name
@@ -506,15 +435,14 @@ def modify_systemd(mnt_point: Path, boot_opts: list[str] = ["quiet", "splash"]) 
     log.info(f"Modified {loader_file}")
 
 
-def modify_fstab(mnt_point: Path) -> None:
-    fstab_path = mnt_point / "etc" / "fstab"
-    content = fstab_path.read_text()
-    # ^(?!#) → ignore comments, .*? → match any characters up to the option we want
-    # \bfmask=\d+  → word boundary, then  digits
-    # \bdmask=\d+  → word boundary, then  digits
-    content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
-    content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
-    fstab_path.write_text(content)
+# def modify_fstab(mnt_point: Path) -> None:
+#     fstab_path = mnt_point / "etc" / "fstab"
+#     content = fstab_path.read_text()
+#     # ^(?!#) = ignore comments, .*? = match any characters up to the \option\
+#     # \bfmask=\d+  → word boundary, then  digits
+#     content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
+#     content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
+#     fstab_path.write_text(content)
 
 
 def modify_mkinit(mnt_point: Path, hooks: list[str]):
@@ -527,94 +455,25 @@ def modify_mkinit(mnt_point: Path, hooks: list[str]):
         mkinit.write(content)
 
 
-#########################
-# run_cmd
-#########################
-def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
-    try:
-        log.info(f"Running: {' '.join(cmd)}")
-        result = subprocess.run(
-            cmd, text=True, check=check, capture_output=True, input=input_text
-        )
-        if result.stdout:
-            log.info(f"stdout: {result.stdout.strip()}")
-        return result
-    except subprocess.CalledProcessError as e:
-        log.error(f"Command failed: {' '.join(cmd)} (exit {e.returncode})")
-        if e.stdout:
-            log.info(f"stdout: {e.stdout.strip()}")
-        if e.stderr:
-            log.error(f"stderr: {e.stderr.strip()}")
-        return e
+def copy_dir(dir: Path, dest: Path) -> None:
+    src = Path("/root") / dir
+    if not src.is_dir():
+        log.error(f"{src} does not exist")
+        return
+    shutil.copytree(src, dest, dirs_exist_ok=True)
 
 
-#########################
-# PASSWORD
-#########################
-def ask_pass(prompt="Password: ", min_len=8, confirm=True, retries=3) -> str:
-    for _ in range(retries):
-        pwd = getpass(prompt)
-        if len(pwd) < min_len:
-            print(f"Password must be at least {min_len} characters.")
-            continue
-        if confirm and pwd != getpass("Confirm password: "):
-            print("Passwords do not match.")
-            continue
-        return pwd
-    raise ValueError("Too many failed attempts.")
+def apply_ownership(path: Path, owner: str) -> None:
+    for p in path.rglob("*"):
+        shutil.chown(p, user=owner, group=owner)
+    shutil.chown(path, user=owner, group=owner)
 
 
-#########################
-# PING
-#########################
-def ping(host: str) -> bool:
-    return (
-        subprocess.run(
-            ["ping", "-c", "1", host],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        ).returncode
-        == 0
-    )
-
-
-#########################
-# GNUPG
-#########################
-def gpg_toggle(file_dir=Path.home(), dec_name="test.txt"):
-    enc_name = f"{dec_name.split('.')[0]}.gpg"
-    dec_path = file_dir / dec_name
-    enc_path = file_dir / enc_name
-    if enc_path.exists():
-        gpg = gnupg.GPG()
-        log.info(f"Decrypting: {enc_path.name}")
-        with enc_path.open("rb") as f:
-            result = gpg.decrypt_file(
-                f,
-                passphrase=ask_pass(min_len=4, confirm=False),
-                output=str(dec_path),
-            )
-        if not result.ok:
-            log.error(f"Decryption failed: {result.status}")
-        enc_path.unlink()
-        log.info(f"Decrypted: {dec_path.name}")
-    elif dec_path.exists():
-        gpg = gnupg.GPG()
-        log.info(f"Encrypting: {dec_path.name}")
-        with dec_path.open("rb") as f:
-            result = gpg.encrypt(
-                f,
-                recipients=None,
-                symmetric=True,
-                passphrase=ask_pass(min_len=4),
-                output=str(enc_path),
-            )
-        if not result.ok:
-            log.error(f"Failed: {result.status}")
-        dec_path.unlink()
-        log.info(f"Encrypted: {enc_path.name}")
-    else:
-        log.info(f"Neither {dec_path} nor {enc_path} exists.")
+def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700) -> None:
+    for p in path.rglob("*"):
+        if p.is_file():
+            p.chmod(file_mode)
+    path.chmod(dir_mode)
 
 
 ###########################################################
@@ -662,22 +521,26 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         #############-Etc Management-###############
         modify_mkinit(mountpoint, mkinit_hooks)
         sys_dots(mountpoint, script_dir, script_pwd_to_cp)
-        copy_dir(wireguard_dir, mountpoint / "etc" / "wireguard")
+        copy_dir(Path("/root") / wireguard_dir, mountpoint / "etc" / "wireguard")
         installation.enable_service(sys_services)
         run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
         #############-User and Sudo-###############
         installation.create_users(User(user_name, Password(pw), True, groups))
         configure_sudo(user_name, mountpoint, pwd_require=False)
-        usr_cmd = ["xdg-user-dirs-update", f"mkdir -p /{user_home}/.cache/mpd"]
+        usr_cmd = [
+            f"sudo paru -S {' '.join(aur_pkgs)}",
+            "xdg-user-dirs-update",
+            f"mkdir -p /{user_home}/.cache/mpd",
+        ]
         run_chroot(usr_cmd, mountpoint, user_name)
         #############-Copy Keys-#############
-        copy_dir(
-            str(script_dir), (mountpoint / user_home / usb_key_dir), user_name, True
-        )
+        copy_dir(Path(f"/root/{usb_key_dir}"), mountpoint / user_home / usb_key_dir)
+        apply_ownership(mountpoint / user_home / usb_key_dir, user_name)
+        apply_permissions(mountpoint / user_home / usb_key_dir)
         #############-Copy Script-#############
-        copy_dir(str(script_dir), (mountpoint / user_home / script_dir.name))
+        copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
+        apply_ownership(mountpoint / user_home / script_dir.name, user_name)
         #############-Own Everything and User Services-###############
-        run_chroot([f"chown -R {user_name}:{user_name} /{user_home}"], mountpoint)
         # Untested
         # usr_cmd = [
         #     f"git clone https://github.com/acctux/polka.git /home/{user_name}/Folka",
@@ -686,9 +549,10 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         # ]
         # run_chroot(usr_cmd, mountpoint, user_name, peek=False)
         user_service(script_dir.name, mountpoint, user_name, user_home)
+        configure_sudo(user_name, mountpoint, pwd_require=True)
         #############-Own Everything and User Services-###############
         installation.genfstab()
-        modify_fstab(mountpoint)
+        # modify_fstab(mountpoint)
         if not arch_config_handler.args.silent:
             with Tui():
                 action = ask_post_installation()
