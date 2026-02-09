@@ -1,9 +1,107 @@
-#################-PACMAN CONF-#################
+from utils import UserSrv
+from pathlib import Path
+
+###########################################################
+# ARCHINSTALL CONF
+###########################################################
+user_name = "nick"
+hostname = "yulia"
+kernel = ["linux"]
+kb_layout = "us"
+sys_lang = "en_US"
+sys_enc = "UTF-8"
+timezone = "US/Eastern"
+groups = ["adm", "games", "realtime", "storage"]
+###########################################################
+# SYS SERVICES
+###########################################################
+sys_services = [
+    "ananicy-cpp",
+    "bluetooth",
+    "firewalld",
+    "iwd",
+    "ly@tty1",
+    "named",
+    "swayosd-libinput-backend",
+    "systemd-networkd",
+    "systemd-oomd",
+    "systemd-timesyncd",
+    "tlp",
+    "btrfs-scrub@-.timer",
+    "btrfs-scrub@home.timer",
+    "fstrim.timer",
+    "logrotate.timer",
+    "man-db.timer",
+    "paccache.timer",
+    "reflector.timer",
+    #####-Custom-####
+    "loggy",
+    "wireguard-list",
+]
+disable_svcs = ["getty@tty1", "systemd-networkd-wait-online"]
+###########################################################
+# MKINITCPIO HOOKS
+###########################################################
+mkinit_hooks = [
+    "base",
+    "systemd",
+    "autodetect",
+    "microcode",
+    "modconf",
+    "kms",
+    "sd-vconsole",
+    "block",
+    "filesystems",
+    "fsck",
+]
+###########################################################
+# USER SERVICES
+###########################################################
+user_services = [
+    UserSrv(
+        target="default",
+        services=["pipewire-pulse.service"],
+        source_dir=Path("/usr/lib/systemd/user"),
+    ),
+    UserSrv(
+        target="sockets",
+        services=["pipewire-pulse.socket"],
+        source_dir=Path("/usr/lib/systemd/user"),
+    ),
+]
+###########################################################
+# PACMAN CONF
+###########################################################
 noextract_lines = [
     "NoExtract = etc/xdg/autostart/firewall-applet.desktop",
     "NoExtract = usr/share/icons/capitaine-cursors/*",
 ]
-#############-PACMAN CONF-#############
+###########################################################
+# FOLDERS TO COPY FROM SCRIPT DIR TO /mnt
+###########################################################
+script_pwd_to_cp = ["etc", "usr"]
+###########################################################
+# REFLECTOR OPTIONS
+###########################################################
+refl_options = [
+    "--country US",
+    "--protocol https",
+    "--latest 10",
+    "--sort rate",
+    "--number 3",
+]
+###########################################################
+# USB PASSED FILES CONF
+###########################################################
+usb_fs_type = "exfat"
+min_usb_size = "20G"
+usb_key_dir = "keys"
+ssh_key = "id_ed25519"
+gpg_key = "my_sec_gpg.asc"
+pass_manager_pass = "pass.txt"
+sec_conf_file = "pass.py"
+wireguard_dir = "wireguard"
+usb_cp_files = [ssh_key, gpg_key, pass_manager_pass]
 pkgs = [
     ############-Amd-############
     "mesa",
@@ -60,7 +158,6 @@ pkgs = [
     "profile-sync-daemon",
     "protonmail-bridge",
     "wireguard-tools",
-    "wireless-regdb",
     ########-Lang/Fonts-########
     "hunspell-en_us",
     "hyphen-en",

@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import pyperclip
 from utils import get_logger, run_cmd, ping, ask_pass, UserGitRepo
-from noah_conf.conf import (
+from user_conf import (
     dots_dir,
     enc_dir,
     ssh_key,

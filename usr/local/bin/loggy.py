@@ -21,9 +21,9 @@ def run_cmd(cmd, check=False):
 
 def logid_failed(check_str="[WARN] Failed"):
     j = journal.Reader()
-    j.add_match(_SYSTEMD_UNIT="logid.service")  # filter for logid.service
-    j.seek_tail()  # go to end
-    j.get_previous(2)  # check last 2 entries
+    j.add_match(_SYSTEMD_UNIT="logid.service")
+    j.seek_tail()
+    j.get_previous(2)
     for entry in j:
         message = entry.get("MESSAGE", "")
         if check_str in message:
@@ -105,7 +105,7 @@ async def main():
     rule = "type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',arg0='org.bluez.Device1'"
     await add_match(bus, rule)
     print(f"Monitoring {DEVICE_MAC} for ServicesResolved...")
-    await asyncio.Future()  # Run forever
+    await asyncio.Future()
 
 
 if __name__ == "__main__":

@@ -24,17 +24,19 @@ import shlex
 import shutil
 import textwrap
 from utils import log, UserSrv, src_pass_file, ask_pass, run_cmd
-from noah_conf.pkg import noextract_lines, pkgs, aur_pkgs
-from noah_conf.conf import (
+from sys_conf import (
     usb_key_dir,
     user_name,
     usb_cp_files,
     hostname,
+    noextract_lines,
     refl_options,
+    pkgs,
     sys_lang,
     sys_enc,
     mkinit_hooks,
     wireguard_dir,
+    aur_pkgs,
     timezone,
     sec_conf_file,
     kb_layout,
