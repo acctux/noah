@@ -530,7 +530,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         installation.create_users(User(user_name, Password(pw), True, groups))
         configure_sudo(user_name, mountpoint, pwd_require=False)
         usr_cmd = [
-            f"sudo paru -S {' '.join(aur_pkgs)}",
+            f"paru -S {' '.join(aur_pkgs)}",
             "xdg-user-dirs-update",
             f"mkdir -p /{user_home}/.cache/mpd",
         ]
