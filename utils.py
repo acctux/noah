@@ -6,7 +6,6 @@ from pathlib import Path
 import subprocess
 from getpass import getpass
 import sys
-import gnupg
 
 
 #########################
@@ -166,42 +165,3 @@ def ping(host: str) -> bool:
         ).returncode
         == 0
     )
-
-
-#########################
-# GNUPG
-#########################
-def gpg_toggle(file_dir=Path.home(), dec_name="test.txt"):
-    enc_name = f"{dec_name.split('.')[0]}.gpg"
-    dec_path = file_dir / dec_name
-    enc_path = file_dir / enc_name
-    if enc_path.exists():
-        gpg = gnupg.GPG()
-        log.info(f"Decrypting: {enc_path.name}")
-        with enc_path.open("rb") as f:
-            result = gpg.decrypt_file(
-                f,
-                passphrase=ask_pass(min_len=4, confirm=False),
-                output=str(dec_path),
-            )
-        if not result.ok:
-            log.error(f"Decryption failed: {result.status}")
-        enc_path.unlink()
-        log.info(f"Decrypted: {dec_path.name}")
-    elif dec_path.exists():
-        gpg = gnupg.GPG()
-        log.info(f"Encrypting: {dec_path.name}")
-        with dec_path.open("rb") as f:
-            result = gpg.encrypt(
-                f,
-                recipients=None,
-                symmetric=True,
-                passphrase=ask_pass(min_len=4),
-                output=str(enc_path),
-            )
-        if not result.ok:
-            log.error(f"Failed: {result.status}")
-        dec_path.unlink()
-        log.info(f"Encrypted: {enc_path.name}")
-    else:
-        log.info(f"Neither {dec_path} nor {enc_path} exists.")
