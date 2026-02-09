@@ -99,9 +99,10 @@ usb_key_dir = "keys"
 ssh_key = "id_ed25519"
 gpg_key = "my_sec_gpg.asc"
 pass_manager_pass = "pass.txt"
+my_pass = "pass.py"
 sec_conf_file = "pass.py"
 wireguard_dir = "wireguard"
-usb_cp_files = [ssh_key, gpg_key, pass_manager_pass]
+usb_cp_files = [ssh_key, gpg_key, pass_manager_pass, my_pass]
 pkgs = [
     ############-Amd-############
     "mesa",

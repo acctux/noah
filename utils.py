@@ -13,11 +13,11 @@ import sys
 #########################
 class ColorFormatter(logging.Formatter):
     COLORS = {
-        logging.DEBUG: "\033[36m",  # Cyan
-        logging.INFO: "\033[34m",  # Blue
-        logging.WARNING: "\033[33m",  # Yellow
-        logging.ERROR: "\033[31m",  # Red
-        logging.CRITICAL: "\033[41m",  # Red background
+        logging.DEBUG: "\033[36m",
+        logging.INFO: "\033[34m",
+        logging.WARNING: "\033[33m",
+        logging.ERROR: "\033[31m",
+        logging.CRITICAL: "\033[41m",
     }
     RESET = "\033[0m"
     UNDERLINE = "\033[4m"
