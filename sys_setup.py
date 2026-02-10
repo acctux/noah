@@ -149,9 +149,9 @@ def usb_cp_folder(usb_mount, folder_name):
 
 
 def unmount_partition(usb_mount: Path, start: bool = False):
-    cmd = ["umount", "-R", f"{usb_mount}"]
+    cmd = ["umount", "-R", str(usb_mount)]
     if start:
-        cmd = ["umount", "-A", f"{usb_mount}"]
+        cmd = ["umount", "-R", str(usb_mount)]
     run_cmd(cmd, check=True, shell=True)
     log.info(f"Unmounted USB from {usb_mount}.")
     if usb_mount.exists():
