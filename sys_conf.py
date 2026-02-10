@@ -12,6 +12,8 @@ sys_lang = "en_US"
 sys_enc = "UTF-8"
 timezone = "US/Eastern"
 groups = ["adm", "games", "realtime", "storage"]
+git_name = "acctux"
+skel_git = "polka"
 ###########################################################
 # SYS SERVICES
 ###########################################################
