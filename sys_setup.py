@@ -469,8 +469,8 @@ def apply_ownership(path: Path, owner: str) -> None:
     dest_without_mnt = path.relative_to("/mnt")
     for p in path.rglob("*"):
         d_without_mnt = p.relative_to("/mnt")
-        run_cmd([f"chown {user_name}:{user_name} {d_without_mnt}"])
-    run_cmd([f"chown {user_name}:{user_name} {dest_without_mnt}"])
+        run_cmd([f"chown {user_name}:{user_name} /{d_without_mnt}"])
+    run_cmd([f"chown {user_name}:{user_name} /{dest_without_mnt}"])
 
 
 def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700) -> None:
