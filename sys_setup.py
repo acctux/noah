@@ -14,8 +14,6 @@ from archinstall.lib.args import (
     User,
     arch_config_handler,
 )
-
-###########################################################
 import subprocess
 from pathlib import Path
 import json
@@ -24,36 +22,13 @@ import shlex
 import shutil
 import textwrap
 from utils import log, UserSrv, src_pass_file, ask_pass, run_cmd
-from sys_conf import (
-    usb_key_dir,
-    user_name,
-    usb_cp_files,
-    hostname,
-    noextract_lines,
-    refl_options,
-    pkgs,
-    sys_lang,
-    sys_enc,
-    mkinit_hooks,
-    wireguard_dir,
-    aur_pkgs,
-    timezone,
-    sec_conf_file,
-    kb_layout,
-    sys_services,
-    script_pwd_to_cp,
-    disable_svcs,
-    kernel,
-    groups,
-    min_usb_size,
-    usb_fs_type,
-)
+import sys_conf as sc
 
 ###########################################################
 # CONSTANTS
 ###########################################################
 script_dir = Path(__file__).resolve().parent
-user_home = f"home/{user_name}"
+user_home = f"home/{sc.user_name}"
 HOME = Path.home()
 
 
@@ -174,9 +149,9 @@ def usb_cp_keys(usb_mount, key_dir, key_files):
                 shutil.copy2(src, dest)
                 log.info(f"Copied {key_file} to {dest}")
             except FileNotFoundError:
-                log.error(f"Source file {src} not found on USB.")
+                log.error(f"{src} not found on USB.")
         else:
-            log.error(f"{key_file} already exists in {dest_dir}, skipping copy.")
+            log.error(f"{key_file} already exists in {dest_dir}, skipping.")
 
 
 def usb_cp_folder(usb_mount, folder_name):
@@ -188,9 +163,9 @@ def usb_cp_folder(usb_mount, folder_name):
             shutil.copytree(src_dir, dest_dir)
             log.info(f"Copied folder {folder_name} to {dest_dir}")
         except FileNotFoundError:
-            log.error(f"Source folder {src_dir} not found on USB.")
+            log.error(f"{src_dir} not found on USB.")
         except Exception as e:
-            log.error(f"Failed to copy folder {folder_name} from USB: {e}")
+            log.error(f"Failed to copy {folder_name} from USB: {e}")
 
 
 def unmount_partition(usb_mount: Path):
@@ -213,9 +188,7 @@ def mnt_cp_keys(
 ):
     if key_dir and key_files or wireguard_dir:
         if check_usb_files(key_dir, key_files):
-            if yes_no_prompt(
-                "Do you want to mount a USB drive to check for missing files?"
-            ):
+            if yes_no_prompt("Mount USB drive and copy missing files?"):
                 mnt_keys_partition(usb_mnt, min_size, usb_fs_type)
                 if key_dir and key_files:
                     usb_cp_keys(usb_mnt, key_dir, key_files)
@@ -456,6 +429,16 @@ def modify_mkinit(mnt_point: Path, hooks: list[str]):
         mkinit.write(content)
 
 
+def copy_file(file: Path, dest: Path) -> None:
+    if not file.is_file():
+        log.error(f"{file} does not exist")
+        return
+    if dest.is_dir():
+        dest = dest / file.name
+    shutil.copy2(file, dest)
+    log.info(f"Copied {file} to {dest}")
+
+
 def copy_dir(dir: Path, dest: Path) -> None:
     src = Path("/root") / dir
     if not src.is_dir():
@@ -464,7 +447,7 @@ def copy_dir(dir: Path, dest: Path) -> None:
     shutil.copytree(src, dest, dirs_exist_ok=True)
 
 
-def apply_ownership(mountpoint: Path, path: Path, owner: str) -> None:
+def apply_ownership(mountpoint: Path, path: Path, user_name: str) -> None:
     dest_without_mnt = path.relative_to(mountpoint)
     for p in path.rglob("*"):
         d_without_mnt = p.relative_to(mountpoint)
@@ -479,6 +462,18 @@ def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700) -> None:
     path.chmod(dir_mode)
 
 
+def prepend_dot_to_files(dir: Path) -> None:
+    if not dir.is_dir():
+        print(f"{dir} is not a valid directory.")
+        return
+
+    for file in dir.iterdir():
+        if file.is_file() and not file.name.startswith("."):
+            new_name = file.parent / ("." + file.name)
+            file.rename(new_name)
+            print(f"Renamed {file} to {new_name}")
+
+
 ###########################################################
 # Installer
 ###########################################################
@@ -488,10 +483,10 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         log.error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    with Installer(mountpoint, disk_config, [], kernel) as installation:
+    with Installer(mountpoint, disk_config, [], sc.kernel) as installation:
         ############-Ensure User Pass Exists-##########
-        if not (pw := src_pass_file(usb_key_dir, sec_conf_file)):
-            pw = ask_pass(user_name)
+        if not (pw := src_pass_file(sc.usb_key_dir, sc.my_pass)):
+            pw = ask_pass(sc.user_name)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         installation.sanity_check()
@@ -504,11 +499,16 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
                 installation.generate_key_files()
         installation.setup_swap()
         installation.minimal_installation(
-            [], True, hostname, LocaleConfiguration(kb_layout, sys_lang, sys_enc)
+            [],
+            True,
+            sc.hostname,
+            LocaleConfiguration(sc.kb_layout, sc.sys_lang, sc.sys_enc),
         )
         ###############-Install reflector-###############
         installation.add_additional_packages("reflector")
-        ref_cmd = f"reflector {' '.join(refl_options)} --save /etc/pacman.d/mirrorlist"
+        ref_cmd = (
+            f"reflector {' '.join(sc.refl_options)} --save /etc/pacman.d/mirrorlist"
+        )
         log.info("Running reflector to update mirror list.")
         run_chroot([ref_cmd], mountpoint)
         ####################-System D-####################
@@ -516,33 +516,51 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         modify_systemd(mountpoint)
         ###########-WiFi Pass and Time Zone-############
         installation.copy_iso_network_config()
-        installation.set_timezone(timezone)
+        installation.set_timezone(sc.timezone)
         #############-Pkg Management-###############
-        config_pac_conf(mountpoint, 10, noextract_lines)
+        config_pac_conf(mountpoint, 10, sc.noextract_lines)
         chaotic_repo(mountpoint)
-        installation.add_additional_packages(pkgs)
+        installation.add_additional_packages(sc.pkgs)
         #############-Etc Management-###############
-        modify_mkinit(mountpoint, mkinit_hooks)
-        sys_dots(mountpoint, script_dir, script_pwd_to_cp)
-        copy_dir(Path("/root") / wireguard_dir, mountpoint / "etc" / "wireguard")
-        installation.enable_service(sys_services)
-        run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
+        modify_mkinit(mountpoint, sc.mkinit_hooks)
+        sys_dots(mountpoint, script_dir, sc.script_pwd_to_cp)
+        copy_dir(Path("/root") / sc.wireguard_dir, mountpoint / "etc" / "wireguard")
+        installation.enable_service(sc.sys_services)
+        run_chroot([f"systemctl disable {' '.join(sc.disable_svcs)}"], mountpoint)
         #############-User and Sudo-###############
-        installation.create_users(User(user_name, Password(pw), True, groups))
-        configure_sudo(user_name, mountpoint, pwd_require=False)
+        installation.create_users(User(sc.user_name, Password(pw), True, sc.groups))
+        configure_sudo(sc.user_name, mountpoint, pwd_require=False)
         usr_cmd = [
-            f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
+            f"paru -S --noconfirm --needed {' '.join(sc.aur_pkgs)}",
             "xdg-user-dirs-update",
             f"mkdir -p /{user_home}/.cache/mpd",
         ]
-        run_chroot(usr_cmd, mountpoint, user_name)
+        run_chroot(usr_cmd, mountpoint, sc.user_name)
+        #############-User and Sudo-###############
+        usr_cmd = [
+            "git",
+            "clone",
+            "https://github.com/acctux/polka.git",
+            f"{mountpoint}/etc/skel",
+        ]
+        run_cmd(usr_cmd, mountpoint, sc.user_name)
         #############-Copy Keys-#############
-        copy_dir(Path(f"/root/{usb_key_dir}"), mountpoint / user_home / usb_key_dir)
-        apply_ownership(mountpoint, mountpoint / user_home / usb_key_dir, user_name)
-        apply_permissions(mountpoint / user_home / usb_key_dir)
+        cp_files = ((sc.ssh_key, ".ssh"), (sc.gpg_key, ".gnupg"), (sc.pass_manager, ""))
+        for file in cp_files:
+            file_name, home_folder = file
+            copy_file(
+                Path(f"/root/{sc.usb_key_dir}/{file}"),
+                mountpoint / user_home / home_folder,
+            )
+        apply_ownership(
+            mountpoint, mountpoint / user_home / sc.usb_key_dir, sc.user_name
+        )
+        apply_permissions(mountpoint / user_home / sc.usb_key_dir)
         #############-Copy Script-#############
         copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
-        apply_ownership(mountpoint, mountpoint / user_home / script_dir.name, user_name)
+        apply_ownership(
+            mountpoint, mountpoint / user_home / script_dir.name, sc.user_name
+        )
         #############-Own Everything and User Services-###############
         # Untested
         # usr_cmd = [
@@ -551,8 +569,8 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         #     f"python /home/{user_name}/Folka/local/bin/dotsync/dotsync.py",
         # ]
         # run_chroot(usr_cmd, mountpoint, user_name, peek=False)
-        user_service(script_dir.name, mountpoint, user_name)
-        configure_sudo(user_name, mountpoint, pwd_require=True)
+        user_service(script_dir.name, mountpoint, sc.user_name)
+        configure_sudo(sc.user_name, mountpoint, pwd_require=True)
         #############-Own Everything and User Services-###############
         installation.genfstab()
         # modify_fstab(mountpoint)
@@ -592,10 +610,16 @@ def _minimal() -> None:
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         fs_handler.perform_filesystem_operations()
-    mnt_cp_keys(min_usb_size, usb_fs_type, usb_key_dir, usb_cp_files, wireguard_dir)
-    ref_cmd = ["reflector", *refl_options, "--save", "/etc/pacman.d/mirrorlist"]
+    mnt_cp_keys(
+        sc.min_usb_size,
+        sc.usb_fs_type,
+        sc.usb_key_dir,
+        sc.usb_cp_files,
+        sc.wireguard_dir,
+    )
+    ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
     run_cmd(ref_cmd)
-    config_pac_conf(None, 10, noextract_lines)
+    config_pac_conf(None, 10, sc.noextract_lines)
     chaotic_repo()
     perform_installation(Path("/mnt"))
 
