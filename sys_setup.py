@@ -581,28 +581,35 @@ def _minimal() -> None:
         sc.usb_cp_files,
         sc.wireguard_dir,
     )
-    # with Tui():
-    #     disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
-    #     arch_config_handler.config.disk_config = disk_config
-    # config = ConfigurationOutput(arch_config_handler.config)
-    # config.write_debug()
-    # config.save()
-    # if not arch_config_handler.args.silent:
-    #     aborted = False
-    #     with Tui():
-    #         if not config.confirm_config():
-    #             log.warning("Installation aborted")
-    #             aborted = True
-    #     if aborted:
-    #         exit(0)
-    # if arch_config_handler.config.disk_config:
-    #     fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-    #     fs_handler.perform_filesystem_operations()
-    # ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
-    # run_cmd(ref_cmd)
-    # config_pac_conf(None, 10, sc.noextract_lines)
-    # chaotic_repo()
-    # perform_installation(mountpoint)
+    with Tui():
+        disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
+        arch_config_handler.config.disk_config = disk_config
+    config = ConfigurationOutput(arch_config_handler.config)
+    config.write_debug()
+    config.save()
+    if not arch_config_handler.args.silent:
+        aborted = False
+        with Tui():
+            if not config.confirm_config():
+                log.warning("Installation aborted")
+                aborted = True
+        if aborted:
+            exit(0)
+    if arch_config_handler.config.disk_config:
+        fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+        fs_handler.perform_filesystem_operations()
+    ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
+    run_cmd(ref_cmd)
+    config_pac_conf(None, 10, sc.noextract_lines)
+    chaotic_repo()
+    perform_installation(mountpoint)
 
 
-_minimal()
+# _minimal()
+#################-Skel-###################
+git_cmd = f"https://github.com/{sc.git_name}/{sc.skel_git}.git"
+skel_tmp = HOME / sc.skel_git
+if not skel_tmp.exists():
+    run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
+    shutil.rmtree(skel_tmp / ".git")
+    prepend_dot_to_files(skel_tmp)
