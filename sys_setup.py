@@ -30,6 +30,7 @@ import sys_conf as sc
 script_dir = Path(__file__).resolve().parent
 user_home = f"home/{sc.user_name}"
 HOME = Path.home()
+mountpoint = Path("/mnt")
 
 
 #########################
@@ -477,7 +478,7 @@ def prepend_dot_to_files(dir: Path) -> None:
 ###########################################################
 # Installer
 ###########################################################
-def perform_installation(mountpoint=Path("/mnt")) -> None:
+def perform_installation(mountpoint=mountpoint) -> None:
     config = arch_config_handler.config
     if not config.disk_config:
         log.error("No disk configuration provided")
@@ -552,9 +553,9 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
                 Path(f"/root/{sc.usb_key_dir}/{file}"),
                 mountpoint / user_home / home_folder,
             )
-        apply_ownership(
-            mountpoint, mountpoint / user_home / sc.usb_key_dir, sc.user_name
-        )
+            apply_ownership(
+                mountpoint, mountpoint / user_home / home_folder, sc.user_name
+            )
         apply_permissions(mountpoint / user_home / sc.usb_key_dir)
         #############-Copy Script-#############
         copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
@@ -621,7 +622,7 @@ def _minimal() -> None:
     run_cmd(ref_cmd)
     config_pac_conf(None, 10, sc.noextract_lines)
     chaotic_repo()
-    perform_installation(Path("/mnt"))
+    perform_installation(mountpoint)
 
 
 _minimal()
