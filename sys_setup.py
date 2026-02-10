@@ -551,7 +551,7 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         #     f"python /home/{user_name}/Folka/local/bin/dotsync/dotsync.py",
         # ]
         # run_chroot(usr_cmd, mountpoint, user_name, peek=False)
-        user_service(script_dir.name, mountpoint, user_name, user_home)
+        user_service(script_dir.name, mountpoint, user_name)
         configure_sudo(user_name, mountpoint, pwd_require=True)
         #############-Own Everything and User Services-###############
         installation.genfstab()
