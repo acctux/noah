@@ -44,13 +44,18 @@ def yes_no(prompt: str) -> bool:
         print("Please enter 'y' or 'n'.")
 
 
-def check_missing(key_dir, key_files, wireguard_dir) -> list[str]:
+def check_missing(
+    key_dir: str | None = None,
+    key_files: list[str] | None = None,
+    wireguard_dir: str | None = None,
+) -> list[str]:
     log = get_logger("Needed")
     missing_files = []
-    for key in key_files:
-        key_path = HOME / f"{key_dir}/{key}"
-        if not key_path.exists():
-            missing_files.append(key)
+    if key_files:
+        for key in key_files:
+            key_path = HOME / f"{key_dir}/{key}"
+            if not key_path.exists():
+                missing_files.append(key)
     if wireguard_dir and not (HOME / wireguard_dir).is_dir():
         missing_files.append(wireguard_dir)
     if missing_files:
@@ -58,14 +63,14 @@ def check_missing(key_dir, key_files, wireguard_dir) -> list[str]:
     return missing_files
 
 
-def string_to_float_size(size_str):
-    if not size_str:
+def string_to_float_size(size: str):
+    if not size:
         return 0.0
     K = 1024
     M = 1024**2
     G = 1024**3
     T = 1024**4
-    size_str = size_str.strip().upper()
+    size_str = size.strip().upper()
     units = {"K": K, "M": M, "G": G, "T": T}
     return float(size_str[:-1]) * units.get(size_str[-1], 1.0)
 
@@ -434,14 +439,6 @@ def copy_dir(dir: Path, dest: Path) -> None:
     shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
 
 
-def apply_ownership(mountpoint: Path, path: Path, user_name: str) -> None:
-    dest_without_mnt = path.relative_to(mountpoint)
-    for p in path.rglob("*"):
-        d_without_mnt = p.relative_to(mountpoint)
-        run_chroot([f"chown {user_name}:{user_name} /{d_without_mnt}"], mountpoint)
-    run_chroot([f"chown {user_name}:{user_name} /{dest_without_mnt}"], mountpoint)
-
-
 def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700) -> None:
     for p in path.rglob("*"):
         if p.is_file():
@@ -449,16 +446,10 @@ def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700) -> None:
     path.chmod(dir_mode)
 
 
-def prepend_dot(dir: Path) -> None:
+def prepend_dot(dir: Path, add_dot: bool = True) -> None:
     if dir.is_dir():
-        for file in dir.iterdir():
-            log.info(file)
-            if not file.name.startswith("."):
-                new_name = file.parent / ("." + file.name)
-                file.rename(new_name)
-                print(f"Renamed {file} to {new_name}")
-    else:
-        log.warning(f"{dir} not found")
+        for p in dir.iterdir():
+            p.rename(p.parent / ("." + p.name))
 
 
 ###########################################################
@@ -538,13 +529,11 @@ def perform_installation(mountpoint=mountpoint) -> None:
             dest = mountpoint / user_home / folder
             dest.mkdir(parents=True, exist_ok=True)
             copy_file(Path(f"/root/{sc.usb_key_dir}/{name}"), dest)
-            apply_ownership(mountpoint, mountpoint / user_home / folder, sc.user_name)
+            installation.chown(sc.user_name, str(mountpoint / user_home / folder))
             apply_permissions(mountpoint / user_home / folder)
         #############-Copy Script-#############
         copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
-        apply_ownership(
-            mountpoint, mountpoint / user_home / script_dir.name, sc.user_name
-        )
+        installation.chown(sc.user_name, str(mountpoint / user_home / script_dir.name))
         #############-Own Everything and User Services-###############
         # Untested
         # usr_cmd = [
@@ -608,11 +597,4 @@ def _minimal() -> None:
     perform_installation(mountpoint)
 
 
-# _minimal()
-#################-Skel-###################
-# git_cmd = f"https://github.com/{sc.git_name}/{sc.skel_git}.git"
-skel_tmp = HOME / sc.skel_git
-# if not skel_tmp.exists():
-#     run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
-#     shutil.rmtree(skel_tmp / ".git")
-prepend_dot(skel_tmp)
+_minimal()
