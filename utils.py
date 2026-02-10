@@ -1,5 +1,3 @@
-from typing import Any, Callable
-import json
 from pydantic import BaseModel
 import logging
 from pathlib import Path
@@ -15,7 +13,7 @@ class ColorFormatter(logging.Formatter):
     COLORS = {
         logging.DEBUG: "\033[36m",
         logging.INFO: "\033[34m",
-        logging.WARNING: "\033[33m",
+        logging.WARNING: "\033[93m",
         logging.ERROR: "\033[31m",
         logging.CRITICAL: "\033[41m",
     }
@@ -48,7 +46,6 @@ def get_logger(log_name: str | None = None, level=logging.INFO):
 log = get_logger("Noah")
 
 
-#########################
 ###########################################################
 # CLASSES
 ###########################################################
@@ -61,47 +58,6 @@ class UserSrv(BaseModel):
 class UserGitRepo(BaseModel):
     target_dir: str
     repos: list[str]
-
-
-class NoahConfig:
-    def __init__(self, file_path: str):
-        self._file_path = Path(file_path)
-        self._config: dict[str, Any] = {}
-        self.reload()
-
-    def reload(self) -> None:
-        if not self._file_path.exists():
-            log.error(f"Config file not found: {self._file_path}")
-        try:
-            self._config = json.loads(self._file_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as e:
-            log.error(f"Invalid JSON in {self._file_path}: {e}")
-
-    def get(self, key_path: str, default: Any = None) -> Any:
-        value: Any = self._config
-        for key in key_path.split("."):
-            try:
-                value = value[key] if isinstance(value, dict) else value[int(key)]
-            except (KeyError, IndexError, ValueError, TypeError):
-                return default
-        return value
-
-    def _objects(self, key: str, factory: Callable[[dict], Any]) -> list[Any]:
-        return [factory(item) for item in self.get(key, [])]
-
-    def user_services(self) -> list[UserSrv]:
-        return self._objects(
-            "services.user",
-            lambda s: UserSrv(
-                target=s["target"], services=s["services"], source=Path(s["source_dir"])
-            ),
-        )
-
-    def git_repos(self) -> list[UserGitRepo]:
-        return self._objects(
-            "git.repos",
-            lambda r: UserGitRepo(target_dir=r["target_dir"], repos=r["repos"]),
-        )
 
 
 #########################
