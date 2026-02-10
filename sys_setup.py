@@ -567,6 +567,13 @@ def perform_installation(mountpoint=mountpoint) -> None:
 # Main
 ###########################################################
 def _minimal() -> None:
+    mnt_cp_keys(
+        sc.min_usb_size,
+        sc.usb_fs_type,
+        sc.usb_key_dir,
+        sc.usb_cp_files,
+        sc.wireguard_dir,
+    )
     with Tui():
         disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
         arch_config_handler.config.disk_config = disk_config
@@ -584,13 +591,6 @@ def _minimal() -> None:
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         fs_handler.perform_filesystem_operations()
-    mnt_cp_keys(
-        sc.min_usb_size,
-        sc.usb_fs_type,
-        sc.usb_key_dir,
-        sc.usb_cp_files,
-        sc.wireguard_dir,
-    )
     ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
     run_cmd(ref_cmd)
     config_pac_conf(None, 10, sc.noextract_lines)
