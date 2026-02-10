@@ -56,25 +56,17 @@ def yes_no_prompt(prompt: str) -> bool:
         print("Please enter 'y' or 'n'.")
 
 
-def check_usb_files(key_dir, key_files) -> list[str]:
+def check_missing(key_dir, key_files, wireguard_dir) -> list[str]:
     missing_files = []
     for key_file in key_files:
-        file_path = Path(f"/root/{key_dir}/{key_file}")
+        file_path = HOME / key_dir / key_file
         if not file_path.exists():
             missing_files.append(file_path)
+    wireguard = HOME / wireguard_dir
+    if wireguard_dir and not wireguard.is_dir():
+        missing_files.append(file_path)
     log.warning(f"Needed: {', '.join(map(str, missing_files))}")
     return missing_files
-
-
-def check_wireguard_dir():
-    wireguard_dir = Path("/root/wireguard")
-    if not wireguard_dir.is_dir():
-        log.warning(f"Needed: {wireguard_dir} is not a directory")
-        return True
-    if not any(wireguard_dir.iterdir()):
-        log.warning(f"Needed: {wireguard_dir} is empty")
-        return True
-    return False
 
 
 def string_to_float_size(size_str):
@@ -188,8 +180,8 @@ def mnt_cp_keys(
     usb_mnt=Path("/mnt/usb"),
 ):
     if key_dir and key_files or wireguard_dir:
-        if check_usb_files(key_dir, key_files):
-            if yes_no_prompt("Mount USB drive and copy missing files?"):
+        if check_missing(key_dir, key_files, wireguard_dir):
+            if yes_no_prompt("Mount USB to copy missing files?"):
                 mnt_keys_partition(usb_mnt, min_size, usb_fs_type)
                 if key_dir and key_files:
                     usb_cp_keys(usb_mnt, key_dir, key_files)
