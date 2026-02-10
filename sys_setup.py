@@ -23,7 +23,6 @@ import shutil
 import textwrap
 from utils import UserSrv, src_pass_file, ask_pass, run_cmd, get_logger
 import sys_conf as sc
-import yaml
 
 ###########################################################
 # CONSTANTS

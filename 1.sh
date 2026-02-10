@@ -2,6 +2,7 @@
 
 REPO_URL="https://github.com/acctux/noah.git"
 CLONE_DIR="$HOME/archinstall"
+DEPENDENCIES=("git" "pacman-contrib" "python-pyyaml")
 
 setup_environment() {
   local tries=0
@@ -25,7 +26,7 @@ setup_environment() {
       sleep 5
       continue
     fi
-    if ! pacman -S --noconfirm --needed git pacman-contrib; then
+    if ! pacman -S --noconfirm --needed "${DEPENDENCIES[@]}"; then
       echo "Package installation failed."
       ((tries++))
       sleep 5
