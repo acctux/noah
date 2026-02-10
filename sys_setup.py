@@ -155,15 +155,14 @@ def usb_cp_folder(usb_mount, folder_name):
             log.error(f"Failed to copy {folder_name} from USB: {e}")
 
 
-def umount_usb(usb_mount: Path, start: bool = False):
-    cmd = ["umount", "-R", str(usb_mount)]
-    if start:
-        cmd = ["umount", "-R", str(usb_mount)]
+def umount_usb(usb_mount: Path):
+    cmd = ["umount", str(usb_mount)]
     run_cmd(cmd, check=True, shell=True)
     log.info(f"Unmounted USB from {usb_mount}.")
     if usb_mount.exists():
         try:
             shutil.rmtree(usb_mount)
+            usb_mount.unlink(missing_ok=True)
         except OSError:
             pass
 
@@ -178,7 +177,7 @@ def mnt_cp_keys(
 ):
     if usb_mnt.is_mount():
         if yes_no("Found /mnt/usb, try unmount?"):
-            umount_usb(usb_mnt, start=True)
+            umount_usb(usb_mnt)
     if key_dir and key_files or wireguard_dir:
         if check_missing(key_dir, key_files, wireguard_dir):
             if yes_no("Mount USB to copy missing files?"):
@@ -331,13 +330,11 @@ def config_pac_conf(
         [multilib]
         Include = /etc/pacman.d/mirrorlist
     """)
-    pacman_conf_path = Path("/etc/pacman.conf")
     if mnt_point:
-        pacman_conf_path = mnt_point / "etc/pacman.conf"
-    pacman_conf_path.write_text(pacman_content.strip())
-    if mnt_point:
+        (mnt_point / "etc/pacman.conf").write_text(pacman_content.strip())
         run_chroot(["pacman -Sy"], mnt_point)
     else:
+        Path("/etc/pacman.conf").write_text(pacman_content.strip())
         run_cmd(["pacman", "-Sy"], True)
 
 

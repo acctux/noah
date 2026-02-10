@@ -23,6 +23,7 @@ from user_conf import (
     hide_apps,
     yazi_plugins,
     pass_manager_pass,
+    user_name,
 )
 
 log = get_logger("Noah")
@@ -406,7 +407,7 @@ def main(HOME=Path.home()):
         iwctl_scan()
         if not ping:
             iwctl_scan()
-        enable_mariadb(getpass.getuser)
+        enable_mariadb(user_name)
         if (HOME / ".ssh" / ssh_key).exists():
             import_ssh_key(HOME, ssh_key)
         if (HOME / ".gnupg" / gpg_key).exists():

@@ -75,4 +75,5 @@ yazi_plugins = [
     "uhs-robert/sshfs",
     "boydaihungst/gvfs",
     "uhs-robert/recycle-bin",
+    "dedukun/bookmarks",
 ]
