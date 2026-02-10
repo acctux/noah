@@ -465,12 +465,12 @@ def copy_dir(dir: Path, dest: Path) -> None:
     shutil.copytree(src, dest, dirs_exist_ok=True)
 
 
-def apply_ownership(path: Path, owner: str) -> None:
-    dest_without_mnt = path.relative_to("/mnt")
+def apply_ownership(mountpoint: Path, path: Path, owner: str) -> None:
+    dest_without_mnt = path.relative_to(mountpoint)
     for p in path.rglob("*"):
-        d_without_mnt = p.relative_to("/mnt")
-        run_cmd([f"chown {user_name}:{user_name} /{d_without_mnt}"])
-    run_cmd([f"chown {user_name}:{user_name} /{dest_without_mnt}"])
+        d_without_mnt = p.relative_to(mountpoint)
+        run_chroot([f"chown {user_name}:{user_name} /{d_without_mnt}"], mountpoint)
+    run_chroot([f"chown {user_name}:{user_name} /{dest_without_mnt}"], mountpoint)
 
 
 def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700) -> None:
@@ -539,11 +539,11 @@ def perform_installation(mountpoint=Path("/mnt")) -> None:
         run_chroot(usr_cmd, mountpoint, user_name)
         #############-Copy Keys-#############
         copy_dir(Path(f"/root/{usb_key_dir}"), mountpoint / user_home / usb_key_dir)
-        apply_ownership(mountpoint / user_home / usb_key_dir, user_name)
+        apply_ownership(mountpoint, mountpoint / user_home / usb_key_dir, user_name)
         apply_permissions(mountpoint / user_home / usb_key_dir)
         #############-Copy Script-#############
         copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
-        apply_ownership(mountpoint / user_home / script_dir.name, user_name)
+        apply_ownership(mountpoint, mountpoint / user_home / script_dir.name, user_name)
         #############-Own Everything and User Services-###############
         # Untested
         # usr_cmd = [
