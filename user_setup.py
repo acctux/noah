@@ -9,22 +9,8 @@ import shutil
 import subprocess
 import pyperclip
 from utils import get_logger, run_cmd, ping, ask_pass, UserGitRepo
-from user_conf import (
-    dots_dir,
-    enc_dir,
-    ssh_key,
-    git_repos,
-    git_user,
-    gpg_key,
-    dirs_icons,
-    usb_key_dir,
-    dirs_to_link,
-    ind_dirs,
-    hide_apps,
-    yazi_plugins,
-    pass_manager_pass,
-    user_name,
-)
+import user_conf as uc
+
 
 log = get_logger("Noah")
 HOME = Path.home()
@@ -278,20 +264,18 @@ def fix_git_url(repo_path: Path, git_user: str, repo_name: str):
 def clone_repos(git_user: str, git_repo: UserGitRepo):
     base_path = Path(git_repo.target_dir)
     for name in git_repo.repos:
-        repo_path = base_path / name.capitalize()
+        repo_path = base_path / name
         if repo_path.exists() and any(repo_path.iterdir()):
             continue
         repo_path.mkdir(parents=True, exist_ok=True)
-        cmd = [
-            "git",
-            "clone",
-            f"git@github.com:{git_user}/{name}.git",
-            str(repo_path),
-        ]
-        if run_cmd(cmd, check=True):
-            print(f"Cloned {name} into {repo_path}")
+        git_str = f"git@github.com:{git_user}/{name}.git"
+        if run_cmd(
+            ["git", "clone", git_str, str(repo_path)],
+            check=True,
+        ):
+            log.info(f"Cloned {name} into {repo_path}")
         else:
-            print(f"Failed to clone {name}.")
+            log.warning(f"Failed to clone {name}.")
         fix_git_url(repo_path, git_user, name)
 
 
@@ -299,7 +283,7 @@ def clone_repos(git_user: str, git_repo: UserGitRepo):
 # Icons/Folders
 ############################
 def install_icon_theme():
-    tmp = Path("/tmp/whitesur-icons")
+    tmp = Path("/tmp/whitesur")
     if tmp.exists():
         shutil.rmtree(tmp)
     icon_git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
@@ -308,11 +292,14 @@ def install_icon_theme():
 
 
 def recolor_icons(
+    mountpoint: Path,
     old: str = "#ffffff",
     new: str = "#F4F5F6",
-    icon_dir: Path = HOME / ".local/share/icons/WhiteSur-dark",
+    icon_dir: str = "/usr/share/icons",
 ):
-    for svg in [p for p in icon_dir.rglob("*.svg") if "scalable" not in p.parts]:
+    for svg in [
+        p for p in (mountpoint / icon_dir).rglob("*.svg") if "scalable" not in p.parts
+    ]:
         text = svg.read_text()
         if old in text:
             svg.write_text(text.replace(old, new))
@@ -322,8 +309,14 @@ def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME: Path = HO
     for folder, icon in custom_folder_icons:
         dir_path = HOME / folder
         dir_path.mkdir(parents=True, exist_ok=True)
-        icon = HOME / f".local/share/icons/WhiteSur-dark/places/scalable/{icon}"
-        cmd = ["gio", "set", str(dir_path), "metadata::custom-icon", f"file://{icon}"]
+        icon = HOME / f".local/share/icons/WhiteSur-dark/places/scalable/{icon}.svg"
+        cmd = [
+            "gio",
+            "set",
+            str(dir_path),
+            "metadata::custom-icon",
+            f"file://{icon}.svg",
+        ]
         if icon.exists():
             run_cmd(cmd, True)
 
@@ -333,6 +326,8 @@ def hide_app_icons(applications: list[str]) -> None:
     user_dir = HOME / ".local" / "share" / "applications"
     user_dir.mkdir(parents=True, exist_ok=True)
     for app in applications:
+        if not app.endswith(".desktop"):
+            app = f"{app}.desktop"
         system_file = system_dir / app
         user_file = user_dir / app
         if system_file.exists() and not user_file.exists():
@@ -400,6 +395,8 @@ def handle_yazi_plugins(plugins: list[str]):
 def main(HOME=Path.home()):
     script_dir = Path(__file__).resolve().parent.name
     cache_file = HOME / ".cache" / "noah_success.txt"
+    enc_path = HOME / "Desktop" / uc.enc_dir
+    icon_check = HOME / ".local/share/icons/WhiteSur-dark"
     if not cache_file.exists():
         run_interactive(["chsh", "-s", "/usr/bin/zsh"])
         run_sudo_commands()
@@ -407,26 +404,25 @@ def main(HOME=Path.home()):
         iwctl_scan()
         if not ping:
             iwctl_scan()
-        enable_mariadb(user_name)
-        if (HOME / ".ssh" / ssh_key).exists():
-            import_ssh_key(HOME, ssh_key)
-        if (HOME / ".gnupg" / gpg_key).exists():
-            import_gpg_key(HOME / ".gnupg" / gpg_key)
-        if not (HOME / enc_dir).exists() or not any((HOME / enc_dir).iterdir()):
-            initialize_gocrypt(HOME / enc_dir)
-        check_dir = HOME / ".local/share/icons/WhiteSur-dark"
-        if not check_dir.exists() or not any(check_dir.iterdir()):
+        enable_mariadb(uc.user_name)
+        if (HOME / ".ssh" / uc.ssh_key).exists():
+            import_ssh_key(HOME, uc.ssh_key)
+        if (HOME / ".gnupg" / uc.gpg_key).exists():
+            import_gpg_key(HOME / ".gnupg" / uc.gpg_key)
+        if not enc_path.exists() or not any(enc_path.iterdir()):
+            initialize_gocrypt(enc_path)
+        if not icon_check.exists() or not any(icon_check.iterdir()):
             install_icon_theme()
-        set_folder_icons(dirs_icons)
+        set_folder_icons(uc.dirs_icons)
         ensure_github_known_hosts(HOME)
-        for target in git_repos:
-            clone_repos(git_user, target)
-        hide_app_icons(hide_apps)
-        handle_yazi_plugins(yazi_plugins)
-        if any((HOME / dots_dir).iterdir()):
-            deploy_dotfiles((HOME / dots_dir), dirs_to_link, ind_dirs)
+        for target in uc.git_repos:
+            clone_repos(uc.git_user, target)
+        hide_app_icons(uc.hide_apps)
+        handle_yazi_plugins(uc.yazi_plugins)
+        if any((HOME / uc.dots_dir).iterdir()):
+            deploy_dotfiles((HOME / uc.dots_dir), uc.dirs_to_link, uc.ind_dirs)
         setup_service(script_dir)
-        for target in git_repos:
+        for target in uc.git_repos:
             if not verify_install(HOME, target):
                 log.error("Installation verification failed. Cache file not updated.")
                 return
@@ -437,7 +433,7 @@ def main(HOME=Path.home()):
             return
         run_cmd(["systemctl", "reboot"], True)
     else:
-        pass_and_input(pass_manager_pass, (HOME / usb_key_dir))
+        pass_and_input(uc.pass_manager_pass, (HOME))
         launch_apps()
         run_interactive(
             ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]

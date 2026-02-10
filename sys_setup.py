@@ -436,17 +436,38 @@ def copy_dir(dir: Path, dest: Path) -> None:
     shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
 
 
-def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700) -> None:
+def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700):
     for p in path.rglob("*"):
         if p.is_file():
             p.chmod(file_mode)
     path.chmod(dir_mode)
 
 
-def prepend_dot(dir: Path, add_dot: bool = True) -> None:
+def prepend_dot(dir: Path):
     if dir.is_dir():
         for p in dir.iterdir():
             p.rename(p.parent / ("." + p.name))
+
+
+def install_icon_theme(
+    mnt_point: Path,
+    old: str = "#ffffff",
+    new: str = "#F4F5F6",
+    icon_dir: str = "/usr/share/icons",
+):
+    tmp = Path("/tmp/icons")
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    icon_git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
+    run_chroot(
+        [f"git clone {icon_git} {tmp}", f"bash {tmp}/install.sh"], mnt_point, peek=True
+    )
+    for svg in [
+        p for p in (mnt_point / icon_dir).rglob("*.svg") if "scalable" not in p.parts
+    ]:
+        text = svg.read_text()
+        if old in text:
+            svg.write_text(text.replace(old, new))
 
 
 ###########################################################

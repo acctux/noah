@@ -6,66 +6,67 @@ from utils import UserGitRepo
 user_name = "nick"
 ssh_key = "id_ed25519"
 gpg_key = "my_sec_gpg.asc"
-usb_key_dir = "keys"
 pass_manager_pass = "pass.txt"
 ###########################################################
 # GIT
 ###########################################################
 git_user = "acctux"
 git_dir = "Lit"
-git_repos = [UserGitRepo(target_dir=git_dir, repos=["Docs", "noah", "polka"])]
-dots_dir = "Polka"
-docs = f"{git_dir}/Docs"
-enc_dir = "Desktop/Encrypted"
+dots_dir = "polka"
+docs = "Docs"
+desk = "Desktop"
+games = "Games"
+enc_dir = "Encrypted"
+git_repos = [UserGitRepo(target_dir=git_dir, repos=[docs, "noah", dots_dir])]
 ###########################################################
 # ICONS
 ###########################################################
 dirs_icons = [
-    ("Desktop/Games", "folder-games.svg"),
-    ("Lit", "folder-github.svg"),
-    ("Lit/Noah", "folder-root.svg"),
-    ("Lit/Docs", "folder-bookmark.svg"),
-    ("Polka", "folder-html.svg"),
-    ("Desktop/Encrypted", "folder-locked.svg"),
+    (f"{desk}/{games}", "folder-games"),
+    (f"{desk}/{enc_dir}", "folder-locked"),
+    (git_dir, "folder-github"),
+    (f"{git_dir}/noah", "folder-root"),
+    (f"{git_dir}/{docs}", "folder-bookmark"),
+    (f"{git_dir}/{dots_dir}", "folder-html"),
 ]
 ###########################################################
 # SYMLINK/DOT FILE
 ############################################################
-dirs_to_link = ["config/systemd/user", "config/nvim", "local/bin"]
+dirs_to_link = ["config/systemd/user", "local/bin"]
 ind_dirs = [
-    ((f"{docs}/fonts"), (".local/share/fonts")),
-    ((f"{docs}/task"), (".config/task")),
-    ((f"{docs}/zsh"), (".config/zsh")),
+    ((f"{git_dir}/{docs}/fonts"), (".local/share/fonts")),
+    ((f"{git_dir}/{docs}/task"), (".config/task")),
+    ((f"{git_dir}/{docs}/zsh"), (".config/zsh")),
 ]
 ###########################################################
 # HIDE APPS
 ###########################################################
 hide_apps = [
-    "avahi-discover.desktop",
-    "bssh.desktop",
-    "btop.desktop",
-    "bvnc.desktop",
-    "jshell-java-openjdk.desktop",
-    "jconsole-java-openjdk.desktop",
-    "khal.desktop",
-    "libreoffice-base.desktop",
-    "libreoffice-draw.desktop",
-    "libreoffice-math.desktop",
-    "nvtop.desktop",
-    "octopi-cachecleaner.desktop",
-    "octopi-notifier.desktop",
-    "octopi-repoeditor.desktop",
-    "org.gnome.baobab.desktop",
-    "org.kde.kdeconnect.nonplasma.desktop",
-    "qt5ct.desktop",
-    "qt6ct.desktop",
-    "qv4l2.desktop",
-    "qvidcap.desktop",
-    "scrcpy-console.desktop",
-    "taskwarrior-tui.desktop",
-    "uuctl.desktop",
-    "xgps.desktop",
-    "xgpsspeed.desktop",
+    "avahi-discover",
+    "bssh",
+    "btop",
+    "bvnc",
+    "jshell-java-openjdk",
+    "jconsole-java-openjdk",
+    "khal",
+    "libreoffice-base",
+    "libreoffice-draw",
+    "libreoffice-math",
+    "nvtop",
+    "octopi-cachecleaner",
+    "octopi-notifier",
+    "octopi-repoeditor",
+    "org.gnome.baobab",
+    "org.kde.kdeconnect.nonplasma",
+    "qt5ct",
+    "qt6ct",
+    "qv4l2",
+    "qvidcap",
+    "scrcpy-console",
+    "taskwarrior-tui",
+    "uuctl",
+    "xgps",
+    "xgpsspeed",
 ]
 ###########################################################
 # YAZI
@@ -75,5 +76,5 @@ yazi_plugins = [
     "uhs-robert/sshfs",
     "boydaihungst/gvfs",
     "uhs-robert/recycle-bin",
-    "dedukun/bookmarks",
+    "h-hg/yamb",
 ]
