@@ -457,6 +457,8 @@ def prepend_dot(dir: Path) -> None:
                 new_name = file.parent / ("." + file.name)
                 file.rename(new_name)
                 print(f"Renamed {file} to {new_name}")
+    else:
+        log.warning(f"{dir} not found")
 
 
 ###########################################################
