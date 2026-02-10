@@ -545,14 +545,14 @@ def perform_installation(mountpoint=mountpoint) -> None:
             f"{mountpoint}/etc/skel",
         ]
         run_cmd(usr_cmd, mountpoint, sc.user_name)
+        prepend_dot_to_files(mountpoint / "etc/skel")
         #############-Copy Keys-#############
         cp_files = ((sc.ssh_key, ".ssh"), (sc.gpg_key, ".gnupg"), (sc.pass_manager, ""))
         for file in cp_files:
             file_name, home_folder = file
-            copy_file(
-                Path(f"/root/{sc.usb_key_dir}/{file}"),
-                mountpoint / user_home / home_folder,
-            )
+            dest = mountpoint / user_home / home_folder
+            dest.mkdir(parents=True, exist_ok=True)
+            copy_file(Path(f"/root/{sc.usb_key_dir}/{file}"), dest)
             apply_ownership(
                 mountpoint, mountpoint / user_home / home_folder, sc.user_name
             )
