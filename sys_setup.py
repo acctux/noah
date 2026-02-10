@@ -610,9 +610,9 @@ def _minimal() -> None:
 
 # _minimal()
 #################-Skel-###################
-git_cmd = f"https://github.com/{sc.git_name}/{sc.skel_git}.git"
+# git_cmd = f"https://github.com/{sc.git_name}/{sc.skel_git}.git"
 skel_tmp = HOME / sc.skel_git
-if not skel_tmp.exists():
-    run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
-    shutil.rmtree(skel_tmp / ".git")
-    prepend_dot(skel_tmp)
+# if not skel_tmp.exists():
+#     run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
+#     shutil.rmtree(skel_tmp / ".git")
+prepend_dot(skel_tmp)
