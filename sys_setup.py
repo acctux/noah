@@ -148,10 +148,11 @@ def usb_cp_folder(usb_mount, folder_name):
             log.error(f"Failed to copy {folder_name} from USB: {e}")
 
 
-def unmount_partition(usb_mount: Path):
-    run_cmd(
-        ["umount", "--force", "--recursive", f"{usb_mount}"], check=True, shell=True
-    )
+def unmount_partition(usb_mount: Path, start: bool = False):
+    cmd = ["umount", "-R", f"{usb_mount}"]
+    if start:
+        cmd = ["umount", "-A", f"{usb_mount}"]
+    run_cmd(cmd, check=True, shell=True)
     log.info(f"Unmounted USB from {usb_mount}.")
     if usb_mount.exists():
         try:
@@ -168,6 +169,7 @@ def mnt_cp_keys(
     wireguard_dir: str | None = None,
     usb_mnt=Path("/mnt/usb"),
 ):
+    unmount_partition(usb_mnt, start=True)
     if key_dir and key_files or wireguard_dir:
         if check_missing(key_dir, key_files, wireguard_dir):
             if yes_no_prompt("Mount USB to copy missing files?"):
