@@ -452,7 +452,7 @@ def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700) -> None:
 def prepend_dot_to_files(dir: Path) -> None:
     if dir.is_dir():
         for file in dir.iterdir():
-            if file.is_file() and not file.name.startswith("."):
+            if not file.name.startswith("."):
                 new_name = file.parent / ("." + file.name)
                 file.rename(new_name)
                 print(f"Renamed {file} to {new_name}")
