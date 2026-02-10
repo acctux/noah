@@ -618,4 +618,6 @@ def _minimal() -> None:
     perform_installation(mountpoint)
 
 
-_minimal()
+# _minimal()
+skel_tmp = HOME / sc.skel_git
+copy_dir(skel_tmp, mountpoint / "etc" / "skel")
