@@ -182,7 +182,8 @@ def mnt_cp_keys(
                     usb_cp_keys(usb_mnt, key_dir, key_files)
                 if wireguard_dir:
                     usb_cp_folder(usb_mnt, wireguard_dir)
-                umount_usb(usb_mnt)
+                if yes_no("Unmount USB?"):
+                    umount_usb(usb_mnt)
     else:
         log.info("All required files present.")
 
