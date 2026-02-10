@@ -507,9 +507,10 @@ def perform_installation(mountpoint=mountpoint) -> None:
         #################-Skel-###################
         git_cmd = f"https://github.com/{sc.git_name}/{sc.skel_git}.git"
         skel_tmp = HOME / sc.skel_git
-        run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
-        shutil.rmtree(skel_tmp / ".git")
-        prepend_dot_to_files(skel_tmp)
+        if not skel_tmp.exists():
+            run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
+            shutil.rmtree(skel_tmp / ".git")
+            prepend_dot_to_files(skel_tmp)
         copy_dir(skel_tmp, mountpoint / "etc" / "skel")
         #############-User and Sudo-###############
         installation.create_users(User(sc.user_name, Password(pw), True, sc.groups))
