@@ -33,7 +33,7 @@ HOME = Path.home()
 mountpoint = Path("/mnt")
 
 
-def yes_no_prompt(prompt: str) -> bool:
+def yes_no(prompt: str) -> bool:
     while True:
         response = input(f"{prompt} (y/n): ").strip().lower()
         if response in ("y", "yes"):
@@ -52,7 +52,7 @@ def check_missing(key_dir, key_files, wireguard_dir) -> list[str]:
     if wireguard_dir and not (HOME / wireguard_dir).is_dir():
         missing_files.append(HOME / wireguard_dir)
     if missing_files:
-        log.warning(f"Needed: {', '.join(map(str, missing_files))}")
+        log.warning(f"Needed: {','.join(str(missing_files))}")
     return missing_files
 
 
@@ -68,7 +68,7 @@ def string_to_float_size(size_str):
     return float(size_str[:-1]) * units.get(size_str[-1], 1.0)
 
 
-def mnt_keys_partition(usb_mnt: Path, min_size: str, usb_fs_type: str):
+def handle_mnt(usb_mnt: Path, min_size: str, usb_fs_type: str):
     output = subprocess.check_output(
         ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
     )
@@ -148,7 +148,7 @@ def usb_cp_folder(usb_mount, folder_name):
             log.error(f"Failed to copy {folder_name} from USB: {e}")
 
 
-def unmount_partition(usb_mount: Path, start: bool = False):
+def umount_usb(usb_mount: Path, start: bool = False):
     cmd = ["umount", "-R", str(usb_mount)]
     if start:
         cmd = ["umount", "-R", str(usb_mount)]
@@ -169,16 +169,18 @@ def mnt_cp_keys(
     wireguard_dir: str | None = None,
     usb_mnt=Path("/mnt/usb"),
 ):
-    unmount_partition(usb_mnt, start=True)
+    if usb_mnt.is_mount():
+        if yes_no("Unmount USB?"):
+            umount_usb(usb_mnt, start=True)
     if key_dir and key_files or wireguard_dir:
         if check_missing(key_dir, key_files, wireguard_dir):
-            if yes_no_prompt("Mount USB to copy missing files?"):
-                mnt_keys_partition(usb_mnt, min_size, usb_fs_type)
+            if yes_no("Mount USB to copy missing files?"):
+                handle_mnt(usb_mnt, min_size, usb_fs_type)
                 if key_dir and key_files:
                     usb_cp_keys(usb_mnt, key_dir, key_files)
                 if wireguard_dir:
                     usb_cp_folder(usb_mnt, wireguard_dir)
-                unmount_partition(usb_mnt)
+                umount_usb(usb_mnt)
     else:
         log.info("All required files present.")
 
@@ -576,28 +578,28 @@ def _minimal() -> None:
         sc.usb_cp_files,
         sc.wireguard_dir,
     )
-    with Tui():
-        disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
-        arch_config_handler.config.disk_config = disk_config
-    config = ConfigurationOutput(arch_config_handler.config)
-    config.write_debug()
-    config.save()
-    if not arch_config_handler.args.silent:
-        aborted = False
-        with Tui():
-            if not config.confirm_config():
-                log.warning("Installation aborted")
-                aborted = True
-        if aborted:
-            exit(0)
-    if arch_config_handler.config.disk_config:
-        fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-        fs_handler.perform_filesystem_operations()
-    ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
-    run_cmd(ref_cmd)
-    config_pac_conf(None, 10, sc.noextract_lines)
-    chaotic_repo()
-    perform_installation(mountpoint)
+    # with Tui():
+    #     disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
+    #     arch_config_handler.config.disk_config = disk_config
+    # config = ConfigurationOutput(arch_config_handler.config)
+    # config.write_debug()
+    # config.save()
+    # if not arch_config_handler.args.silent:
+    #     aborted = False
+    #     with Tui():
+    #         if not config.confirm_config():
+    #             log.warning("Installation aborted")
+    #             aborted = True
+    #     if aborted:
+    #         exit(0)
+    # if arch_config_handler.config.disk_config:
+    #     fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+    #     fs_handler.perform_filesystem_operations()
+    # ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
+    # run_cmd(ref_cmd)
+    # config_pac_conf(None, 10, sc.noextract_lines)
+    # chaotic_repo()
+    # perform_installation(mountpoint)
 
 
 _minimal()
