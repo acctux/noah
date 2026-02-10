@@ -55,7 +55,7 @@ log = get_logger("Noah")
 class UserSrv(BaseModel):
     target: str
     services: list[str]
-    source_dir: Path = Path("/usr/lib/systemd/user")
+    source: Path = Path("/usr/lib/systemd/user")
 
 
 class UserGitRepo(BaseModel):
@@ -93,9 +93,7 @@ class NoahConfig:
         return self._objects(
             "services.user",
             lambda s: UserSrv(
-                target=s["target"],
-                services=s["services"],
-                source_dir=Path(s["source_dir"]),
+                target=s["target"], services=s["services"], source=Path(s["source_dir"])
             ),
         )
 
@@ -137,12 +135,19 @@ def ask_pass(prompt="Password: ", confirm=True, min_len=6, retries=3) -> str:
     raise ValueError("Too many failed attempts.")
 
 
-def run_cmd(cmd: list[str], check=False, input_text: str | None = None):
+def run_cmd(
+    cmd: list[str], check: bool = False, input_text: str = "", shell: bool = False
+):
     log = get_logger("Run CMD")
     try:
         log.info(f"Running: {' '.join(cmd)}")
         result = subprocess.run(
-            cmd, text=True, check=check, capture_output=True, input=input_text
+            cmd,
+            text=True,
+            check=check,
+            capture_output=True,
+            input=input_text,
+            shell=shell,
         )
         if result.stdout:
             log.info(f"stdout: {result.stdout.strip()}")

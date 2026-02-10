@@ -33,19 +33,6 @@ HOME = Path.home()
 mountpoint = Path("/mnt")
 
 
-#########################
-# USB CP
-##########################
-def usb_run_cmd(cmd, check=False):
-    try:
-        log.info(f"Running: {cmd}")
-        result = subprocess.run(cmd, text=True, shell=True, check=check)
-        return result
-    except subprocess.CalledProcessError as e:
-        log.error(f"Failed: {cmd}\nExit code: {e.returncode}")
-        return e
-
-
 def yes_no_prompt(prompt: str) -> bool:
     while True:
         response = input(f"{prompt} (y/n): ").strip().lower()
@@ -58,14 +45,14 @@ def yes_no_prompt(prompt: str) -> bool:
 
 def check_missing(key_dir, key_files, wireguard_dir) -> list[str]:
     missing_files = []
-    for key_file in key_files:
-        file_path = HOME / key_dir / key_file
-        if not file_path.exists():
-            missing_files.append(file_path)
-    wireguard = HOME / wireguard_dir
-    if wireguard_dir and not wireguard.is_dir():
-        missing_files.append(file_path)
-    log.warning(f"Needed: {', '.join(map(str, missing_files))}")
+    for key in key_files:
+        key_path = HOME / f"{key_dir}/{key}"
+        if not key_path.exists():
+            missing_files.append(key_path)
+    if wireguard_dir and not (HOME / wireguard_dir).is_dir():
+        missing_files.append(HOME / wireguard_dir)
+    if missing_files:
+        log.warning(f"Needed: {', '.join(map(str, missing_files))}")
     return missing_files
 
 
@@ -124,7 +111,7 @@ def mnt_keys_partition(usb_mnt: Path, min_size: str, usb_fs_type: str):
         break
     usb_mnt.mkdir(parents=True, exist_ok=True)
     try:
-        usb_run_cmd([f"mount {selected_path} {usb_mnt}"], check=True)
+        run_cmd([f"mount {selected_path} {usb_mnt}"], check=True, shell=True)
         return selected_path
     except subprocess.CalledProcessError as e:
         log.error(f"Failed to mount {selected_path}: {e}")
@@ -150,7 +137,7 @@ def usb_cp_keys(usb_mount, key_dir, key_files):
 def usb_cp_folder(usb_mount, folder_name):
     log.info("Preparing to copy folder from USB...")
     src_dir = Path(usb_mount) / folder_name
-    dest_dir = Path.home() / folder_name
+    dest_dir = HOME / folder_name
     if not dest_dir.exists():
         try:
             shutil.copytree(src_dir, dest_dir)
@@ -162,11 +149,13 @@ def usb_cp_folder(usb_mount, folder_name):
 
 
 def unmount_partition(usb_mount: Path):
-    usb_run_cmd(["umount", f"{usb_mount}"], check=True)
+    run_cmd(
+        ["umount", "--force", "--recursive", f"{usb_mount}"], check=True, shell=True
+    )
     log.info(f"Unmounted USB from {usb_mount}.")
     if usb_mount.exists():
         try:
-            Path(usb_mount).unlink()
+            shutil.rmtree(usb_mount)
         except OSError:
             pass
 
@@ -221,7 +210,7 @@ def run_chroot(
 #########################
 # USR_SVC
 #########################
-def enable_user_services(
+def enable_user_serv(
     units: UserSrv | list[UserSrv],
     mnt_point: Path,
     user_name: str,
@@ -234,7 +223,7 @@ def enable_user_services(
         for service in unit.services:
             target_dir = base_dir / f"{unit.target}.target.wants"
             user_commands.append(f"mkdir -p {target_dir}")
-            src = unit.source_dir / service
+            src = unit.source / service
             dst = target_dir / service
             user_commands.append(f"ln -sf {src} {dst}")
     run_chroot([f"chown -R {user_name}:{user_name} /home/{user_name}/"], mnt_point)
@@ -245,13 +234,13 @@ def user_service(
     script_dir: str,
     mnt_point: Path,
     user_name: str,
-    user_setup_script: str = "user_setup.py",
+    user_script: str = "user_setup.py",
 ) -> None:
-    serv_dir = f"home/{user_name}/.config/systemd/user"
-    (mnt_point / serv_dir).mkdir(parents=True, exist_ok=True)
-    run_script = f"/home/{user_name}/{script_dir}/{user_setup_script}"
-    serv_name = f"{user_setup_script.rsplit('.', 1)[0]}.service"
-    (mnt_point / serv_dir / serv_name).write_text(f"""[Unit]
+    dir = f"home/{user_name}/.config/systemd/user"
+    (mnt_point / dir).mkdir(parents=True, exist_ok=True)
+    run_script = f"/home/{user_name}/{script_dir}/{user_script}"
+    name = f"{user_script.rsplit('.', 1)[0]}.service"
+    (mnt_point / dir / name).write_text(f"""[Unit]
 Description=Open Alacritty running {run_script} on login
 After=graphical-session.target
 
@@ -263,11 +252,9 @@ Restart=no
 [Install]
 WantedBy=graphical-session.target
 """)
-    enable_user_services(
+    enable_user_serv(
         units=UserSrv(
-            target="graphical-session",
-            services=[serv_name],
-            source_dir=Path(f"/{serv_dir}"),
+            target="graphical-session", services=[name], source=Path(f"/{dir}")
         ),
         mnt_point=mnt_point,
         user_name=user_name,
