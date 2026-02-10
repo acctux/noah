@@ -44,7 +44,7 @@ def yes_no(prompt: str) -> bool:
 
 
 def check_missing(key_dir, key_files, wireguard_dir) -> list[str]:
-    log = get_logger("Needed: ")
+    log = get_logger("Needed")
     missing_files = []
     for key in key_files:
         key_path = HOME / f"{key_dir}/{key}"
