@@ -62,13 +62,23 @@ mkinit_hooks = [
 user_services = [
     UserSrv(
         target="default",
-        services=["pipewire-pulse.service"],
-        source_dir=Path("/usr/lib/systemd/user"),
+        services=["pipewire-pulse.service", "psd.service"],
+        source=Path("/usr/lib/systemd/user"),
     ),
     UserSrv(
         target="sockets",
-        services=["pipewire-pulse.socket"],
-        source_dir=Path("/usr/lib/systemd/user"),
+        services=[
+            "pipewire-pulse.socket",
+            "gnome-keyring-daemon.socket",
+            "gcr-ssh-agent.socket",
+            "mpd.socket",
+        ],
+        source=Path("/usr/lib/systemd/user"),
+    ),
+    UserSrv(
+        target="graphical-session",
+        services=["hypridle.service", "swaync.service", "waybar.service"],
+        source=Path("/usr/lib/systemd/user"),
     ),
 ]
 ###########################################################

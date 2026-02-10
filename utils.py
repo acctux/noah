@@ -21,7 +21,6 @@ class ColorFormatter(logging.Formatter):
     UNDERLINE = "\033[4m"
 
     def format(self, record):
-        # Hide levelname for INFO
         message = f"{record.name}: {record.getMessage()}"
         color = self.COLORS.get(record.levelno, "")
         if color:

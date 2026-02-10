@@ -80,7 +80,7 @@ def link_path(src: Path, dst: Path) -> bool:
     return True
 
 
-def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
+def dot_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
     """
     Map DOTS_DIR/config/nvim/init.lua → ~/.config/nvim/init.lua
     "." + parts[0]=config -> .config, *parts[1:] tuple
@@ -103,11 +103,11 @@ def file_candidates(
                 continue
             if any(rel.is_relative_to(Path(d)) for d in dirs_to_link):
                 continue
-            yield src, dotted_destination(src, dotfiles_dir, target_dir)
+            yield src, dot_destination(src, dotfiles_dir, target_dir)
     for d in dirs_to_link:
         src = dotfiles_dir / d
         if src.is_dir():
-            yield src, dotted_destination(src, dotfiles_dir, target_dir)
+            yield src, dot_destination(src, dotfiles_dir, target_dir)
     for src_dir, dst_dir in individual_dirs:
         src_path = HOME / src_dir
         if not src_path.is_dir():
@@ -136,7 +136,7 @@ def deploy_dotfiles(
 ############################
 # Encryption/Keys
 ############################
-def import_ssh_key(HOME: Path, key_file: str):
+def import_ssh(HOME: Path, key_file: str):
     key_path = HOME / ".ssh" / key_file
     socket = f"/run/user/{os.getuid()}/gcr/ssh"
     os.environ["SSH_AUTH_SOCK"] = socket
@@ -149,14 +149,14 @@ def import_ssh_key(HOME: Path, key_file: str):
         log.error(f"Failed to add SSH key {key_path}.")
 
 
-def import_gpg_key(gpg_path: Path):
+def import_gpg(gpg_path: Path):
     key_data = (gpg_path).read_text()
     gpg = gnupg.GPG()
     import_result = gpg.import_keys(key_data, passphrase=ask_pass("GPG Password: ", 6))
     print(import_result.results)
 
 
-def initialize_gocrypt(enc_dir: Path):
+def init_gocrypt(enc_dir: Path):
     enc_dir.mkdir(parents=True, exist_ok=True)
     log.info(f"gocryptfs directory {enc_dir} created.")
     while True:
@@ -282,29 +282,6 @@ def clone_repos(git_user: str, git_repo: UserGitRepo):
 ############################
 # Icons/Folders
 ############################
-def install_icon_theme():
-    tmp = Path("/tmp/whitesur")
-    if tmp.exists():
-        shutil.rmtree(tmp)
-    icon_git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
-    run_cmd(["git", "clone", icon_git, str(tmp)], True)
-    run_cmd(["bash", f"{tmp}/install.sh"], True)
-
-
-def recolor_icons(
-    mountpoint: Path,
-    old: str = "#ffffff",
-    new: str = "#F4F5F6",
-    icon_dir: str = "/usr/share/icons",
-):
-    for svg in [
-        p for p in (mountpoint / icon_dir).rglob("*.svg") if "scalable" not in p.parts
-    ]:
-        text = svg.read_text()
-        if old in text:
-            svg.write_text(text.replace(old, new))
-
-
 def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME: Path = HOME):
     for folder, icon in custom_folder_icons:
         dir_path = HOME / folder
@@ -321,7 +298,7 @@ def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME: Path = HO
             run_cmd(cmd, True)
 
 
-def hide_app_icons(applications: list[str]) -> None:
+def hide_apps(applications: list[str]) -> None:
     system_dir = Path("/usr/share/applications")
     user_dir = HOME / ".local" / "share" / "applications"
     user_dir.mkdir(parents=True, exist_ok=True)
@@ -396,7 +373,6 @@ def main(HOME=Path.home()):
     script_dir = Path(__file__).resolve().parent.name
     cache_file = HOME / ".cache" / "noah_success.txt"
     enc_path = HOME / "Desktop" / uc.enc_dir
-    icon_check = HOME / ".local/share/icons/WhiteSur-dark"
     if not cache_file.exists():
         run_interactive(["chsh", "-s", "/usr/bin/zsh"])
         run_sudo_commands()
@@ -406,18 +382,16 @@ def main(HOME=Path.home()):
             iwctl_scan()
         enable_mariadb(uc.user_name)
         if (HOME / ".ssh" / uc.ssh_key).exists():
-            import_ssh_key(HOME, uc.ssh_key)
+            import_ssh(HOME, uc.ssh_key)
         if (HOME / ".gnupg" / uc.gpg_key).exists():
-            import_gpg_key(HOME / ".gnupg" / uc.gpg_key)
+            import_gpg(HOME / ".gnupg" / uc.gpg_key)
         if not enc_path.exists() or not any(enc_path.iterdir()):
-            initialize_gocrypt(enc_path)
-        if not icon_check.exists() or not any(icon_check.iterdir()):
-            install_icon_theme()
+            init_gocrypt(enc_path)
         set_folder_icons(uc.dirs_icons)
         ensure_github_known_hosts(HOME)
         for target in uc.git_repos:
             clone_repos(uc.git_user, target)
-        hide_app_icons(uc.hide_apps)
+        hide_apps(uc.hide_apps)
         handle_yazi_plugins(uc.yazi_plugins)
         if any((HOME / uc.dots_dir).iterdir()):
             deploy_dotfiles((HOME / uc.dots_dir), uc.dirs_to_link, uc.ind_dirs)
