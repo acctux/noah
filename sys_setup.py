@@ -284,8 +284,7 @@ def user_service(
     serv_dir = f"home/{user_name}/.config/systemd/user"
     (mnt_point / serv_dir).mkdir(parents=True, exist_ok=True)
     run_script = f"/home/{user_name}/{script_dir}/{user_setup_script}"
-    svc_name = f"{user_setup_script.partition('.')[0]}.service"
-    (mnt_point / serv_dir / svc_name).write_text(f"""[Unit]
+    (mnt_point / serv_dir / user_setup_script).write_text(f"""[Unit]
 Description=Open Alacritty running {run_script} on login
 After=graphical-session.target
 
@@ -299,8 +298,8 @@ WantedBy=graphical-session.target
 """)
     enable_user_services(
         units=UserSrv(
-            target="graphical-session.target.wants",
-            services=[svc_name],
+            target="graphical-session",
+            services=[user_setup_script],
             source_dir=Path(f"/{serv_dir}"),
         ),
         mnt_point=mnt_point,
