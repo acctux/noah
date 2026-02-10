@@ -528,6 +528,12 @@ def perform_installation(mountpoint=mountpoint) -> None:
         copy_dir(Path("/root") / sc.wireguard_dir, mountpoint / "etc" / "wireguard")
         installation.enable_service(sc.sys_services)
         run_chroot([f"systemctl disable {' '.join(sc.disable_svcs)}"], mountpoint)
+        #################-Skel-###################
+        skel = mountpoint / "etc" / "skel"
+        usr_cmd = ["git", "clone", "https://github.com/acctux/polka.git", str(skel)]
+        run_cmd(usr_cmd, mountpoint)
+        shutil.rmtree(skel / ".git")
+        prepend_dot_to_files(skel)
         #############-User and Sudo-###############
         installation.create_users(User(sc.user_name, Password(pw), True, sc.groups))
         configure_sudo(sc.user_name, mountpoint, pwd_require=False)
@@ -537,26 +543,15 @@ def perform_installation(mountpoint=mountpoint) -> None:
             f"mkdir -p /{user_home}/.cache/mpd",
         ]
         run_chroot(usr_cmd, mountpoint, sc.user_name)
-        #############-User and Sudo-###############
-        usr_cmd = [
-            "git",
-            "clone",
-            "https://github.com/acctux/polka.git",
-            f"{mountpoint}/etc/skel",
-        ]
-        run_cmd(usr_cmd, mountpoint, sc.user_name)
-        prepend_dot_to_files(mountpoint / "etc/skel")
         #############-Copy Keys-#############
-        cp_files = ((sc.ssh_key, ".ssh"), (sc.gpg_key, ".gnupg"), (sc.pass_manager, ""))
+        cp_files = ((".ssh", sc.ssh_key), (".gnupg", sc.gpg_key), ("", sc.pass_manager))
         for file in cp_files:
-            file_name, home_folder = file
-            dest = mountpoint / user_home / home_folder
+            folder, name = file
+            dest = mountpoint / user_home / folder
             dest.mkdir(parents=True, exist_ok=True)
-            copy_file(Path(f"/root/{sc.usb_key_dir}/{file}"), dest)
-            apply_ownership(
-                mountpoint, mountpoint / user_home / home_folder, sc.user_name
-            )
-        apply_permissions(mountpoint / user_home / sc.usb_key_dir)
+            copy_file(Path(f"/root/{sc.usb_key_dir}/{name}"), dest)
+            apply_ownership(mountpoint, mountpoint / user_home / folder, sc.user_name)
+            apply_permissions(mountpoint / user_home / folder)
         #############-Copy Script-#############
         copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
         apply_ownership(
