@@ -196,11 +196,8 @@ def mnt_cp_keys(
 # GNUPG
 #########################
 def run_chroot(
-    commands: list[str],
-    mnt_point: Path,
-    user_name: str | None = None,
-    peek: bool = True,
-) -> None:
+    commands: list[str], mnt_point: Path, user_name: str | None = None, peek=True
+):
     script_path = "var/tmp/user-commands.sh"
     chroot_path = mnt_point / script_path
     chroot_path.parent.mkdir(parents=True, exist_ok=True)
@@ -494,19 +491,13 @@ def perform_installation(mountpoint=mountpoint) -> None:
             ):
                 installation.generate_key_files()
         installation.setup_swap()
-        installation.minimal_installation(
-            [],
-            True,
-            sc.hostname,
-            LocaleConfiguration(sc.kb_layout, sc.sys_lang, sc.sys_enc),
-        )
+        locale_conf = LocaleConfiguration(sc.kb_layout, sc.sys_lang, sc.sys_enc)
+        installation.minimal_installation([], True, sc.hostname, locale_conf)
         ###############-Install reflector-###############
         installation.add_additional_packages("reflector")
-        ref_cmd = (
-            f"reflector {' '.join(sc.refl_options)} --save /etc/pacman.d/mirrorlist"
-        )
-        log.info("Running reflector to update mirror list.")
-        run_chroot([ref_cmd], mountpoint)
+        log.info("Updating mirror list.")
+        options = sc.refl_options + ["--save /etc/pacman.d/mirrorlist"]
+        run_chroot([f"reflector {' '.join(options)}"], mountpoint)
         ####################-System D-####################
         installation.add_bootloader(Bootloader.Systemd)
         modify_systemd(mountpoint)
@@ -539,8 +530,14 @@ def perform_installation(mountpoint=mountpoint) -> None:
             f"mkdir -p /{user_home}/.cache/mpd",
         ]
         run_chroot(usr_cmd, mountpoint, sc.user_name)
-        #############-Copy Keys-#############
-        cp_files = ((".ssh", sc.ssh_key), (".gnupg", sc.gpg_key), ("", sc.pass_manager))
+        #############-Copy Keys and Script Dir-#############
+        copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
+        installation.chown(sc.user_name, str(mountpoint / user_home / script_dir.name))
+        cp_files = (
+            (".ssh", sc.ssh_key),
+            (".gnupg", sc.gpg_key),
+            (f"{script_dir.name}", sc.pass_manager),
+        )
         for file in cp_files:
             folder, name = file
             dest = mountpoint / user_home / folder
@@ -548,9 +545,6 @@ def perform_installation(mountpoint=mountpoint) -> None:
             copy_file(Path(f"/root/{sc.usb_key_dir}/{name}"), dest)
             installation.chown(sc.user_name, str(mountpoint / user_home / folder))
             apply_permissions(mountpoint / user_home / folder)
-        #############-Copy Script-#############
-        copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
-        installation.chown(sc.user_name, str(mountpoint / user_home / script_dir.name))
         #############-Own Everything and User Services-###############
         # Untested
         # usr_cmd = [
@@ -560,6 +554,7 @@ def perform_installation(mountpoint=mountpoint) -> None:
         # ]
         # run_chroot(usr_cmd, mountpoint, user_name, peek=False)
         user_service(script_dir.name, mountpoint, sc.user_name)
+        enable_user_serv(sc.user_services, mountpoint, sc.user_name)
         install_icon_theme(mountpoint)
         configure_sudo(sc.user_name, mountpoint, pwd_require=True)
         #############-Own Everything and User Services-###############
