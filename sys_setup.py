@@ -31,6 +31,7 @@ script_dir = Path(__file__).resolve().parent
 user_home = f"home/{sc.user_name}"
 HOME = Path.home()
 mountpoint = Path("/mnt")
+log = get_logger("Noah")
 
 
 def yes_no(prompt: str) -> bool:
