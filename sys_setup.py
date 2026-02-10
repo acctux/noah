@@ -445,7 +445,7 @@ def copy_dir(dir: Path, dest: Path) -> None:
     if not src.is_dir():
         log.error(f"{src} does not exist")
         return
-    shutil.copytree(src, dest, dirs_exist_ok=True)
+    shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
 
 
 def apply_ownership(mountpoint: Path, path: Path, user_name: str) -> None:
