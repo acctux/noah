@@ -52,7 +52,7 @@ def check_missing(key_dir, key_files, wireguard_dir) -> list[str]:
     if wireguard_dir and not (HOME / wireguard_dir).is_dir():
         missing_files.append(HOME / wireguard_dir)
     if missing_files:
-        log.warning(f"Needed: {','.join(str(missing_files))}")
+        log.warning(f"Needed: {','.join(map(str, missing_files))}")
     return missing_files
 
 
