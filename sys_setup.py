@@ -526,11 +526,13 @@ def perform_installation(mountpoint=mountpoint) -> None:
         installation.enable_service(sc.sys_services)
         run_chroot([f"systemctl disable {' '.join(sc.disable_svcs)}"], mountpoint)
         #################-Skel-###################
-        skel = mountpoint / "etc" / "skel"
-        run_cmd(["git", "clone", "https://github.com/acctux/polka.git"], True)
+        run_cmd(
+            ["git", "clone", "https://github.com/acctux/polka.git", str(HOME)],
+            True,
+        )
         shutil.rmtree(HOME / "polka" / ".git")
         prepend_dot_to_files(HOME / "polka")
-        copy_dir(HOME / "polka", skel)
+        copy_dir(HOME / "polka", mountpoint / "etc" / "skel")
         #############-User and Sudo-###############
         installation.create_users(User(sc.user_name, Password(pw), True, sc.groups))
         configure_sudo(sc.user_name, mountpoint, pwd_require=False)
