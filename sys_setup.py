@@ -172,7 +172,7 @@ def mnt_cp_keys(
     usb_mnt=Path("/mnt/usb"),
 ):
     if usb_mnt.is_mount():
-        if yes_no("Unmount USB?"):
+        if yes_no("Found /mnt/usb, try unmount?"):
             umount_usb(usb_mnt, start=True)
     if key_dir and key_files or wireguard_dir:
         if check_missing(key_dir, key_files, wireguard_dir):
