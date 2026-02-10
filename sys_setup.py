@@ -284,7 +284,8 @@ def user_service(
     serv_dir = f"home/{user_name}/.config/systemd/user"
     (mnt_point / serv_dir).mkdir(parents=True, exist_ok=True)
     run_script = f"/home/{user_name}/{script_dir}/{user_setup_script}"
-    (mnt_point / serv_dir / user_setup_script).write_text(f"""[Unit]
+    serv_name = f"{user_setup_script.rsplit('.', 1)[0]}.service"
+    (mnt_point / serv_dir / serv_name).write_text(f"""[Unit]
 Description=Open Alacritty running {run_script} on login
 After=graphical-session.target
 
@@ -299,7 +300,7 @@ WantedBy=graphical-session.target
     enable_user_services(
         units=UserSrv(
             target="graphical-session",
-            services=[user_setup_script],
+            services=[serv_name],
             source_dir=Path(f"/{serv_dir}"),
         ),
         mnt_point=mnt_point,
@@ -322,17 +323,16 @@ def chaotic_repo(mnt_point: Path | None = None):
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
-    cmds_update = ["pacman", "-Sy"]
     if mnt_point:
         for cmd in cmds_setup:
             run_chroot([" ".join(cmd)], mnt_point)
         pacman_conf = mnt_point / "etc/pacman.conf"
-        run_chroot([" ".join(cmds_update)], mnt_point)
+        run_chroot(["pacman -Sy"], mnt_point)
     else:
         for cmd in cmds_setup:
             run_cmd(cmd, check=True)
         pacman_conf = Path("/etc/pacman.conf")
-        run_cmd(cmds_update, check=True)
+        run_cmd(["pacman", "-Sy"], check=True)
     section = "[chaotic-aur]"
     content = pacman_conf.read_text()
     if section not in content:
