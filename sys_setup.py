@@ -449,9 +449,10 @@ def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700) -> None:
     path.chmod(dir_mode)
 
 
-def prepend_dot_to_files(dir: Path) -> None:
+def prepend_dot(dir: Path) -> None:
     if dir.is_dir():
         for file in dir.iterdir():
+            log.info(file)
             if not file.name.startswith("."):
                 new_name = file.parent / ("." + file.name)
                 file.rename(new_name)
@@ -517,7 +518,7 @@ def perform_installation(mountpoint=mountpoint) -> None:
         if not skel_tmp.exists():
             run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
             shutil.rmtree(skel_tmp / ".git")
-            prepend_dot_to_files(skel_tmp)
+            prepend_dot(skel_tmp)
         copy_dir(skel_tmp, mountpoint / "etc" / "skel")
         #############-User and Sudo-###############
         installation.create_users(User(sc.user_name, Password(pw), True, sc.groups))
@@ -612,4 +613,4 @@ skel_tmp = HOME / sc.skel_git
 if not skel_tmp.exists():
     run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
     shutil.rmtree(skel_tmp / ".git")
-    prepend_dot_to_files(skel_tmp)
+    prepend_dot(skel_tmp)
