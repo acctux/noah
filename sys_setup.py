@@ -99,10 +99,10 @@ def handle_mnt(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4"):
 
     recurse(data["blockdevices"])
     while True:
-        get_logger("Noah").info(f"{'No.':<5} {'Name':<8} {'Size':<8} {'FS Type':>8}")
-        get_logger("Noah").info("-" * 45)
+        get_logger("").info(f"{'No.':<5} {'Name':<8} {'Size':<8} {'FS Type':>8}")
+        get_logger("").info("-" * 45)
         for i, (name, size, fstype) in enumerate(candidates, 1):
-            print(f"{i:<5} {name:<8} {size:<8} {fstype:>8}")
+            get_logger("").info(f"{i:<5} {name:<8} {size:<8} {fstype:>8}")
         choice = input(f"Enter 1-{len(candidates)}: ").strip()
         if not choice.isdigit():
             log.error("Not a number.")
