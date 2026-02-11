@@ -485,7 +485,24 @@ def perform_installation(mountpoint) -> None:
         #############-Pkg Management-###############
         config_pac_conf(mountpoint, 10, sc.noextract_lines)
         chaotic_repo(mountpoint)
-        installation.add_additional_packages(sc.amd_pkgs + sc.nvidia_pkgs)
+        installation.add_additional_packages(
+            sc.amd_pkgs
+            + sc.nvidia_pkgs
+            + sc.pipewire_pkgs
+            + sc.hardware_pkgs
+            + sc.basic_pkgs
+            + sc.android_pkgs
+            + sc.network_pkgs
+            + sc.lang_pkgs
+            + sc.media_pkgs
+            + sc.hyprland_pkgs
+            + sc.office_pkgs
+            + sc.coding_pkgs
+            + sc.mariadb_pkgs
+            + sc.pydep_pkgs
+            + sc.gaming_pkgs
+            + sc.chaotic_pkgs
+        )
         #############-Etc Management-###############
         modify_mkinit(mountpoint, sc.mkinit_hooks)
         sys_dots(mountpoint, script_d, sc.script_pwd_to_cp)

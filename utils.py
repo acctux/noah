@@ -108,10 +108,10 @@ def ask_pass(prompt="Password: ", confirm=True, min_len=6, retries=3) -> str:
     for _ in range(retries):
         pwd = getpass(prompt)
         if len(pwd) < min_len:
-            print(f"Password must be at least {min_len} characters.")
+            log.warning(f"Password must be at least {min_len} characters.")
             continue
         if confirm and pwd != getpass("Confirm password: "):
-            print("Passwords do not match.")
+            log.warning("Passwords do not match.")
             continue
         return pwd
     raise ValueError("Too many failed attempts.")
