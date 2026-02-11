@@ -593,5 +593,6 @@ def _minimal() -> None:
     perform_installation(mountpoint)
 
 
-mnt_cp_keys(sc.usb_key_dir, sc.usb_cp_files, sc.wireguard_dir)
-_minimal()
+# mnt_cp_keys(sc.usb_key_dir, sc.usb_cp_files, sc.wireguard_dir)
+# _minimal()
+hide_apps(mountpoint, sc.user_name, sc.hide_apps)
