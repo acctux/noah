@@ -599,7 +599,9 @@ def _minimal() -> None:
 # _minimal()
 # hide_apps(mountpoint, sc.user_name, sc.hide_apps)
 run_chroot(
-    [f"sudo chown -R {sc.user_name} /home/{sc.user_name}/.local/share/applications"],
+    [
+        f"sudo chown -R {sc.user_name}:{sc.user_name} /home/{sc.user_name}/.local/share/applications"
+    ],
     mountpoint,
     sc.user_name,
 )
