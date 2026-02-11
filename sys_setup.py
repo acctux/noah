@@ -493,12 +493,11 @@ def perform_installation(mountpoint=mountpoint) -> None:
         #############-Copy Keys and Script Dir-#############
         copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
         installation.chown(sc.user_name, str(mountpoint / user_home / script_dir.name))
-        cp_files = (
+        for file in (
             (".ssh", sc.ssh_key),
             (".gnupg", sc.gpg_key),
             (f"{script_dir.name}", sc.pass_manager),
-        )
-        for file in cp_files:
+        ):
             folder, name = file
             dest = mountpoint / user_home / folder
             dest.mkdir(parents=True, exist_ok=True)
