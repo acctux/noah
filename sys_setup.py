@@ -116,9 +116,8 @@ def get_device(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4") -> 
 
 def usb_cp_keys(usb_mount: Path, key_dir, key_files):
     (HOME / key_dir).mkdir(parents=True, exist_ok=True)
-    for key_file in key_files:
-        dest = HOME / key_dir / key_file
-        copy_file(usb_mount / key_dir / key_file, dest)
+    for key in key_files:
+        copy_file(usb_mount / key_dir / key, HOME / key_dir / key)
 
 
 def umount_usb(usb_mount: Path):
@@ -149,11 +148,8 @@ def mnt_cp_keys(
             if yes_no("Mount USB to copy missing files?"):
                 selected_path = get_device(usb_mnt)
                 usb_mnt.mkdir(parents=True, exist_ok=True)
-                run_cmd(
-                    [f"mount -t ext4 -o ro {selected_path} {usb_mnt}"],
-                    check=True,
-                    shell=True,
-                )
+                cmd = [f"mount -t ext4 -o ro {selected_path} {usb_mnt}"]
+                run_cmd(cmd, check=True, shell=True)
                 if key_dir and key_files:
                     usb_cp_keys(usb_mnt, key_dir, key_files)
                 if wireguard_dir:
@@ -381,10 +377,7 @@ def modify_mkinit(mnt_point: Path, hooks: list[str]):
 
 
 def install_icon_theme(
-    mnt_point: Path,
-    old: str = "#ffffff",
-    new: str = "#F4F5F6",
-    icon_dir: str = "/usr/share/icons",
+    mnt_point: Path, old="#ffffff", new="#F4F5F6", icon_dir="/usr/share/icons"
 ):
     tmp = "/tmp/icons"
     run_chroot(
@@ -421,15 +414,13 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
 
 def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
     skel_tmp = Path.home() / dots_git
-    run_cmd(
-        [
-            "git",
-            "clone",
-            f"https://github.com/{git_name}/{dots_git}.git",
-            f"{skel_tmp}",
-        ],
-        True,
-    )
+    cmd = [
+        "git",
+        "clone",
+        f"https://github.com/{git_name}/{dots_git}.git",
+        f"{skel_tmp}",
+    ]
+    run_cmd(cmd, True)
     shutil.rmtree(skel_tmp / ".git")
     for p in skel_tmp.iterdir():
         p.rename(p.parent / ("." + p.name))
@@ -437,18 +428,17 @@ def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
 
 
 def process_copy(mnt_point, user_name: str, to_cp):
-    chown_l = []
+    chown_ls = []
     for folder, files_list in to_cp:
         mnt_dir = mnt_point / "home" / user_name / folder
         for f in files_list:
             dest = mnt_dir / f
             copy_file(Path(f"/root/{sc.usb_key_dir}/{f}"), dest)
-            chown_l.append(
-                f"chown {user_name}:{user_name} {dest.relative_to(mnt_point)}"
-            )
+            chown_line = f"chown {user_name}:{user_name} {dest.relative_to(mnt_point)}"
+            chown_ls.append(chown_line)
             ind_key_permission(dest / f)
         ind_key_permission(dest / f)
-    return chown_l
+    return chown_ls
 
 
 ###########################################################
@@ -559,33 +549,29 @@ def perform_installation(mountpoint) -> None:
 # Main
 ###########################################################
 def _minimal() -> None:
-    mnt_cp_keys(
-        sc.usb_key_dir,
-        sc.usb_cp_files,
-        sc.wireguard_dir,
-    )
-    with Tui():
-        disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
-        arch_config_handler.config.disk_config = disk_config
-    config = ConfigurationOutput(arch_config_handler.config)
-    config.write_debug()
-    config.save()
-    if not arch_config_handler.args.silent:
-        aborted = False
-        with Tui():
-            if not config.confirm_config():
-                log.warning("Installation aborted")
-                aborted = True
-        if aborted:
-            exit(0)
-    if arch_config_handler.config.disk_config:
-        fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-        fs_handler.perform_filesystem_operations()
-    ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
-    run_cmd(ref_cmd)
-    config_pac_conf(None, 10, sc.noextract_lines)
-    chaotic_repo()
-    perform_installation(mountpoint)
+    mnt_cp_keys(sc.usb_key_dir, sc.usb_cp_files, sc.wireguard_dir)
+    # with Tui():
+    #     disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
+    #     arch_config_handler.config.disk_config = disk_config
+    # config = ConfigurationOutput(arch_config_handler.config)
+    # config.write_debug()
+    # config.save()
+    # if not arch_config_handler.args.silent:
+    #     aborted = False
+    #     with Tui():
+    #         if not config.confirm_config():
+    #             log.warning("Installation aborted")
+    #             aborted = True
+    #     if aborted:
+    #         exit(0)
+    # if arch_config_handler.config.disk_config:
+    #     fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+    #     fs_handler.perform_filesystem_operations()
+    # ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
+    # run_cmd(ref_cmd)
+    # config_pac_conf(None, 10, sc.noextract_lines)
+    # chaotic_repo()
+    # perform_installation(mountpoint)
 
 
 _minimal()
