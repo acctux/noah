@@ -84,7 +84,7 @@ def string_to_float_size(size: str):
     return float(size_str[:-1]) * units.get(size_str[-1], 1.0)
 
 
-def handle_mnt(usb_mnt: Path, min_size: str, usb_fs_type: str):
+def handle_mnt(usb_mnt: Path, min_size: str = "20GB", usb_fs_type: str = "ext4"):
     output = subprocess.check_output(
         ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
     )

@@ -105,8 +105,6 @@ refl_options = [
 ###########################################################
 # USB PASSED FILES CONF
 ###########################################################
-usb_fs_type = "exfat"
-min_usb_size = "20G"
 usb_key_dir = "keys"
 ssh_key = "id_ed25519"
 gpg_key = "my_sec_gpg.asc"
