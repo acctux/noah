@@ -96,9 +96,12 @@ def copy_dir(dir: Path, dest: Path) -> None:
 
 
 def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700):
-    if path.is_file():
-        path.chmod(f_mode)
-    path.chmod(d_mode)
+    if path.exists():
+        if path.is_file():
+            path.chmod(f_mode)
+        path.chmod(d_mode)
+    else:
+        log.warning(f"{path} not found.")
 
 
 #########################
