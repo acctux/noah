@@ -408,9 +408,9 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
             app = f"{app}.desktop"
         system_file = system_dir / app
         user_file = user_dir / app
-        if system_file.exists():
+        if system_file.exists() and not user_file.exists():
             user_file.write_text("[Desktop Entry]\nHidden=true\nNoDisplay=true\n")
-            log.info(user_file, "created")
+            log.info(f"{user_file} created")
         else:
             if yes_no(f"{system_file} not found, create anyway?"):
                 user_file.write_text("[Desktop Entry]\nHidden=true\nNoDisplay=true\n")
