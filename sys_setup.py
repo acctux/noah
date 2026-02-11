@@ -72,19 +72,7 @@ def check_missing(
     return missing_files
 
 
-def string_to_float_size(size: str):
-    if not size:
-        return 0.0
-    K = 1024
-    M = 1024**2
-    G = 1024**3
-    T = 1024**4
-    size_str = size.strip().upper()
-    units = {"K": K, "M": M, "G": G, "T": T}
-    return float(size_str[:-1]) * units.get(size_str[-1], 1.0)
-
-
-def handle_mnt(usb_mnt: Path, min_size: str = "20GB", usb_fs_type: str = "ext4"):
+def handle_mnt(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4"):
     output = subprocess.check_output(
         ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
     )
@@ -97,7 +85,7 @@ def handle_mnt(usb_mnt: Path, min_size: str = "20GB", usb_fs_type: str = "ext4")
                 dev["type"] == "part"
                 and dev.get("fstype") == usb_fs_type
                 and dev.get("mountpoint") is None
-                and string_to_float_size(dev["size"]) > string_to_float_size(min_size)
+                and (float(dev["size"]) * 1024**3) > (min_gb * 1024**3)
             ):
                 candidates.append(
                     (
