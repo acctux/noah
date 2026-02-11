@@ -118,8 +118,7 @@ def usb_cp_keys(usb_mount: Path, key_dir, key_files):
     (HOME / key_dir).mkdir(parents=True, exist_ok=True)
     for key_file in key_files:
         dest = HOME / key_dir / key_file
-        if not dest.exists:
-            copy_file(usb_mount / key_dir / key_file, dest)
+        copy_file(usb_mount / key_dir / key_file, dest)
 
 
 def umount_usb(usb_mount: Path):
