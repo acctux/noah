@@ -513,11 +513,9 @@ def perform_installation(mountpoint) -> None:
         clone_dots_to_skel(mountpoint, sc.git_name, sc.dots_git)
         installation.create_users(User(sc.user_name, Password(pw), True, sc.groups))
         configure_sudo(sc.user_name, mountpoint, passwordless_sudo=False)
-        hide_apps(mountpoint, sc.user_name, sc.hide_apps)
         run_chroot(
             [
                 f"paru -S --noconfirm --needed {' '.join(sc.aur_pkgs)}",
-                f"chown -R {sc.user_name} /home/{sc.user_name}/.local/share/applications",
                 "xdg-user-dirs-update",
                 f"mkdir -p /{user_home}/.cache/mpd",
             ],
@@ -528,6 +526,12 @@ def perform_installation(mountpoint) -> None:
             ["mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql"],
             mountpoint,
             peek=False,
+        )
+        hide_apps(mountpoint, sc.user_name, sc.hide_apps)
+        run_chroot(
+            [f"chown -R {sc.user_name} /home/{sc.user_name}/.local/share/applications"],
+            mountpoint,
+            sc.user_name,
         )
         #############-Copy Keys and Script Dir-#############
         copy_dir(script_d, (mountpoint / user_home / script_d.name))
