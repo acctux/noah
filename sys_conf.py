@@ -99,7 +99,7 @@ hardware_pkgs = [
     "udisks2-btrfs",
     "usb_modeswitch",
 ]
-basic_pkgs = [
+base_pkgs = [
     "base-devel",
     "logrotate",
     "ly",
@@ -107,6 +107,8 @@ basic_pkgs = [
     "plymouth",
     "rebuild-detector",
     "xdg-user-dirs",
+]
+cli_pkgs = [
     "bat-extras",
     "bluetui",
     "btop",
@@ -116,7 +118,6 @@ basic_pkgs = [
     "fzf",
     "git-delta",
     "github-cli",
-    "gocryptfs",
     "kitty",
     "lazygit",
     "less",
@@ -135,6 +136,8 @@ basic_pkgs = [
     "zsh-autocomplete",
     "zsh-completions",
     "zsh-syntax-highlighting",
+]
+basic_pkgs = [
     "anki",
     "authenticator",
     "baobab",
@@ -142,6 +145,7 @@ basic_pkgs = [
     "cliphist",
     "featherpad",
     "file-roller",
+    "gocryptfs",
     "khal",
     "partitionmanager",
     "qalculate-qt",

@@ -494,6 +494,8 @@ def perform_installation(mountpoint) -> None:
             + sc.nvidia_pkgs
             + sc.pipewire_pkgs
             + sc.hardware_pkgs
+            + sc.base_pkgs
+            + sc.cli_pkgs
             + sc.basic_pkgs
             + sc.android_pkgs
             + sc.network_pkgs
@@ -527,13 +529,10 @@ def perform_installation(mountpoint) -> None:
             sc.user_name,
         )
         hide_apps(mountpoint, sc.user_name, sc.hide_apps)
-        run_chroot(
-            [
-                f"sudo chown -R {sc.user_name}:{sc.user_name} /home/{sc.user_name}/.local/share/applications"
-            ],
-            mountpoint,
-            sc.user_name,
-        )
+        cmd = [
+            f"sudo chown -R {sc.user_name}:{sc.user_name} /home/{sc.user_name}/.local/share/applications"
+        ]
+        run_chroot(cmd, mountpoint, sc.user_name)
         #############-Copy Keys and Script Dir-#############
         copy_dir(script_d, (mountpoint / user_home / script_d.name))
         installation.chown(sc.user_name, str(mountpoint / user_home / script_d.name))
