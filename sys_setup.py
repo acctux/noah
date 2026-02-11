@@ -384,7 +384,7 @@ def install_icon_theme(
     tmp = "/tmp/icons"
     run_chroot(
         [
-            f"git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git {tmp} {icon_dir}",
+            f"git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git {tmp}",
             f"bash {tmp}/install.sh",
         ],
         mnt_point,
