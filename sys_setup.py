@@ -85,7 +85,7 @@ def handle_mnt(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4"):
                 dev["type"] == "part"
                 and dev.get("fstype") == usb_fs_type
                 and dev.get("mountpoint") is None
-                and (float(dev["size"]) * 1024**3) > (min_gb * 1024**3)
+                and (float(dev["size"][:-1]) * 1024**3) > (min_gb * 1024**3)
             ):
                 candidates.append(
                     (
