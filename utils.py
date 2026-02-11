@@ -81,6 +81,7 @@ def copy_file(file: Path, dest: Path) -> None:
         return
     if dest.is_dir():
         dest = dest / file.name
+    dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(file, dest)
     log.info(f"Copied {file} to {dest}")
 
@@ -93,11 +94,10 @@ def copy_dir(dir: Path, dest: Path) -> None:
     shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
 
 
-def apply_permissions_dir(path: Path, file_mode=0o600, dir_mode=0o700):
-    for p in path.rglob("*"):
-        if p.is_file():
-            p.chmod(file_mode)
-    path.chmod(dir_mode)
+def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700):
+    if path.is_file():
+        path.chmod(f_mode)
+    path.chmod(d_mode)
 
 
 #########################

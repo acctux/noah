@@ -16,16 +16,11 @@ log = get_logger("Noah")
 HOME = Path.home()
 
 
-# unmount
-# virt machine version
 def cleanup(HOME: Path):
-    for f in [HOME / "keys" / "pass.txt"]:
+    for f in [(HOME / "keys" / "pass.txt")]:
         if f.exists():
             f.unlink()
-    for d in [
-        HOME / "archinstall",
-        HOME / ".local" / "share" / "icons" / "WhiteSur-light",
-    ]:
+    for d in [(HOME / "archinstall")]:
         if d.exists():
             shutil.rmtree(d)
 
@@ -150,7 +145,7 @@ def import_ssh(HOME: Path, key_file: str):
 
 
 def import_gpg(gpg_path: Path):
-    key_data = (gpg_path).read_text()
+    key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
     import_result = gpg.import_keys(key_data, passphrase=ask_pass("GPG Password: ", 6))
     print(import_result.results)
@@ -202,13 +197,6 @@ def enable_mariadb(user_name):
             break
         print("Passwords do not match, try again.")
     commands = [
-        [
-            "sudo",
-            "mariadb-install-db",
-            "--user=mysql",
-            "--basedir=/usr",
-            "--datadir=/var/lib/mysql",
-        ],
         ["sudo", "systemctl", "start", "mariadb"],
         [
             "sudo",
@@ -216,7 +204,7 @@ def enable_mariadb(user_name):
             "-e",
             (
                 f"CREATE USER '{user_name}'@'localhost' IDENTIFIED BY '{password}'; "
-                "GRANT ALL PRIVILEGES ON mydb.* TO 'user_name'@'localhost'; "
+                f"GRANT ALL PRIVILEGES ON mydb.* TO '{user_name}'@'localhost'; "
                 "FLUSH PRIVILEGES;"
             ),
         ],
@@ -298,23 +286,6 @@ def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME: Path = HO
             run_cmd(cmd, True)
 
 
-def hide_apps(applications: list[str]) -> None:
-    system_dir = Path("/usr/share/applications")
-    user_dir = HOME / ".local" / "share" / "applications"
-    user_dir.mkdir(parents=True, exist_ok=True)
-    for app in applications:
-        if not app.endswith(".desktop"):
-            app = f"{app}.desktop"
-        system_file = system_dir / app
-        user_file = user_dir / app
-        if system_file.exists() and not user_file.exists():
-            hide_entry = "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
-            user_file.write_text(hide_entry)
-            log.info("Hidden: %s", app)
-        else:
-            log.info("Skipping %s, not found", system_file)
-
-
 ############################
 # Launch Apps
 ############################
@@ -391,7 +362,6 @@ def main(HOME=Path.home()):
         ensure_github_known_hosts(HOME)
         for target in uc.git_repos:
             clone_repos(uc.git_user, target)
-        hide_apps(uc.hide_apps)
         handle_yazi_plugins(uc.yazi_plugins)
         if any((HOME / uc.dots_dir).iterdir()):
             deploy_dotfiles((HOME / uc.dots_dir), uc.dirs_to_link, uc.ind_dirs)

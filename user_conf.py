@@ -36,36 +36,6 @@ dirs_icons = [
     (f"{git_dir}/{dots_dir}", "folder-html"),
 ]
 ###########################################################
-# HIDE APPS
-###########################################################
-hide_apps = [
-    "avahi-discover",
-    "bssh",
-    "btop",
-    "bvnc",
-    "jshell-java-openjdk",
-    "jconsole-java-openjdk",
-    "khal",
-    "libreoffice-base",
-    "libreoffice-draw",
-    "libreoffice-math",
-    "nvtop",
-    "octopi-cachecleaner",
-    "octopi-notifier",
-    "octopi-repoeditor",
-    "org.gnome.baobab",
-    "org.kde.kdeconnect.nonplasma",
-    "qt5ct",
-    "qt6ct",
-    "qv4l2",
-    "qvidcap",
-    "scrcpy-console",
-    "taskwarrior-tui",
-    "uuctl",
-    "xgps",
-    "xgpsspeed",
-]
-###########################################################
 # YAZI
 ###########################################################
 yazi_plugins = [

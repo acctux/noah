@@ -29,14 +29,14 @@ from utils import (
     get_logger,
     copy_file,
     copy_dir,
-    apply_permissions_dir,
+    ind_key_permission,
 )
 import sys_conf as sc
 
 ###########################################################
 # CONSTANTS
 ###########################################################
-script_dir = Path(__file__).resolve().parent
+script_d = Path(__file__).resolve().parent
 user_home = f"home/{sc.user_name}"
 HOME = Path.home()
 mountpoint = Path("/mnt/arch")
@@ -72,12 +72,14 @@ def check_missing(
     return missing_files
 
 
-def handle_mnt(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4"):
-    output = subprocess.check_output(
-        ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
+def get_device(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4") -> str:
+    data = json.loads(
+        subprocess.check_output(
+            ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
+        )
     )
-    data = json.loads(output)
     candidates = []
+    selected_path = ""
 
     def recurse(devices):
         for dev in devices:
@@ -104,53 +106,20 @@ def handle_mnt(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4"):
         for i, (name, size, fstype) in enumerate(candidates, 1):
             get_logger("").info(f"{i:<5} {name:<8} {size:<8} {fstype:>8}")
         choice = input(f"Enter 1-{len(candidates)}: ").strip()
-        if not choice.isdigit():
-            log.error("Not a number.")
-            continue
-        choice_num = int(choice)
-        if not (1 <= choice_num <= len(candidates)):
+        if not choice.isdigit() or not (1 <= int(choice) <= len(candidates)):
             log.error("Out of range.")
             continue
-        selected_path = f"/dev/{candidates[choice_num - 1][0]}"
+        selected_path = f"/dev/{candidates[int(choice) - 1][0]}"
         break
-    usb_mnt.mkdir(parents=True, exist_ok=True)
-    try:
-        run_cmd(
-            [f"mount -t ext4 -o ro {selected_path} {usb_mnt}"], check=True, shell=True
-        )
-        return selected_path
-    except subprocess.CalledProcessError as e:
-        log.error(f"Failed to mount {selected_path}: {e}")
+    return selected_path
 
 
-def usb_cp_keys(usb_mount, key_dir, key_files):
-    dest_dir = Path.home() / key_dir
-    dest_dir.mkdir(parents=True, exist_ok=True)
+def usb_cp_keys(usb_mount: Path, key_dir, key_files):
+    (HOME / key_dir).mkdir(parents=True, exist_ok=True)
     for key_file in key_files:
-        src = Path(usb_mount) / key_dir / key_file
-        dest = dest_dir / key_file
-        if not dest.exists():
-            try:
-                shutil.copy2(src, dest)
-                log.info(f"Copied {key_file} to {dest}")
-            except FileNotFoundError:
-                log.error(f"{src} not found on USB.")
-        else:
-            log.error(f"{key_file} already exists in {dest_dir}, skipping.")
-
-
-def usb_cp_folder(usb_mount, folder_name):
-    log.info("Preparing to copy folder from USB...")
-    src_dir = Path(usb_mount) / folder_name
-    dest_dir = HOME / folder_name
-    if not dest_dir.exists():
-        try:
-            shutil.copytree(src_dir, dest_dir)
-            log.info(f"Copied folder {folder_name} to {dest_dir}")
-        except FileNotFoundError:
-            log.error(f"{src_dir} not found on USB.")
-        except Exception as e:
-            log.error(f"Failed to copy {folder_name} from USB: {e}")
+        dest = HOME / key_dir / key_file
+        if not dest.exists:
+            copy_file(usb_mount / key_dir / key_file, dest)
 
 
 def umount_usb(usb_mount: Path):
@@ -179,11 +148,18 @@ def mnt_cp_keys(
     if key_dir and key_files or wireguard_dir:
         if check_missing(key_dir, key_files, wireguard_dir):
             if yes_no("Mount USB to copy missing files?"):
-                handle_mnt(usb_mnt)
+                selected_path = get_device(usb_mnt)
+                usb_mnt.mkdir(parents=True, exist_ok=True)
+                run_cmd(
+                    [f"mount -t ext4 -o ro {selected_path} {usb_mnt}"],
+                    check=True,
+                    shell=True,
+                )
                 if key_dir and key_files:
                     usb_cp_keys(usb_mnt, key_dir, key_files)
                 if wireguard_dir:
-                    usb_cp_folder(usb_mnt, wireguard_dir)
+                    if not (HOME / wireguard_dir).exists():
+                        copy_dir(usb_mnt / wireguard_dir, HOME / wireguard_dir)
                 if yes_no("Unmount USB?"):
                     umount_usb(usb_mnt)
     else:
@@ -242,18 +218,20 @@ def user_service(
     (mnt_point / dir).mkdir(parents=True, exist_ok=True)
     run_script = f"/home/{user_name}/{script_dir}/{user_script}"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
-    (mnt_point / dir / name).write_text(f"""[Unit]
-Description=Open Alacritty running {run_script} on login
-After=graphical-session.target
+    service_content = textwrap.dedent(f"""\
+    [Unit]
+    Description=Open Alacritty running {run_script} on login
+    After=graphical-session.target
 
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/kitty python {run_script}
-Restart=no
+    [Service]
+    Type=oneshot
+    ExecStart=/usr/bin/kitty python {run_script}
+    Restart=no
 
-[Install]
-WantedBy=graphical-session.target
-""")
+    [Install]
+    WantedBy=graphical-session.target
+    """)
+    (mnt_point / dir / name).write_text(service_content)
     unit = UserSrv(source=f"/{dir}", target="graphical-session", services=[name])
     enable_user_serv(unit, mnt_point, user_name)
 
@@ -263,13 +241,12 @@ WantedBy=graphical-session.target
 #########################
 def chaotic_repo(mnt_point: Path | None = None):
     log.info("Setting up Chaotic-AUR repository.")
-    chaotic_key_id = "3056513887B78AEB"
     key_serv = "keyserver.ubuntu.com"
     chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
     cmds_setup = [
         ["pacman-key", "--init"],
-        ["pacman-key", "--recv-key", chaotic_key_id, "--keyserver", key_serv],
-        ["pacman-key", "--lsign-key", chaotic_key_id],
+        ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", key_serv],
+        ["pacman-key", "--lsign-key", "3056513887B78AEB"],
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
@@ -341,9 +318,9 @@ def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
         log.info("Copied %s to %s", source_dir, target_dir)
 
 
-def configure_sudo(user_name: str, mnt_point: Path, pwd_require: bool = True):
+def configure_sudo(user_name: str, mnt_point: Path, passwordless_sudo=True):
     sudoers_file = mnt_point / f"etc/sudoers.d/00_{user_name}"
-    if not pwd_require:
+    if passwordless_sudo:
         sudoers_line = f"{user_name} ALL=(ALL:ALL) NOPASSWD:ALL"
         prt_val = "without password requirement"
     else:
@@ -410,31 +387,81 @@ def install_icon_theme(
     new: str = "#F4F5F6",
     icon_dir: str = "/usr/share/icons",
 ):
-    tmp = Path("/tmp/icons")
-    if tmp.exists():
-        shutil.rmtree(tmp)
-    icon_git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
+    tmp = "/tmp/icons"
     run_chroot(
-        [f"git clone {icon_git} {tmp}", f"bash {tmp}/install.sh"], mnt_point, peek=True
+        [
+            f"git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git {tmp} {icon_dir}",
+            f"bash {tmp}/install.sh",
+        ],
+        mnt_point,
+        peek=True,
     )
-    for svg in [
-        p for p in (mnt_point / icon_dir).rglob("*.svg") if "scalable" not in p.parts
-    ]:
+    icon_path = mnt_point / icon_dir
+    for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
         text = svg.read_text()
         if old in text:
             svg.write_text(text.replace(old, new))
+    if (icon_path / "WhiteSur-light").exists():
+        shutil.rmtree(icon_path / "WhiteSur-light")
+
+
+def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
+    system_dir = mnt_point / "/usr/share/applications"
+    user_dir = mnt_point / "home" / username / ".local" / "share" / "applications"
+    user_dir.mkdir(parents=True, exist_ok=True)
+    for app in applications:
+        if not app.endswith(".desktop"):
+            app = f"{app}.desktop"
+        system_file = system_dir / app
+        if system_file.exists():
+            hide_entry = "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
+            (user_dir / app).write_text(hide_entry)
+        else:
+            log.info("Skipping %s, not found", system_file)
+
+
+def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
+    skel_tmp = Path.home() / dots_git
+    run_cmd(
+        [
+            "git",
+            "clone",
+            f"https://github.com/{git_name}/{dots_git}.git",
+            f"{skel_tmp}",
+        ],
+        True,
+    )
+    shutil.rmtree(skel_tmp / ".git")
+    for p in skel_tmp.iterdir():
+        p.rename(p.parent / ("." + p.name))
+    copy_dir(skel_tmp, mnt_point / "etc" / "skel")
+
+
+def process_copy(mnt_point, user_name: str, to_cp):
+    chown_l = []
+    for folder, files_list in to_cp:
+        mnt_dir = mnt_point / "home" / user_name / folder
+        for f in files_list:
+            dest = mnt_dir / f
+            copy_file(Path(f"/root/{sc.usb_key_dir}/{f}"), dest)
+            chown_l.append(
+                f"chown {user_name}:{user_name} {dest.relative_to(mnt_point)}"
+            )
+            ind_key_permission(dest / f)
+        ind_key_permission(dest / f)
+    return chown_l
 
 
 ###########################################################
 # Installer
 ###########################################################
-def perform_installation(mountpoint=mountpoint) -> None:
+def perform_installation(mountpoint) -> None:
     config = arch_config_handler.config
     if not config.disk_config:
         log.error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    with Installer(mountpoint, disk_config, [], sc.kernel) as installation:
+    with Installer(mountpoint, disk_config, kernels=sc.kernel) as installation:
         ############-Ensure User Pass Exists-##########
         if not (pw := src_pass_file(sc.usb_key_dir, sc.my_pass)):
             pw = ask_pass(sc.user_name)
@@ -449,14 +476,16 @@ def perform_installation(mountpoint=mountpoint) -> None:
             ):
                 installation.generate_key_files()
         installation.setup_swap()
-        locale_conf = LocaleConfiguration(sc.kb_layout, sc.sys_lang, sc.sys_enc)
-        installation.minimal_installation([], True, sc.hostname, locale_conf)
+        installation.minimal_installation(
+            hostname=sc.hostname,
+            locale_config=LocaleConfiguration(sc.kb_layout, sc.sys_lang, sc.sys_enc),
+        )
         ###############-Install reflector-###############
         installation.add_additional_packages("reflector")
         log.info("Updating mirror list.")
         options = sc.refl_options + ["--save /etc/pacman.d/mirrorlist"]
         run_chroot([f"reflector {' '.join(options)}"], mountpoint)
-        ####################-System D-####################
+        ####################-Systemd-####################
         installation.add_bootloader(Bootloader.Systemd)
         modify_systemd(mountpoint)
         ###########-WiFi Pass and Time Zone-############
@@ -465,48 +494,50 @@ def perform_installation(mountpoint=mountpoint) -> None:
         #############-Pkg Management-###############
         config_pac_conf(mountpoint, 10, sc.noextract_lines)
         chaotic_repo(mountpoint)
-        installation.add_additional_packages(sc.pkgs)
+        installation.add_additional_packages(sc.amd_pkgs + sc.nvidia_pkgs)
         #############-Etc Management-###############
         modify_mkinit(mountpoint, sc.mkinit_hooks)
-        sys_dots(mountpoint, script_dir, sc.script_pwd_to_cp)
+        sys_dots(mountpoint, script_d, sc.script_pwd_to_cp)
         copy_dir(Path("/root") / sc.wireguard_dir, mountpoint / "etc" / "wireguard")
-        installation.enable_service(sc.sys_services)
+        installation.enable_service(sc.sys_services + sc.custom_services)
         run_chroot([f"systemctl disable {' '.join(sc.disable_svcs)}"], mountpoint)
-        #################-Skel-###################
-        git_cmd = f"https://github.com/{sc.git_name}/{sc.skel_git}.git"
-        skel_tmp = HOME / sc.skel_git
-        run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
-        shutil.rmtree(skel_tmp / ".git")
-        for p in skel_tmp.iterdir():
-            p.rename(p.parent / ("." + p.name))
-        copy_dir(skel_tmp, mountpoint / "etc" / "skel")
         #############-User and Sudo-###############
+        clone_dots_to_skel(mountpoint, sc.git_name, sc.dots_git)
         installation.create_users(User(sc.user_name, Password(pw), True, sc.groups))
-        configure_sudo(sc.user_name, mountpoint, pwd_require=False)
-        usr_cmd = [
-            f"paru -S --noconfirm --needed {' '.join(sc.aur_pkgs)}",
-            "xdg-user-dirs-update",
-            f"mkdir -p /{user_home}/.cache/mpd",
-        ]
-        run_chroot(usr_cmd, mountpoint, sc.user_name)
+        configure_sudo(sc.user_name, mountpoint, passwordless_sudo=False)
+        hide_apps(mountpoint, sc.user_name, sc.hide_apps)
+        run_chroot(
+            [
+                f"paru -S --noconfirm --needed {' '.join(sc.aur_pkgs)}",
+                f"chown -R {sc.user_name} /home/{sc.user_name}/.local/share/applications",
+                "xdg-user-dirs-update",
+                f"mkdir -p /{user_home}/.cache/mpd",
+            ],
+            mountpoint,
+            sc.user_name,
+        )
+        run_chroot(
+            ["mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql"],
+            mountpoint,
+            peek=False,
+        )
         #############-Copy Keys and Script Dir-#############
-        copy_dir(script_dir, (mountpoint / user_home / script_dir.name))
-        installation.chown(sc.user_name, str(mountpoint / user_home / script_dir.name))
-        for file in (
-            (".ssh", sc.ssh_key),
-            (".gnupg", sc.gpg_key),
-            (f"{script_dir.name}", sc.pass_manager),
-        ):
-            folder, name = file
-            dest = mountpoint / user_home / folder
-            dest.mkdir(parents=True, exist_ok=True)
-            copy_file(Path(f"/root/{sc.usb_key_dir}/{name}"), dest)
-            installation.chown(sc.user_name, str(mountpoint / user_home / folder))
-            apply_permissions_dir(mountpoint / user_home / folder)
+        copy_dir(script_d, (mountpoint / user_home / script_d.name))
+        installation.chown(sc.user_name, str(mountpoint / user_home / script_d.name))
+        to_cp = (
+            (".ssh", [sc.ssh_key]),
+            (".gnupg", [sc.gpg_key]),
+            (f"{script_d.name}", [sc.pass_pass]),
+        )
+        process_copy(mountpoint, sc.user_name, to_cp)
         user_service(mountpoint, sc.user_name)
-        enable_user_serv(sc.user_services, mountpoint, sc.user_name)
+        enable_user_serv(
+            [sc.usr_srv_default, sc.usr_srv_sockets, sc.usr_srv_graphical],
+            mountpoint,
+            sc.user_name,
+        )
         install_icon_theme(mountpoint)
-        configure_sudo(sc.user_name, mountpoint, pwd_require=True)
+        configure_sudo(sc.user_name, mountpoint, passwordless_sudo=True)
         #############-Own Everything and User Services-###############
         installation.genfstab()
         # modify_fstab(mountpoint)
