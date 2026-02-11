@@ -179,11 +179,11 @@ def umount_usb(usb_mount: Path):
 
 
 def mnt_cp_keys(
-    min_size: str,
-    usb_fs_type: str,
     key_dir: str | None = None,
     key_files: list[str] | None = None,
     wireguard_dir: str | None = None,
+    min_size: str = "20GB",
+    usb_fs_type: str = "ext4",
     usb_mnt=Path("/mnt/usb"),
 ):
     if usb_mnt.is_mount():
@@ -552,8 +552,6 @@ def perform_installation(mountpoint=mountpoint) -> None:
 ###########################################################
 def _minimal() -> None:
     mnt_cp_keys(
-        sc.min_usb_size,
-        sc.usb_fs_type,
         sc.usb_key_dir,
         sc.usb_cp_files,
         sc.wireguard_dir,
