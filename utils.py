@@ -60,6 +60,11 @@ class UserGitRepo(BaseModel):
     repos: list[str]
 
 
+class CustUserSrv(BaseModel):
+    services: list[str]
+    target: str
+
+
 #########################
 # SRC PASSWORD
 #########################

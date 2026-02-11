@@ -1,4 +1,4 @@
-from utils import UserSrv
+from utils import UserSrv, CustUserSrv
 
 ###########################################################
 # ARCHINSTALL CONF
@@ -353,6 +353,33 @@ usr_srv_graphical = UserSrv(
     target="graphical-session",
     services=["hypridle.service", "swaync.service", "waybar.service"],
 )
+cust_graphic = CustUserSrv(
+    target="graphical-session",
+    services=[
+        "ayugram.service",
+        "clip-persist.service",
+        "cliphist.service",
+        "hypridle.service",
+        "hyprsunset.service",
+        "kdeconnectd.service",
+        "polkit-gnome.service",
+        "snixembed.service",
+        "swaync.service",
+        "swayosd.service",
+        "swww-daemon.service",
+        "waybar.service",
+    ],
+)
+cust_timer = CustUserSrv(
+    target="timers",
+    services=[
+        "emailcheck.timer",
+        "task-reminder.timer",
+        "task-schedule.timer",
+        "wall.timer",
+    ],
+)
+cust_default = CustUserSrv(target="default", services=["playerctld.service"])
 ###########################################################
 # HIDE APPS
 ###########################################################

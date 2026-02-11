@@ -31,6 +31,7 @@ from utils import (
     copy_file,
     copy_dir,
     ind_key_permission,
+    CustUserSrv,
 )
 import sys_conf as sc
 
@@ -202,6 +203,30 @@ def enable_user_serv(units: UserSrv | list[UserSrv], mnt_point: Path, user_name:
             dst = target_dir / service
             user_commands.append(f"ln -sf {src} {dst}")
     run_chroot([f"chown -R {user_name}:{user_name} /home/{user_name}/"], mnt_point)
+    run_chroot(user_commands, mnt_point, user_name)
+
+
+def enable_cust_user_serv(
+    units: list[CustUserSrv],
+    mnt_point: Path,
+    user_name: str,
+) -> None:
+    if isinstance(units, CustUserSrv):
+        units = [units]
+    user_commands: list[str] = []
+    base_dir = Path(f"/home/{user_name}/.config/systemd/user")
+    source_base = Path(f"/mnt/home/{user_name}/.config/systemd/user")
+    for unit in units:
+        target_dir = base_dir / f"{unit.target}.target.wants"
+        user_commands.append(f"mkdir -p {target_dir}")
+        for service in unit.services:
+            src = source_base / service
+            dst = target_dir / service
+            user_commands.append(f"ln -sf {src} {dst}")
+    run_chroot(
+        [f"chown -R {user_name}:{user_name} {base_dir.parent}"],
+        mnt_point,
+    )
     run_chroot(user_commands, mnt_point, user_name)
 
 
@@ -428,8 +453,8 @@ def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
     if not skel_tmp.exists():
         run_cmd(cmd, True)
         shutil.rmtree(skel_tmp / ".git")
-    for p in skel_tmp.iterdir():
-        p.rename(p.parent / ("." + p.name))
+        for p in skel_tmp.iterdir():
+            p.rename(p.parent / ("." + p.name))
     copy_dir(skel_tmp, mnt_point / "etc" / "skel")
 
 
@@ -546,7 +571,20 @@ def perform_installation(mountpoint) -> None:
         process_copy(mountpoint, sc.user_name, to_cp)
         user_service(mountpoint, sc.user_name)
         enable_user_serv(
-            [sc.usr_srv_default, sc.usr_srv_sockets, sc.usr_srv_graphical],
+            [
+                sc.usr_srv_default,
+                sc.usr_srv_sockets,
+                sc.usr_srv_graphical,
+            ],
+            mountpoint,
+            sc.user_name,
+        )
+        enable_cust_user_serv(
+            [
+                sc.cust_graphic,
+                sc.cust_timer,
+                sc.cust_default,
+            ],
             mountpoint,
             sc.user_name,
         )
