@@ -597,9 +597,9 @@ def _minimal() -> None:
 
 # mnt_cp_keys(sc.usb_key_dir, sc.usb_cp_files, sc.wireguard_dir)
 # _minimal()
-hide_apps(mountpoint, sc.user_name, sc.hide_apps)
+# hide_apps(mountpoint, sc.user_name, sc.hide_apps)
 run_chroot(
-    [f"chown -R {sc.user_name} /home/{sc.user_name}/.local/share/applications"],
+    [f"sudo chown -R {sc.user_name} /home/{sc.user_name}/.local/share/applications"],
     mountpoint,
     sc.user_name,
 )
