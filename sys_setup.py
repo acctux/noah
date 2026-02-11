@@ -512,7 +512,7 @@ def perform_installation(mountpoint) -> None:
         #############-User and Sudo-###############
         clone_dots_to_skel(mountpoint, sc.git_name, sc.dots_git)
         installation.create_users(User(sc.user_name, Password(pw), True, sc.groups))
-        configure_sudo(sc.user_name, mountpoint, passwordless_sudo=False)
+        configure_sudo(sc.user_name, mountpoint, passwordless_sudo=True)
         run_chroot(
             [
                 f"paru -S --noconfirm --needed {' '.join(sc.aur_pkgs)}",
@@ -549,7 +549,7 @@ def perform_installation(mountpoint) -> None:
             sc.user_name,
         )
         install_icon_theme(mountpoint)
-        configure_sudo(sc.user_name, mountpoint, passwordless_sudo=True)
+        configure_sudo(sc.user_name, mountpoint, passwordless_sudo=False)
         #############-Own Everything and User Services-###############
         installation.genfstab()
         # modify_fstab(mountpoint)
