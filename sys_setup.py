@@ -1,3 +1,4 @@
+import time
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.global_menu import DiskLayoutConfigurationMenu
@@ -150,6 +151,7 @@ def mnt_cp_keys(
                 usb_mnt.mkdir(parents=True, exist_ok=True)
                 cmd = [f"mount -t ext4 -o ro {selected_path} {usb_mnt}"]
                 run_cmd(cmd, check=True, shell=True)
+                time.sleep(1)
                 if key_dir and key_files:
                     usb_cp_keys(usb_mnt, key_dir, key_files)
                 if wireguard_dir:
@@ -550,28 +552,28 @@ def perform_installation(mountpoint) -> None:
 ###########################################################
 def _minimal() -> None:
     mnt_cp_keys(sc.usb_key_dir, sc.usb_cp_files, sc.wireguard_dir)
-    # with Tui():
-    #     disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
-    #     arch_config_handler.config.disk_config = disk_config
-    # config = ConfigurationOutput(arch_config_handler.config)
-    # config.write_debug()
-    # config.save()
-    # if not arch_config_handler.args.silent:
-    #     aborted = False
-    #     with Tui():
-    #         if not config.confirm_config():
-    #             log.warning("Installation aborted")
-    #             aborted = True
-    #     if aborted:
-    #         exit(0)
-    # if arch_config_handler.config.disk_config:
-    #     fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-    #     fs_handler.perform_filesystem_operations()
-    # ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
-    # run_cmd(ref_cmd)
-    # config_pac_conf(None, 10, sc.noextract_lines)
-    # chaotic_repo()
-    # perform_installation(mountpoint)
+    with Tui():
+        disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
+        arch_config_handler.config.disk_config = disk_config
+    config = ConfigurationOutput(arch_config_handler.config)
+    config.write_debug()
+    config.save()
+    if not arch_config_handler.args.silent:
+        aborted = False
+        with Tui():
+            if not config.confirm_config():
+                log.warning("Installation aborted")
+                aborted = True
+        if aborted:
+            exit(0)
+    if arch_config_handler.config.disk_config:
+        fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+        fs_handler.perform_filesystem_operations()
+    ref_cmd = ["reflector", *sc.refl_options, "--save", "/etc/pacman.d/mirrorlist"]
+    run_cmd(ref_cmd)
+    config_pac_conf(None, 10, sc.noextract_lines)
+    chaotic_repo()
+    perform_installation(mountpoint)
 
 
 _minimal()
