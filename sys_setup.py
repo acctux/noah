@@ -412,9 +412,9 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
             user_file.write_text("[Desktop Entry]\nHidden=true\nNoDisplay=true\n")
             log.info(user_file, "created")
         else:
-            if yes_no("%s, not found, create anyway?"):
+            if yes_no(f"{system_file} not found, create anyway?"):
                 user_file.write_text("[Desktop Entry]\nHidden=true\nNoDisplay=true\n")
-                log.info(user_file, "created")
+                log.info(f"{user_file} created")
 
 
 def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
@@ -512,7 +512,9 @@ def perform_installation(mountpoint) -> None:
         #############-Etc Management-###############
         modify_mkinit(mountpoint, sc.mkinit_hooks)
         sys_dots(mountpoint, script_d, sc.script_pwd_to_cp)
-        copy_dir(Path("/root") / sc.wireguard_dir, mountpoint / "etc" / "wireguard")
+        copy_dir(
+            Path("/root") / sc.wireguard_dir, mountpoint / "etc" / sc.wireguard_dir
+        )
         installation.enable_service(sc.sys_services + sc.custom_services)
         run_chroot([f"systemctl disable {' '.join(sc.disable_svcs)}"], mountpoint)
         #############-User and Sudo-###############
