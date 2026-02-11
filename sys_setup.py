@@ -408,8 +408,9 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
             app = f"{app}.desktop"
         system_file = system_dir / app
         if system_file.exists():
-            hide_entry = "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
-            (user_dir / app).write_text(hide_entry)
+            (user_dir / app).write_text(
+                "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
+            )
         else:
             log.info("Skipping %s, not found", system_file)
 
@@ -422,8 +423,9 @@ def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
         f"https://github.com/{git_name}/{dots_git}.git",
         f"{skel_tmp}",
     ]
-    run_cmd(cmd, True)
-    shutil.rmtree(skel_tmp / ".git")
+    if not skel_tmp.exists():
+        run_cmd(cmd, True)
+        shutil.rmtree(skel_tmp / ".git")
     for p in skel_tmp.iterdir():
         p.rename(p.parent / ("." + p.name))
     copy_dir(skel_tmp, mnt_point / "etc" / "skel")
