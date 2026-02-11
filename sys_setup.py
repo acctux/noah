@@ -442,8 +442,8 @@ def process_copy(mnt_point, user_name: str, to_cp):
             copy_file(Path(f"/root/{sc.usb_key_dir}/{f}"), dest)
             chown_line = f"chown {user_name}:{user_name} {dest.relative_to(mnt_point)}"
             chown_ls.append(chown_line)
-            ind_key_permission(dest / f)
-        ind_key_permission(dest / f)
+            ind_key_permission(dest)
+        ind_key_permission(dest)
     return chown_ls
 
 
