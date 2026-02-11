@@ -127,7 +127,7 @@ def handle_mnt(usb_mnt: Path, min_size: str, usb_fs_type: str):
         break
     usb_mnt.mkdir(parents=True, exist_ok=True)
     try:
-        run_cmd([f"mount {selected_path} {usb_mnt}"], check=True, shell=True)
+        run_cmd([f"mount -t exfat {selected_path} {usb_mnt}"], check=True, shell=True)
         return selected_path
     except subprocess.CalledProcessError as e:
         log.error(f"Failed to mount {selected_path}: {e}")
