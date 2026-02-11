@@ -400,7 +400,7 @@ def install_icon_theme(
 
 
 def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
-    system_dir = mnt_point / "/usr/share/applications"
+    system_dir = mnt_point / "usr/share/applications"
     user_dir = mnt_point / "home" / username / ".local" / "share" / "applications"
     user_dir.mkdir(parents=True, exist_ok=True)
     for app in applications:
