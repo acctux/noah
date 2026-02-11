@@ -48,6 +48,12 @@ def run_sudo_commands(
         ["sudo", "resolvconf", "-u"],
         ["sudo", "firewall-cmd", "--set-default-zone=block"],
         ["sudo", "systemctl", "restart", "iwd"],
+        [
+            "mariadb-install-db",
+            "--user=mysql",
+            "--basedir=/usr",
+            "--datadir=/var/lib/mysql",
+        ],
     ],
 ):
     for cmd in sudo_cmds:

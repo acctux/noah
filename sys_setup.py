@@ -524,11 +524,6 @@ def perform_installation(mountpoint) -> None:
             mountpoint,
             sc.user_name,
         )
-        run_chroot(
-            ["mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql"],
-            mountpoint,
-            peek=False,
-        )
         hide_apps(mountpoint, sc.user_name, sc.hide_apps)
         run_chroot(
             [f"chown -R {sc.user_name} /home/{sc.user_name}/.local/share/applications"],
