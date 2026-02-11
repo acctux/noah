@@ -1,5 +1,4 @@
 from utils import UserSrv
-from pathlib import Path
 
 ###########################################################
 # ARCHINSTALL CONF
@@ -61,12 +60,12 @@ mkinit_hooks = [
 ###########################################################
 user_services = [
     UserSrv(
-        source=Path("/usr/lib/systemd/user"),
+        source="/usr/lib/systemd/user",
         target="default",
         services=["pipewire-pulse.service", "psd.service"],
     ),
     UserSrv(
-        source=Path("/usr/lib/systemd/user"),
+        source="/usr/lib/systemd/user",
         target="sockets",
         services=[
             "pipewire-pulse.socket",
@@ -76,7 +75,7 @@ user_services = [
         ],
     ),
     UserSrv(
-        source=Path("/usr/lib/systemd/user"),
+        source="/usr/lib/systemd/user",
         target="graphical-session",
         services=["hypridle.service", "swaync.service", "waybar.service"],
     ),
