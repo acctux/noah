@@ -50,7 +50,7 @@ log = get_logger("Noah")
 # CLASSES
 ###########################################################
 class UserSrv(BaseModel):
-    source: Path = Path("/usr/lib/systemd/user")
+    source: str = "/usr/lib/systemd/user"
     services: list[str]
     target: str
 

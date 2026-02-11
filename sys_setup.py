@@ -85,7 +85,7 @@ def handle_mnt(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4"):
                 dev["type"] == "part"
                 and dev.get("fstype") == usb_fs_type
                 and dev.get("mountpoint") is None
-                and (float(dev["size"][:-1]) * 1024**3) > (min_gb * 1024**3)
+                and float(dev["size"][:-1]) > min_gb
             ):
                 candidates.append(
                     (
@@ -226,7 +226,7 @@ def enable_user_serv(units: UserSrv | list[UserSrv], mnt_point: Path, user_name:
         for service in unit.services:
             target_dir = base_dir / f"{unit.target}.target.wants"
             user_commands.append(f"mkdir -p {target_dir}")
-            src = unit.source / service
+            src = Path(unit.source) / service
             dst = target_dir / service
             user_commands.append(f"ln -sf {src} {dst}")
     run_chroot([f"chown -R {user_name}:{user_name} /home/{user_name}/"], mnt_point)
@@ -255,7 +255,7 @@ Restart=no
 [Install]
 WantedBy=graphical-session.target
 """)
-    unit = UserSrv(source=Path(f"/{dir}"), target="graphical-session", services=[name])
+    unit = UserSrv(source=f"/{dir}", target="graphical-session", services=[name])
     enable_user_serv(unit, mnt_point, user_name)
 
 
