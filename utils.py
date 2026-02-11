@@ -83,7 +83,7 @@ def copy_file(file: Path, dest: Path) -> None:
         dest = dest / file.name
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(file, dest)
-    log.info(f"Copied {file} to {dest}")
+    log.info(f"Copied file: {file} to {dest}")
 
 
 def copy_dir(dir: Path, dest: Path) -> None:
@@ -92,6 +92,7 @@ def copy_dir(dir: Path, dest: Path) -> None:
         log.error(f"{src} does not exist")
         return
     shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
+    log.info(f"Copied directory: {src} to {dest}")
 
 
 def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700):

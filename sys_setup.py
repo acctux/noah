@@ -73,7 +73,7 @@ def check_missing(
     return missing_files
 
 
-def get_device(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4") -> str:
+def get_device(usb_mnt: Path, min_gb=20, usb_fs_type="ext4") -> str:
     data = json.loads(
         subprocess.check_output(
             ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
