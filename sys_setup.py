@@ -192,7 +192,7 @@ def mnt_cp_keys(
     if key_dir and key_files or wireguard_dir:
         if check_missing(key_dir, key_files, wireguard_dir):
             if yes_no("Mount USB to copy missing files?"):
-                handle_mnt(usb_mnt, min_size, usb_fs_type)
+                handle_mnt(usb_mnt)
                 if key_dir and key_files:
                     usb_cp_keys(usb_mnt, key_dir, key_files)
                 if wireguard_dir:
