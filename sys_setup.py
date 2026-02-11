@@ -21,7 +21,16 @@ import re
 import shlex
 import shutil
 import textwrap
-from utils import UserSrv, src_pass_file, ask_pass, run_cmd, get_logger
+from utils import (
+    UserSrv,
+    src_pass_file,
+    ask_pass,
+    run_cmd,
+    get_logger,
+    copy_file,
+    copy_dir,
+    apply_permissions_dir,
+)
 import sys_conf as sc
 
 ###########################################################
@@ -239,11 +248,11 @@ def enable_user_serv(
 
 
 def user_service(
-    script_dir: str,
     mnt_point: Path,
     user_name: str,
-    user_script: str = "user_setup.py",
-) -> None:
+    user_script="user_setup.py",
+    script_dir: str = Path(__file__).resolve().parent.name,
+):
     dir = f"home/{user_name}/.config/systemd/user"
     (mnt_point / dir).mkdir(parents=True, exist_ok=True)
     run_script = f"/home/{user_name}/{script_dir}/{user_script}"
@@ -260,13 +269,8 @@ Restart=no
 [Install]
 WantedBy=graphical-session.target
 """)
-    enable_user_serv(
-        units=UserSrv(
-            target="graphical-session", services=[name], source=Path(f"/{dir}")
-        ),
-        mnt_point=mnt_point,
-        user_name=user_name,
-    )
+    unit = UserSrv(source=Path(f"/{dir}"), target="graphical-session", services=[name])
+    enable_user_serv(unit, mnt_point, user_name)
 
 
 #########################
@@ -415,37 +419,6 @@ def modify_mkinit(mnt_point: Path, hooks: list[str]):
         mkinit.write(content)
 
 
-def copy_file(file: Path, dest: Path) -> None:
-    if not file.is_file():
-        log.error(f"{file} does not exist")
-        return
-    if dest.is_dir():
-        dest = dest / file.name
-    shutil.copy2(file, dest)
-    log.info(f"Copied {file} to {dest}")
-
-
-def copy_dir(dir: Path, dest: Path) -> None:
-    src = Path("/root") / dir
-    if not src.is_dir():
-        log.error(f"{src} does not exist")
-        return
-    shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
-
-
-def apply_permissions(path: Path, file_mode=0o600, dir_mode=0o700):
-    for p in path.rglob("*"):
-        if p.is_file():
-            p.chmod(file_mode)
-    path.chmod(dir_mode)
-
-
-def prepend_dot(dir: Path):
-    if dir.is_dir():
-        for p in dir.iterdir():
-            p.rename(p.parent / ("." + p.name))
-
-
 def install_icon_theme(
     mnt_point: Path,
     old: str = "#ffffff",
@@ -519,7 +492,8 @@ def perform_installation(mountpoint=mountpoint) -> None:
         skel_tmp = HOME / sc.skel_git
         run_cmd(["git", "clone", git_cmd, str(skel_tmp)], True)
         shutil.rmtree(skel_tmp / ".git")
-        prepend_dot(skel_tmp)
+        for p in skel_tmp.iterdir():
+            p.rename(p.parent / ("." + p.name))
         copy_dir(skel_tmp, mountpoint / "etc" / "skel")
         #############-User and Sudo-###############
         installation.create_users(User(sc.user_name, Password(pw), True, sc.groups))
@@ -544,7 +518,7 @@ def perform_installation(mountpoint=mountpoint) -> None:
             dest.mkdir(parents=True, exist_ok=True)
             copy_file(Path(f"/root/{sc.usb_key_dir}/{name}"), dest)
             installation.chown(sc.user_name, str(mountpoint / user_home / folder))
-            apply_permissions(mountpoint / user_home / folder)
+            apply_permissions_dir(mountpoint / user_home / folder)
         #############-Own Everything and User Services-###############
         # Untested
         # usr_cmd = [
@@ -553,7 +527,7 @@ def perform_installation(mountpoint=mountpoint) -> None:
         #     f"python /home/{user_name}/Folka/local/bin/dotsync/dotsync.py",
         # ]
         # run_chroot(usr_cmd, mountpoint, user_name, peek=False)
-        user_service(script_dir.name, mountpoint, sc.user_name)
+        user_service(mountpoint, sc.user_name)
         enable_user_serv(sc.user_services, mountpoint, sc.user_name)
         install_icon_theme(mountpoint)
         configure_sudo(sc.user_name, mountpoint, pwd_require=True)

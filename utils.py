@@ -1,3 +1,4 @@
+import shutil
 from pydantic import BaseModel
 import logging
 from pathlib import Path
@@ -49,9 +50,9 @@ log = get_logger("Noah")
 # CLASSES
 ###########################################################
 class UserSrv(BaseModel):
-    target: str
-    services: list[str]
     source: Path = Path("/usr/lib/systemd/user")
+    services: list[str]
+    target: str
 
 
 class UserGitRepo(BaseModel):
@@ -72,6 +73,31 @@ def src_pass_file(usb_key_dir: str, pass_file: str):
         except Exception as e:
             log.error(f"{e}")
     log.warning(f"{key_path} not found or unreadable.")
+
+
+def copy_file(file: Path, dest: Path) -> None:
+    if not file.is_file():
+        log.error(f"{file} does not exist")
+        return
+    if dest.is_dir():
+        dest = dest / file.name
+    shutil.copy2(file, dest)
+    log.info(f"Copied {file} to {dest}")
+
+
+def copy_dir(dir: Path, dest: Path) -> None:
+    src = Path("/root") / dir
+    if not src.is_dir():
+        log.error(f"{src} does not exist")
+        return
+    shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
+
+
+def apply_permissions_dir(path: Path, file_mode=0o600, dir_mode=0o700):
+    for p in path.rglob("*"):
+        if p.is_file():
+            p.chmod(file_mode)
+    path.chmod(dir_mode)
 
 
 #########################

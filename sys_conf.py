@@ -61,11 +61,12 @@ mkinit_hooks = [
 ###########################################################
 user_services = [
     UserSrv(
+        source=Path("/usr/lib/systemd/user"),
         target="default",
         services=["pipewire-pulse.service", "psd.service"],
-        source=Path("/usr/lib/systemd/user"),
     ),
     UserSrv(
+        source=Path("/usr/lib/systemd/user"),
         target="sockets",
         services=[
             "pipewire-pulse.socket",
@@ -73,12 +74,11 @@ user_services = [
             "gcr-ssh-agent.socket",
             "mpd.socket",
         ],
-        source=Path("/usr/lib/systemd/user"),
     ),
     UserSrv(
+        source=Path("/usr/lib/systemd/user"),
         target="graphical-session",
         services=["hypridle.service", "swaync.service", "waybar.service"],
-        source=Path("/usr/lib/systemd/user"),
     ),
 ]
 ###########################################################
@@ -249,6 +249,7 @@ pkgs = [
     "libreoffice-fresh",
     "coin-or-mp",  # LibreOffice Calc Solver
     ###########-Basic User-###########
+    "anki",
     "authenticator",
     "baobab",
     "bustle",
@@ -319,7 +320,6 @@ pkgs = [
     "wine-staging",
     "winetricks",
     ########-CHAOTIC PKGS-########
-    "anki",
     "ayugram-desktop-git",
     "qt6-imageformats",  # AyuGram missing dependency
     "betterbird-bin",
