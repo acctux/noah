@@ -99,8 +99,8 @@ def handle_mnt(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4"):
 
     recurse(data["blockdevices"])
     while True:
-        print(f"{'No.':<5} {'Name':<8} {'Size':<8} {'FS Type':>8}")
-        print("-" * 45)
+        get_logger("Noah").info(f"{'No.':<5} {'Name':<8} {'Size':<8} {'FS Type':>8}")
+        get_logger("Noah").info("-" * 45)
         for i, (name, size, fstype) in enumerate(candidates, 1):
             print(f"{i:<5} {name:<8} {size:<8} {fstype:>8}")
         choice = input(f"Enter 1-{len(candidates)}: ").strip()
@@ -124,7 +124,6 @@ def handle_mnt(usb_mnt: Path, min_gb: float = 20, usb_fs_type: str = "ext4"):
 
 
 def usb_cp_keys(usb_mount, key_dir, key_files):
-    print("Preparing to copy key files from USB...")
     dest_dir = Path.home() / key_dir
     dest_dir.mkdir(parents=True, exist_ok=True)
     for key_file in key_files:
@@ -504,14 +503,6 @@ def perform_installation(mountpoint=mountpoint) -> None:
             copy_file(Path(f"/root/{sc.usb_key_dir}/{name}"), dest)
             installation.chown(sc.user_name, str(mountpoint / user_home / folder))
             apply_permissions_dir(mountpoint / user_home / folder)
-        #############-Own Everything and User Services-###############
-        # Untested
-        # usr_cmd = [
-        #     f"git clone https://github.com/acctux/polka.git /home/{user_name}/Folka",
-        #     "hyprctl reload "
-        #     f"python /home/{user_name}/Folka/local/bin/dotsync/dotsync.py",
-        # ]
-        # run_chroot(usr_cmd, mountpoint, user_name, peek=False)
         user_service(mountpoint, sc.user_name)
         enable_user_serv(sc.user_services, mountpoint, sc.user_name)
         install_icon_theme(mountpoint)
