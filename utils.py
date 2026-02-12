@@ -1,7 +1,5 @@
-import shutil
 from pydantic import BaseModel
 import logging
-from pathlib import Path
 import subprocess
 from getpass import getpass
 import sys
@@ -49,64 +47,9 @@ log = get_logger("Noah")
 ###########################################################
 # CLASSES
 ###########################################################
-class UserSrv(BaseModel):
-    source: str = "/usr/lib/systemd/user"
-    services: list[str]
-    target: str
-
-
 class UserGitRepo(BaseModel):
     target_dir: str
     repos: list[str]
-
-
-class CustUserSrv(BaseModel):
-    services: list[str]
-    target: str
-
-
-#########################
-# SRC PASSWORD
-#########################
-def src_pass_file(usb_key_dir: str, pass_file: str):
-    key_path = Path("/root") / usb_key_dir / pass_file
-    if key_path.exists():
-        try:
-            pw = key_path.read_text().strip()
-            log.info(f"{key_path} loaded ")
-            return pw
-        except Exception as e:
-            log.error(f"{e}")
-    log.warning(f"{key_path} not found or unreadable.")
-
-
-def copy_file(file: Path, dest: Path) -> None:
-    if not file.is_file():
-        log.error(f"{file} does not exist")
-        return
-    if dest.is_dir():
-        dest = dest / file.name
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(file, dest)
-    log.info(f"Copied file: {file} to {dest}")
-
-
-def copy_dir(dir: Path, dest: Path) -> None:
-    src = Path("/root") / dir
-    if not src.is_dir():
-        log.error(f"{src} does not exist")
-        return
-    shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
-    log.info(f"Copied directory: {src} to {dest}")
-
-
-def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700):
-    if path.exists():
-        if path.is_file():
-            path.chmod(f_mode)
-        path.chmod(d_mode)
-    else:
-        log.warning(f"{path} not found.")
 
 
 #########################
