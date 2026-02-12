@@ -122,7 +122,7 @@ hardware_pkgs = [
     "ntfs-3g",
     "realtime-privileges",
     "smartmontools",
-    "tlp",
+    "tuned-ppd",
     "udisks2-btrfs",
     "usb_modeswitch",
 ]

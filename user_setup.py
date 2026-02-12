@@ -25,7 +25,7 @@ def cleanup(HOME: Path):
             shutil.rmtree(d)
 
 
-def run_interactive(cmd: list[str], check: bool = True) -> int:
+def run_interactive(cmd: list[str], check=True) -> int:
     log.info(f"Running (interactive): {' '.join(cmd)}")
     returncode = subprocess.Popen(
         cmd, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr, text=True
@@ -171,9 +171,7 @@ def init_gocrypt(enc_dir: Path):
     log.info(f"gocryptfs initialized at {enc_dir}.")
 
 
-def setup_service(
-    user_script: str = "user_setup.py", script_dir: str | None = None
-) -> None:
+def setup_service(user_script="user_setup.py", script_dir: str | None = None) -> None:
     run_script = HOME / user_script
     if script_dir:
         run_script = HOME / script_dir / user_script
@@ -276,7 +274,7 @@ def clone_repos(git_user: str, git_repo: UserGitRepo):
 ############################
 # Icons/Folders
 ############################
-def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME: Path = HOME):
+def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME=HOME):
     for folder, icon in custom_folder_icons:
         dir_path = HOME / folder
         dir_path.mkdir(parents=True, exist_ok=True)
@@ -307,8 +305,7 @@ def pass_and_input(password_file: str, pass_dir: Path):
     os.environ.pop("CLIPBOARD_STATE", None)
 
 
-def launch_apps():
-    apps = ["firedragon", "protonmail-bridge", "betterbird", "steam"]
+def launch_apps(apps=["firedragon", "protonmail-bridge", "betterbird", "steam"]):
     processes = []
     for app in apps:
         processes.append(subprocess.Popen(app))
