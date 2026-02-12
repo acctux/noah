@@ -54,6 +54,7 @@ def run_sudo_commands(
             "--basedir=/usr",
             "--datadir=/var/lib/mysql",
         ],
+        ["tuned-adm", "profile", "laptop-battery-powersave"],
     ],
 ):
     for cmd in sudo_cmds:
