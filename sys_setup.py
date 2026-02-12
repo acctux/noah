@@ -830,11 +830,7 @@ def chaotic_repo(mnt_point: Path | None = None):
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
 
 
-def config_pac_conf(
-    mnt_point: Path | None,
-    parallel_downloads: int = 10,
-    noextract_lines: list[str] = [],
-):
+def config_pac_conf(mnt_point: Path | None, parallel_downloads=10, noextract_lines=[]):
     pacman_content = textwrap.dedent(f"""\
         [options]
         HoldPkg = pacman glibc
@@ -904,7 +900,7 @@ def configure_sudo(user_name: str, mnt_point: Path, passwordless_sudo=True):
     log.info(f"Created {sudoers_file} {prt_val} for {user_name}")
 
 
-def modify_systemd(mnt_point: Path, boot_opts: list[str] = ["quiet", "splash"]) -> None:
+def modify_systemd(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
     entries_dir = mnt_point / "boot" / "loader" / "entries"
     for entry in entries_dir.iterdir():
         lines = entry.read_text().splitlines()
