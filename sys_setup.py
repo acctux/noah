@@ -752,22 +752,18 @@ def enable_user_serv(units: UserSrv | list[UserSrv], mnt_point: Path, user_name:
 
 
 def enable_cust_user_serv(
-    units: list[CustUserSrv],
-    mnt_point: Path,
-    user_name: str,
+    units: list[CustUserSrv], mnt_point: Path, user_name: str
 ) -> None:
     if isinstance(units, CustUserSrv):
         units = [units]
     user_commands: list[str] = []
     base_dir = Path(f"/home/{user_name}/.config/systemd/user")
-    source_base = Path(f"/mnt/home/{user_name}/.config/systemd/user")
     for unit in units:
-        target_dir = base_dir / f"{unit.target}.target.wants"
-        user_commands.append(f"mkdir -p {target_dir}")
         for service in unit.services:
-            src = source_base / service
+            target_dir = base_dir / f"{unit.target}.target.wants"
             dst = target_dir / service
-            user_commands.append(f"ln -sf {src} {dst}")
+            user_commands.append(f"mkdir -p {target_dir}")
+            user_commands.append(f"ln -sf {base_dir / service} {dst}")
     run_chroot(
         [f"chown -R {user_name}:{user_name} {base_dir.parent}"],
         mnt_point,
