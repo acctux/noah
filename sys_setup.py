@@ -187,6 +187,11 @@ android_pkgs = [
     "sshfs",
     "scrcpy",
 ]
+apple_pkgs = [
+    "gvfs-afc",
+    "gvfs-gphoto2",
+    "usbmuxd",
+]
 network_pkgs = [
     "bind",
     "deluge-gtk",
@@ -251,6 +256,7 @@ office_pkgs = [
     "gnucash",
     "libreoffice-fresh",
     "coin-or-mp",  # LibreOffice Calc Solver
+    "zathura-pdf-mupdf",
 ]
 coding_pkgs = [
     "inotify-tools",  # nvim
@@ -1071,6 +1077,7 @@ def perform_installation(mountpoint) -> None:
             + media_pkgs
             + hyprland_pkgs
             + office_pkgs
+            + apple_pkgs
             + coding_pkgs
             + mariadb_pkgs
             + pydep_pkgs

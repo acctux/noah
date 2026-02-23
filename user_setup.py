@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import pyperclip
 from utils import get_logger, run_cmd, ping, ask_pass, UserGitRepo
-import user_conf as uc
 
 log = get_logger("Noah")
 ###########################################################
@@ -330,18 +329,13 @@ def clone_repos(git_user: str, git_repo: UserGitRepo):
 # Icons/Folders
 ############################
 def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME=HOME):
-    for folder, icon in custom_folder_icons:
+    for folder, icon_name in custom_folder_icons:
         dir_path = HOME / folder
         dir_path.mkdir(parents=True, exist_ok=True)
-        icon = Path(f"/usr/share/icons/WhiteSur-dark/places/scalable/{icon}.svg")
-        cmd = [
-            "gio",
-            "set",
-            str(dir_path),
-            "metadata::custom-icon",
-            f"file://{icon}.svg",
-        ]
-        if icon.exists():
+        icon = f"/usr/share/icons/WhiteSur-dark/places/scalable/{icon_name}.svg"
+        if Path(icon).exists():
+            icon_uri = f"file://{icon}"
+            cmd = ["gio", "set", str(dir_path), "metadata::custom-icon", icon_uri]
             run_cmd(cmd, True)
 
 
@@ -393,7 +387,7 @@ def verify_install(HOME: Path, git_repos: UserGitRepo):
 def main(HOME=Path.home()):
     script_dir = Path(__file__).resolve().parent.name
     cache_file = HOME / ".cache" / "noah_success.txt"
-    enc_path = HOME / "Desktop" / uc.enc_dir
+    enc_path = HOME / "Desktop" / enc_dir
     if not cache_file.exists():
         run_interactive(["chsh", "-s", "/usr/bin/zsh"])
         run_sudo_commands()
@@ -401,23 +395,23 @@ def main(HOME=Path.home()):
         iwctl_scan()
         if not ping:
             iwctl_scan()
-        enable_mariadb(uc.user_name)
-        if (HOME / ".ssh" / uc.ssh_key).exists():
-            import_ssh(HOME, uc.ssh_key)
-        if (HOME / ".gnupg" / uc.gpg_key).exists():
-            import_gpg(HOME / ".gnupg" / uc.gpg_key)
+        enable_mariadb(user_name)
+        if (HOME / ".ssh" / ssh_key).exists():
+            import_ssh(HOME, ssh_key)
+        if (HOME / ".gnupg" / gpg_key).exists():
+            import_gpg(HOME / ".gnupg" / gpg_key)
         if not enc_path.exists() or not any(enc_path.iterdir()):
             init_gocrypt(enc_path)
-        set_folder_icons(uc.dirs_icons)
+        set_folder_icons(dirs_icons)
         ensure_github_known_hosts(HOME)
-        for target in uc.git_repos:
-            clone_repos(uc.git_user, target)
+        for target in git_repos:
+            clone_repos(git_user, target)
         for plugin in yazi_plugins:
             run_cmd(["ya", "pkg", "add", plugin])
-        if any((HOME / uc.dots_dir).iterdir()):
+        if any((HOME / dots_dir).iterdir()):
             deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
         setup_service(script_dir)
-        for target in uc.git_repos:
+        for target in git_repos:
             if not verify_install(HOME, target):
                 log.error("Installation verification failed. Cache file not updated.")
                 return
@@ -428,7 +422,7 @@ def main(HOME=Path.home()):
             return
         run_cmd(["systemctl", "reboot"], True)
     else:
-        pass_and_input(uc.pass_manager_pass, (HOME))
+        pass_and_input(pass_manager_pass, (HOME))
         launch_apps()
         run_interactive(
             ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
