@@ -40,9 +40,6 @@ timezone = "US/Eastern"
 groups = ["adm", "games", "realtime", "storage"]
 git_name = "acctux"
 dots_git = "polka"
-###########################################################
-# FOLDERS TO COPY FROM SCRIPT DIR TO /mnt
-###########################################################
 script_pwd_to_cp = ["etc", "usr"]
 ###########################################################
 # USB PASSED FILES CONF
@@ -198,7 +195,7 @@ network_pkgs = [
     "iwd",
     "openresolv",
     "profile-sync-daemon",
-    "protonmail-bridge",
+    "protonmail-bridge-core",
     "wireguard-tools",
 ]
 lang_pkgs = [
@@ -298,6 +295,7 @@ pydep_pkgs = [
     "python-wand",  # wallpaper script
 ]
 gaming_pkgs = [
+    "citron-git",
     "gnome-chess",
     "gnuchess",
     "lib32-mangohud",
@@ -358,7 +356,6 @@ sys_services = [
 ]
 custom_services = ["loggy", "wireguard-list"]
 disable_svcs = ["getty@tty1", "systemd-networkd-wait-online"]
-
 ###########################################################
 # HIDE APPS
 ###########################################################
@@ -370,6 +367,7 @@ apps_to_hide = [
     "jshell-java-openjdk",
     "jconsole-java-openjdk",
     "khal",
+    "kvantummanager",
     "libreoffice-base",
     "libreoffice-draw",
     "libreoffice-math",
@@ -385,6 +383,7 @@ apps_to_hide = [
     "qvidcap",
     "scrcpy-console",
     "taskwarrior-tui",
+    "tuned-gui",
     "uuctl",
     "xgps",
     "xgpsspeed",
@@ -426,6 +425,7 @@ usr_srv_graphical = UserSrv(
     services=[
         "cliphist.service",
         "hypridle.service",
+        "hyprsunset.service",
         "swaync.service",
         "waybar.service",
     ],
@@ -435,16 +435,11 @@ cust_graphic = CustUserSrv(
     services=[
         "ayugram.service",
         "clip-persist.service",
-        "cliphist.service",
-        "hypridle.service",
-        "hyprsunset.service",
         "kdeconnectd.service",
         "polkit-gnome.service",
         "snixembed.service",
-        "swaync.service",
         "swayosd.service",
         "swww-daemon.service",
-        "waybar.service",
     ],
 )
 cust_timer = CustUserSrv(
@@ -662,7 +657,7 @@ def get_device(usb_mnt: Path, min_gb=20, usb_fs_type="ext4") -> str:
     return selected_path
 
 
-def usb_cp_keys(usb_mount: Path, key_dir, key_files):
+def usb_cp_keys(usb_mount: Path, key_dir: str, key_files: list[str]):
     (HOME / key_dir).mkdir(parents=True, exist_ok=True)
     for key in key_files:
         copy_file(usb_mount / key_dir / key, HOME / key_dir / key)
@@ -878,6 +873,16 @@ def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
         log.info("Copied %s to %s", source_dir, target_dir)
 
 
+def write_mpd_tmpfiles(mnt_point: Path, username: str) -> None:
+    base_path = mnt_point / "etc" / "tmpfiles.d"
+    base_path.mkdir(parents=True, exist_ok=True)
+    base_path.write_text(
+        f"d /home/{username}/.cache/mpd 0755 {username} mpd -\n"
+        f"d /home/{username}/.cache/mpd/playlists 0755 {username} mpd -\n"
+    )
+    log.info(f"Wrote config to: {base_path}")
+
+
 def configure_sudo(user_name: str, mnt_point: Path, passwordless_sudo=True):
     sudoers_file = mnt_point / f"etc/sudoers.d/00_{user_name}"
     if passwordless_sudo:
@@ -921,14 +926,14 @@ def modify_systemd(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
     log.info(f"Modified {loader_file}")
 
 
-# def modify_fstab(mnt_point: Path) -> None:
-#     fstab_path = mnt_point / "etc" / "fstab"
-#     content = fstab_path.read_text()
-#     # ^(?!#) = ignore comments, .*? = match any characters up to the \option\
-#     # \bfmask=\d+  → word boundary, then  digits
-#     content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
-#     content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
-#     fstab_path.write_text(content)
+def modify_fstab(mnt_point: Path) -> None:
+    fstab_path = mnt_point / "etc" / "fstab"
+    content = fstab_path.read_text()
+    # ^(?!#) = ignore comments, .*? = match any characters up to the \option\
+    # \bfmask=\d+  → word boundary, then  digits
+    content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
+    content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
+    fstab_path.write_text(content)
 
 
 def modify_mkinit(mnt_point: Path, hooks: list[str]):

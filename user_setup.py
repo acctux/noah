@@ -11,9 +11,59 @@ import pyperclip
 from utils import get_logger, run_cmd, ping, ask_pass, UserGitRepo
 import user_conf as uc
 
-
 log = get_logger("Noah")
+###########################################################
+# CONF
+###########################################################
+user_name = "nick"
+ssh_key = "id_ed25519"
+gpg_key = "my_sec_gpg.asc"
+pass_manager_pass = "pass.txt"
+git_user = "acctux"
+git_dir = "Lit"
+docs = "Docs"
+desk = "Desktop"
+games = "Games"
+enc_dir = "Encrypted"
+###########################################################
+# GIT/DOT FILE
+############################################################
 HOME = Path.home()
+CONFIG_DIR = HOME / ".config"
+SHARE_DIR = HOME / ".local" / "share"
+DOTS_P = HOME / "Lit" / "polka"
+BASE = HOME / "Lit/Docs/base"
+dots_dir = "polka"
+git_repos = [UserGitRepo(target_dir=git_dir, repos=[docs, "noah", dots_dir])]
+dirs_to_link = ["local/bin"]
+ind_dirs = [
+    ((BASE / "fonts"), (SHARE_DIR / "fonts")),
+    ((BASE / "task"), (CONFIG_DIR / "task")),
+    ((BASE / "zsh"), (CONFIG_DIR / "zsh")),
+    ((BASE / "git"), (CONFIG_DIR / "git")),
+    ((BASE / "gh"), (CONFIG_DIR / "gh")),
+]
+###########################################################
+# ICONS
+###########################################################
+dirs_icons = [
+    (f"{desk}/{games}", "folder-games"),
+    (f"{desk}/{enc_dir}", "folder-locked"),
+    (git_dir, "folder-github"),
+    (f"{git_dir}/noah", "folder-root"),
+    (f"{git_dir}/{docs}", "folder-bookmark"),
+    (f"{git_dir}/{dots_dir}", "folder-html"),
+]
+###########################################################
+# YAZI
+###########################################################
+yazi_plugins = [
+    "yazi-rs/plugins:jump-to-char",
+    "uhs-robert/sshfs",
+    "boydaihungst/gvfs",
+    "uhs-robert/recycle-bin",
+    "h-hg/yamb",
+]
 
 
 def cleanup(HOME: Path):
@@ -71,6 +121,10 @@ def link_path(src: Path, dst: Path) -> bool:
     rel = src.relative_to(dst.parent, walk_up=True)
     if dst.is_symlink() and dst.readlink() == rel:
         return False
+    else:
+        if dst.is_dir():
+            shutil.rmtree(dst)
+        dst.unlink(missing_ok=True)
     if dst.exists():
         if dst.is_dir() and not dst.is_symlink():
             shutil.rmtree(dst)
@@ -82,11 +136,7 @@ def link_path(src: Path, dst: Path) -> bool:
     return True
 
 
-def dot_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
-    """
-    Map DOTS_DIR/config/nvim/init.lua → ~/.config/nvim/init.lua
-    "." + parts[0]=config -> .config, *parts[1:] tuple
-    """
+def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
     parts = src.relative_to(source_dir).parts
     return target_dir / Path("." + parts[0], *parts[1:])
 
@@ -95,32 +145,36 @@ def file_candidates(
     target_dir: Path,
     dotfiles_dir: Path,
     dirs_to_link: list[str],
-    individual_dirs: list[tuple[str, str]],
+    ind_dirs: list[tuple[Path, Path]],
 ):
-    dot_path = HOME / dotfiles_dir
-    for src in dot_path.rglob("*"):
+    for src in dotfiles_dir.rglob("*"):
         if src.is_file():
             rel = src.relative_to(dotfiles_dir)
-            if rel.as_posix().startswith(".git"):
+            if rel.parts[0] == ".git":
                 continue
             if any(rel.is_relative_to(Path(d)) for d in dirs_to_link):
                 continue
-            yield src, dot_destination(src, dotfiles_dir, target_dir)
+            yield src, dotted_destination(src, dotfiles_dir, target_dir)
     for d in dirs_to_link:
         src = dotfiles_dir / d
         if src.is_dir():
-            yield src, dot_destination(src, dotfiles_dir, target_dir)
-    for src_dir, dst_dir in individual_dirs:
-        src_path = HOME / src_dir
-        if not src_path.is_dir():
+            yield src, dotted_destination(src, dotfiles_dir, target_dir)
+    for src_dir, dst_dir in ind_dirs:
+        if not src_dir.is_dir():
             continue
-        for src in src_path.rglob("*"):
+        for src in src_dir.rglob("*"):
             if src.is_file():
                 yield src, dst_dir / src.relative_to(src_dir)
 
 
+############################
+# Main
+############################
 def deploy_dotfiles(
-    dot_dir: Path, dirs_to_link: list[str], ind_dirs: list[tuple[str, str]]
+    HOME: Path,
+    dot_dir: Path,
+    dirs_to_link: list[str],
+    ind_dirs: list[tuple[Path, Path]],
 ):
     if not dot_dir.is_dir():
         log.error(f"Dotfiles directory not found: {dot_dir}")
@@ -279,7 +333,7 @@ def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME=HOME):
     for folder, icon in custom_folder_icons:
         dir_path = HOME / folder
         dir_path.mkdir(parents=True, exist_ok=True)
-        icon = HOME / f".local/share/icons/WhiteSur-dark/places/scalable/{icon}.svg"
+        icon = Path(f"/usr/share/icons/WhiteSur-dark/places/scalable/{icon}.svg")
         cmd = [
             "gio",
             "set",
@@ -323,7 +377,7 @@ def verify_install(HOME: Path, git_repos: UserGitRepo):
             if not repo_path.exists() or not any(repo_path.iterdir()):
                 log.error(f"Git repository {repo} is empty or missing: {repo_path}")
             return False
-    if not (HOME / ".local/share/icons/WhiteSur-dark").exists():
+    if not Path("/usr/share/icons/WhiteSur-dark").exists():
         log.error("Icon folder 'WhiteSur-dark' not found.")
         return False
     nvim_config = HOME / ".config/nvim"
@@ -331,14 +385,6 @@ def verify_install(HOME: Path, git_repos: UserGitRepo):
         log.error(f"{nvim_config} is not a symlink.")
         return False
     return True
-
-
-############################
-# Yazi
-############################
-def handle_yazi_plugins(plugins: list[str]):
-    for plugin in plugins:
-        run_cmd(["ya", "pkg", "add", plugin])
 
 
 ############################
@@ -366,9 +412,10 @@ def main(HOME=Path.home()):
         ensure_github_known_hosts(HOME)
         for target in uc.git_repos:
             clone_repos(uc.git_user, target)
-        handle_yazi_plugins(uc.yazi_plugins)
+        for plugin in yazi_plugins:
+            run_cmd(["ya", "pkg", "add", plugin])
         if any((HOME / uc.dots_dir).iterdir()):
-            deploy_dotfiles((HOME / uc.dots_dir), uc.dirs_to_link, uc.ind_dirs)
+            deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
         setup_service(script_dir)
         for target in uc.git_repos:
             if not verify_install(HOME, target):
