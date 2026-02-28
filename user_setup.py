@@ -113,7 +113,7 @@ def run_sudo_commands(
 
 
 ############################
-# Dotfile Symlink
+# Helpers
 ############################
 def link_path(src: Path, dst: Path) -> bool:
     dst.parent.mkdir(parents=True, exist_ok=True)

@@ -1,8 +1,3 @@
-import sys
-from getpass import getpass
-from pydantic import BaseModel
-import time
-import logging
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.global_menu import DiskLayoutConfigurationMenu
@@ -19,6 +14,11 @@ from archinstall.lib.args import (
     User,
     arch_config_handler,
 )
+import sys
+from getpass import getpass
+from pydantic import BaseModel
+import time
+import logging
 import subprocess
 from pathlib import Path
 import json
@@ -37,7 +37,7 @@ kb_layout = "us"
 sys_lang = "en_US"
 sys_enc = "UTF-8"
 timezone = "US/Eastern"
-groups = ["adm", "games", "realtime", "storage"]
+groups = ["adm", "games", "realtime", "storage", "video"]
 git_name = "acctux"
 dots_git = "polka"
 script_pwd_to_cp = ["etc", "usr"]
@@ -112,16 +112,27 @@ pipewire_pkgs = [
 ]
 hardware_pkgs = [
     "ananicy-cpp",
+    "bluetui",
+    "bluez-tools",
     "bluez-utils",  # for loggy
     "brightnessctl",
+    "cpupower",
     "dosfstools",
     "exfatprogs",
     "ntfs-3g",
     "realtime-privileges",
     "smartmontools",
-    "tuned-ppd",
+    "tuned",
     "udisks2-btrfs",
     "usb_modeswitch",
+]
+monitor_pkgs = [
+    "btop",
+    "rocm-smi-lib",  # btop dependency for amd gpu
+    "nvtop",
+    "powertop",
+    "qjournalctl",
+    "systemctl-tui",
 ]
 base_pkgs = [
     "base-devel",
@@ -134,9 +145,6 @@ base_pkgs = [
 ]
 cli_pkgs = [
     "bat-extras",
-    "bluetui",
-    "btop",
-    "rocm-smi-lib",  # btop dependency for amd gpu
     "eza",
     "fd",
     "fzf",
@@ -147,15 +155,11 @@ cli_pkgs = [
     "less",
     "man-pages",
     "mcfly",
-    "nvtop",
-    "powertop",
     "ripgrep-all",
     "sd",
     "starship",
-    "taskwarrior-tui",
     "trash-cli",
     "ugrep",
-    "yazi",
     "zoxide",
     "zsh-autocomplete",
     "zsh-completions",
@@ -175,10 +179,11 @@ basic_pkgs = [
     "qalculate-qt",
     "qt5ct",
     "qt6ct",
-    "qjournalctl",
+    "taskwarrior-tui",
     "unrar",  # File roller
     "wl-clipboard",
     "wl-clip-persist",
+    "yazi",
     "zbar",  # qr codes
 ]
 android_pkgs = [
@@ -315,13 +320,12 @@ gaming_pkgs = [
     "wine-staging",
     "winetricks",
 ]
-###########################################################
-# CHAOTIC PKGS
-###########################################################
+# --CHAOTIC PKGS--
 chaotic_pkgs = [
     "ayugram-desktop-git",
     "qt6-imageformats",  # AyuGram missing dependency
     "betterbird-bin",
+    "cachyos-ananicy-rules-git",
     "dxvk-mingw-git",
     "firedragon",
     "logiops",
@@ -343,6 +347,7 @@ aur_pkgs = ["wvkbd-deskintl"]
 sys_services = [
     "ananicy-cpp",
     "bluetooth",
+    "cpupower",
     "firewalld",
     "iwd",
     "ly@tty1",
@@ -351,7 +356,7 @@ sys_services = [
     "systemd-networkd",
     "systemd-oomd",
     "systemd-timesyncd",
-    "tlp",
+    "tuned",
     "btrfs-scrub@-.timer",
     "btrfs-scrub@home.timer",
     "fstrim.timer",
@@ -436,19 +441,22 @@ usr_srv_graphical = UserSrv(
         "waybar.service",
     ],
 )
-cust_graphic = CustUserSrv(
+cust_graphic = UserSrv(
+    source=f"/home/{user_name}/.config/systemd/user",
     target="graphical-session",
     services=[
         "ayugram.service",
         "clip-persist.service",
         "kdeconnectd.service",
+        "playerctld.service",
         "polkit-gnome.service",
         "snixembed.service",
         "swayosd.service",
         "swww-daemon.service",
     ],
 )
-cust_timer = CustUserSrv(
+cust_timer = UserSrv(
+    source=f"/home/{user_name}/.config/systemd/user",
     target="timers",
     services=[
         "emailcheck.timer",
@@ -457,7 +465,6 @@ cust_timer = CustUserSrv(
         "wall.timer",
     ],
 )
-cust_default = CustUserSrv(target="default", services=["playerctld.service"])
 
 
 #########################
@@ -599,9 +606,9 @@ def yes_no(prompt: str) -> bool:
         print("Please enter 'y' or 'n'.")
 
 
-#########################
+###################################
 # UTILS
-#########################
+###################################
 def check_missing(
     key_dir: str | None = None,
     key_files: list[str] | None = None,
@@ -711,9 +718,9 @@ def mnt_cp_keys(
         log.info("All required files present.")
 
 
-#########################
+###################################
 # GNUPG
-#########################
+###################################
 def run_chroot(
     commands: list[str], mnt_point: Path, user_name: str | None = None, peek=True
 ):
@@ -734,9 +741,9 @@ def run_chroot(
     chroot_path.unlink()
 
 
-#########################
+###################################
 # USR_SVC
-#########################
+###################################
 def enable_user_serv(units: UserSrv | list[UserSrv], mnt_point: Path, user_name: str):
     if isinstance(units, UserSrv):
         units = [units]
@@ -750,26 +757,6 @@ def enable_user_serv(units: UserSrv | list[UserSrv], mnt_point: Path, user_name:
             dst = target_dir / service
             user_commands.append(f"ln -sf {src} {dst}")
     run_chroot([f"chown -R {user_name}:{user_name} /home/{user_name}/"], mnt_point)
-    run_chroot(user_commands, mnt_point, user_name)
-
-
-def enable_cust_user_serv(
-    units: list[CustUserSrv], mnt_point: Path, user_name: str
-) -> None:
-    if isinstance(units, CustUserSrv):
-        units = [units]
-    user_commands: list[str] = []
-    base_dir = Path(f"/home/{user_name}/.config/systemd/user")
-    for unit in units:
-        for service in unit.services:
-            target_dir = base_dir / f"{unit.target}.target.wants"
-            dst = target_dir / service
-            user_commands.append(f"mkdir -p {target_dir}")
-            user_commands.append(f"ln -sf {base_dir / service} {dst}")
-    run_chroot(
-        [f"chown -R {user_name}:{user_name} {base_dir.parent}"],
-        mnt_point,
-    )
     run_chroot(user_commands, mnt_point, user_name)
 
 
@@ -801,9 +788,9 @@ def user_service(
     enable_user_serv(unit, mnt_point, user_name)
 
 
-#########################
+###################################
 # PACMAN
-#########################
+###################################
 def chaotic_repo(mnt_point: Path | None = None):
     log.info("Setting up Chaotic-AUR repository.")
     key_serv = "keyserver.ubuntu.com"
@@ -862,9 +849,9 @@ def config_pac_conf(mnt_point: Path | None, parallel_downloads=10, noextract_lin
         run_cmd(["pacman", "-Sy"], True)
 
 
-#########################
+###################################
 # ETC/BOOT
-#########################
+###################################
 def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
     for dir_name in sys_dir_cp:
         source_dir = script_dir / dir_name
@@ -989,6 +976,10 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
             if yes_no(f"{system_file} not found, create anyway?"):
                 user_file.write_text("[Desktop Entry]\nHidden=true\nNoDisplay=true\n")
                 log.info(f"{user_file} created")
+    cmd = [
+        f"sudo chown -R {username}:{username} /home/{username}/.local/share/applications"
+    ]
+    run_chroot(cmd, mountpoint, username)
 
 
 def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
@@ -1072,6 +1063,7 @@ def perform_installation(mountpoint) -> None:
             + cli_pkgs
             + basic_pkgs
             + android_pkgs
+            + monitor_pkgs
             + network_pkgs
             + lang_pkgs
             + media_pkgs
@@ -1094,20 +1086,16 @@ def perform_installation(mountpoint) -> None:
         clone_dots_to_skel(mountpoint, git_name, dots_git)
         installation.create_users(User(user_name, Password(pw), True, groups))
         configure_sudo(user_name, mountpoint, passwordless_sudo=True)
+        write_mpd_tmpfiles(mountpoint, user_name)
         run_chroot(
             [
                 f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
                 "xdg-user-dirs-update",
-                f"mkdir -p /{user_home}/.cache/mpd",
             ],
             mountpoint,
             user_name,
         )
         hide_apps(mountpoint, user_name, apps_to_hide)
-        cmd = [
-            f"sudo chown -R {user_name}:{user_name} /home/{user_name}/.local/share/applications"
-        ]
-        run_chroot(cmd, mountpoint, user_name)
         #############-Copy Keys and Script Dir-#############
         copy_dir(script_d, (mountpoint / user_home / script_d.name))
         installation.chown(user_name, str(mountpoint / user_home / script_d.name))
@@ -1120,9 +1108,6 @@ def perform_installation(mountpoint) -> None:
         user_service(mountpoint, user_name)
         enable_user_serv(
             [usr_srv_default, usr_srv_sockets, usr_srv_graphical], mountpoint, user_name
-        )
-        enable_cust_user_serv(
-            [cust_graphic, cust_timer, cust_default], mountpoint, user_name
         )
         install_icon_theme(mountpoint)
         configure_sudo(user_name, mountpoint, passwordless_sudo=False)
