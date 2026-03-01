@@ -119,6 +119,7 @@ hardware_pkgs = [
     "cpupower",
     "dosfstools",
     "exfatprogs",
+    "kanshi",
     "ntfs-3g",
     "realtime-privileges",
     "smartmontools",
