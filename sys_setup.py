@@ -251,7 +251,7 @@ hyprland_pkgs = [
     "snixembed",
     "swaync",
     "swayosd",
-    "swww",
+    "awww",
     "uwsm",
     "waybar",
     "xdg-desktop-portal-gnome",
