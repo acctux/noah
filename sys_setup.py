@@ -201,6 +201,7 @@ network_pkgs = [
     "bind",
     "deluge-gtk",
     "firewalld",
+    "impala",
     "iw",
     "iwd",
     "openresolv",
