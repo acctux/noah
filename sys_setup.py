@@ -1,21 +1,17 @@
+from archinstall.lib.args import ArchConfigHandler
 from archinstall.lib.configuration import ConfigurationOutput
+from archinstall.lib.disk.disk_menu import DiskLayoutConfigurationMenu
 from archinstall.lib.disk.filesystem import FilesystemHandler
-from archinstall.lib.global_menu import DiskLayoutConfigurationMenu
-from archinstall.lib.installer import Bootloader, Installer, SysCommand
-from archinstall.lib.models.device import DiskLayoutType, EncryptionType
-from archinstall.tui import Tui
-from archinstall.lib.interactions.general_conf import (
-    PostInstallationAction,
-    ask_post_installation,
-)
-from archinstall.lib.args import (
-    LocaleConfiguration,
-    Password,
-    User,
-    arch_config_handler,
-)
+from archinstall.lib.installer import Installer, SysCommand
+from archinstall.lib.menu.util import delayed_warning
+from archinstall.lib.models import Bootloader
+from archinstall.lib.models.users import Password, User
+from archinstall.lib.output import debug, error
+from archinstall.lib.translationhandler import tr
+from archinstall.tui.ui.components import tui
 from pydantic import BaseModel
 import time
+import os
 import subprocess
 from pathlib import Path
 import json
@@ -934,20 +930,29 @@ def process_copy(mnt_point, usb_key_dir: str, user_name: str, to_cp):
             chown_line = f"chown {user_name}:{user_name} {dest.relative_to(mnt_point)}"
             chown_ls.append(chown_line)
             ind_key_permission(dest)
-        ind_key_permission(dest)
+        ind_key_permission(mnt_dir)
     return chown_ls
 
 
 ###########################################################
 # Installer
 ###########################################################
-def perform_installation(mountpoint) -> None:
+def perform_installation(arch_config_handler: ArchConfigHandler) -> None:
+    start_time = time.monotonic()
+    mountpoint = arch_config_handler.args.mountpoint
     config = arch_config_handler.config
     if not config.disk_config:
-        log.error("No disk configuration provided")
+        error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    with Installer(mountpoint, disk_config, kernels=kernel) as installation:
+    run_mkinitcpio = not config.bootloader_config or not config.bootloader_config.uki
+    mountpoint = disk_config.mountpoint if disk_config.mountpoint else mountpoint
+    with Installer(
+        mountpoint,
+        disk_config,
+        kernels=config.kernels,
+        silent=arch_config_handler.args.silent,
+    ) as installation:
         ############-Ensure User Pass Exists-##########
         if not (pw := src_pass_file(usb_key_dir, my_pass)):
             pw = ask_pass(user_name)
@@ -1040,14 +1045,18 @@ def perform_installation(mountpoint) -> None:
         #############-Own Everything and User Services-###############
         installation.genfstab()
         # modify_fstab(mountpoint)
+
         if not arch_config_handler.args.silent:
-            with Tui():
-                action = ask_post_installation()
+            elapsed_time = time.monotonic() - start_time
+            action: PostInstallationAction = tui.run(
+                lambda: select_post_installation(elapsed_time)
+            )
+
             match action:
                 case PostInstallationAction.EXIT:
                     pass
                 case PostInstallationAction.REBOOT:
-                    subprocess.run(["reboot"], check=True)
+                    _ = os.system("reboot")  # type: ignore[deprecated]
                 case PostInstallationAction.CHROOT:
                     try:
                         installation.drop_to_shell()
@@ -1058,30 +1067,50 @@ def perform_installation(mountpoint) -> None:
 ###########################################################
 # Main
 ###########################################################
-def _minimal() -> None:
-    with Tui():
-        disk_config = DiskLayoutConfigurationMenu(disk_layout_config=None).run()
-        arch_config_handler.config.disk_config = disk_config
+async def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
+    if arch_config_handler is None:
+        arch_config_handler = ArchConfigHandler()
+
+    disk_config = await DiskLayoutConfigurationMenu(disk_layout_config=None).show()
+    arch_config_handler.config.disk_config = disk_config
+
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
+
+    if arch_config_handler.args.dry_run:
+        return
+
     if not arch_config_handler.args.silent:
         aborted = False
-        with Tui():
-            if not config.confirm_config():
-                log.warning("Installation aborted")
-                aborted = True
+        res: bool = tui.run(config.confirm_config)
+
+        if not res:
+            debug("Installation aborted")
+            aborted = True
+
         if aborted:
-            exit(0)
+            return await main(arch_config_handler)
+
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+
+        if not delayed_warning(tr("Starting device modifications in ")):
+            return await main()
+
         fs_handler.perform_filesystem_operations()
-    ref_cmd = ["reflector", *refl_options, "--save", "/etc/pacman.d/mirrorlist"]
-    run_cmd(ref_cmd)
-    config_pac_conf(None, 10, noextract_lines)
-    chaotic_repo()
-    perform_installation(mountpoint)
+
+    perform_installation(arch_config_handler)
 
 
-mnt_cp_keys(usb_key_dir, usb_cp_files, wireguard_dir)
-_minimal()
+if __name__ == "__main__":
+    tui.run(main)
+#     ref_cmd = ["reflector", *refl_options, "--save", "/etc/pacman.d/mirrorlist"]
+#     run_cmd(ref_cmd)
+#     config_pac_conf(None, 10, noextract_lines)
+#     chaotic_repo()
+#     perform_installation(mountpoint)
+#
+#
+# mnt_cp_keys(usb_key_dir, usb_cp_files, wireguard_dir)
+# _minimal()
