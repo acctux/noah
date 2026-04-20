@@ -1075,8 +1075,6 @@ def main(pw: str, arch_config_handler: ArchConfigHandler | None = None) -> None:
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
-    if arch_config_handler.args.dry_run:
-        return
     if not arch_config_handler.args.silent:
         aborted = False
         res: bool = tui.run(config.confirm_config)

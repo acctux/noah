@@ -52,4 +52,4 @@ clone_repo() {
 
 setup_environment
 clone_repo
-echo "Download complete. Run 'cd archinstall' then 'python sys_setup.py --creds creds.json'"
+echo "Download complete. Run 'python archinstall/sys_setup.py'"
