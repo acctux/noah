@@ -963,8 +963,6 @@ def show_menu(
         arch_config_handler.config,
         mirror_list_handler,
         arch_config_handler.args.skip_boot,
-        advanced=arch_config_handler.args.advanced,
-        title=title_text,
     )
 
     result: ArchConfig | None = tui.run(global_menu)
