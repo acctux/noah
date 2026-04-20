@@ -1014,28 +1014,28 @@ def perform_installation(
         #############-Pkg Management-###############
         config_pac_conf(mountpoint, 10, noextract_lines)
         chaotic_repo(mountpoint)
-        # installation.add_additional_packages(
-        #     amd_pkgs
-        #     + nvidia_pkgs
-        #     + pipewire_pkgs
-        #     + hardware_pkgs
-        #     + base_pkgs
-        #     + cli_pkgs
-        #     + basic_pkgs
-        #     + android_pkgs
-        #     + monitor_pkgs
-        #     + network_pkgs
-        #     + lang_pkgs
-        #     + media_pkgs
-        #     + hyprland_pkgs
-        #     + office_pkgs
-        #     + apple_pkgs
-        #     + coding_pkgs
-        #     + mariadb_pkgs
-        #     + pydep_pkgs
-        #     + gaming_pkgs
-        #     + chaotic_pkgs
-        # )
+        installation.add_additional_packages(
+            amd_pkgs
+            #     + nvidia_pkgs
+            #     + pipewire_pkgs
+            #     + hardware_pkgs
+            #     + base_pkgs
+            #     + cli_pkgs
+            #     + basic_pkgs
+            #     + android_pkgs
+            #     + monitor_pkgs
+            #     + network_pkgs
+            #     + lang_pkgs
+            #     + media_pkgs
+            #     + hyprland_pkgs
+            #     + office_pkgs
+            #     + apple_pkgs
+            #     + coding_pkgs
+            #     + mariadb_pkgs
+            #     + pydep_pkgs
+            #     + gaming_pkgs
+            + chaotic_pkgs
+        )
         # #############-Etc Management-###############
         # modify_mkinit(mountpoint, mkinit_hooks)
         # sys_dots(mountpoint, script_d, script_pwd_to_cp)
