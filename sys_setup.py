@@ -563,7 +563,7 @@ def check_missing(
     return missing_files
 
 
-def get_device(usb_mnt: Path, min_gb=20, usb_fs_type="ext4") -> str:
+def get_device(min_gb=20, usb_fs_type="ext4") -> str:
     data = json.loads(
         subprocess.check_output(
             ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
@@ -627,8 +627,6 @@ def mnt_cp_keys(
     key_dir: str | None = None,
     key_files: list[str] | None = None,
     wireguard_dir: str | None = None,
-    min_size: str = "20GB",
-    usb_fs_type: str = "ext4",
     usb_mnt=Path("/mnt/usb"),
 ):
     if usb_mnt.is_mount():
@@ -637,7 +635,7 @@ def mnt_cp_keys(
     if key_dir and key_files or wireguard_dir:
         if check_missing(key_dir, key_files, wireguard_dir):
             if yes_no("Mount USB to copy missing files?"):
-                selected_path = get_device(usb_mnt)
+                selected_path = get_device()
                 usb_mnt.mkdir(parents=True, exist_ok=True)
                 cmd = [f"mount -t ext4 -o ro {selected_path} {usb_mnt}"]
                 run_cmd(cmd, check=True, shell=True)
@@ -1123,4 +1121,5 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 
 
 if __name__ == "__main__":
+    mnt_cp_keys(usb_key_dir, usb_cp_files, wireguard_dir)
     main()
