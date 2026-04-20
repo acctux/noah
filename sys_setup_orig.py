@@ -1,32 +1,19 @@
-import os
-from pathlib import Path
-import sys
-import time
-
-from archinstall.lib.args import ArchConfig, ArchConfigHandler
+from archinstall.lib.args import ArchConfigHandler
 from archinstall.lib.configuration import ConfigurationOutput
+from archinstall.lib.disk.disk_menu import DiskLayoutConfigurationMenu
 from archinstall.lib.disk.filesystem import FilesystemHandler
-from archinstall.lib.disk.utils import disk_layouts
-from archinstall.lib.general.general_menu import (
-    PostInstallationAction,
-    select_post_installation,
-)
-from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, SysCommand
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.models import Bootloader
-from archinstall.lib.models.device import DiskLayoutType, EncryptionType
-from archinstall.lib.models.users import User
-from archinstall.lib.output import debug, error, info
-from archinstall.lib.packages.util import check_version_upgrade
+from archinstall.lib.models.users import Password, User
+from archinstall.lib.output import debug, error
 from archinstall.lib.translationhandler import tr
 from archinstall.tui.ui.components import tui
-from archinstall.lib.models.locale import LocaleConfiguration
-from archinstall.lib.models.packages import Repository
-from archinstall.lib.models.users import Password
 from pydantic import BaseModel
+import time
+import os
 import subprocess
+from pathlib import Path
 import json
 import re
 import shlex
@@ -140,7 +127,7 @@ monitor_pkgs = [
     "rocm-smi-lib",  # btop dependency for amd gpu
     "nvtop",
     "powertop",
-    "gnome-logs",
+    "qjournalctl",
     "systemctl-tui",
 ]
 base_pkgs = [
@@ -279,7 +266,7 @@ coding_pkgs = [
     "neovim-lspconfig",
     "rust",
     "uv",
-    # Language Servers
+    #### Language Servers
     "bash-language-server",
     "lua-language-server",
     "rust-analyzer",
@@ -288,12 +275,12 @@ coding_pkgs = [
     "ty",
     "vscode-json-languageserver",
     "yaml-language-server",
-    # Formatters
+    #### Formatters
     "prettier",
     "ruff",
     "shfmt",
     "stylua",
-    # Tree sitter
+    ## Tree sitter
     "tree-sitter-bash",
     "tree-sitter-cli",
     "tree-sitter-python",
@@ -316,6 +303,7 @@ pydep_pkgs = [
     "python-wand",  # wallpaper script
 ]
 gaming_pkgs = [
+    "citron-git",
     "gnome-chess",
     "gnuchess",
     "lib32-mangohud",
@@ -336,7 +324,6 @@ chaotic_pkgs = [
     "betterbird-bin",
     "cachyos-ananicy-rules-git",
     "dxvk-mingw-git",
-    "eden-git",
     "firedragon",
     "logiops",
     "nchat-git",
@@ -344,7 +331,7 @@ chaotic_pkgs = [
     "ocrmypdf",
     "octopi",
     "paru",
-    "proton-cachyos",
+    "proton-ge-custom-bin",
     "rpcs3-git",
 ]
 ###########################################################
@@ -705,7 +692,7 @@ def user_service(
     (mnt_point / dir).mkdir(parents=True, exist_ok=True)
     run_script = f"/home/{user_name}/{script_dir}/{user_script}"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
-    service_content = textwrap.dedent(f"""
+    service_content = textwrap.dedent(f"""\
     [Unit]
     Description=Open Alacritty running {run_script} on login
     After=graphical-session.target
@@ -755,7 +742,7 @@ def chaotic_repo(mnt_point: Path | None = None):
 
 
 def config_pac_conf(mnt_point: Path | None, parallel_downloads=10, noextract_lines=[]):
-    pacman_content = textwrap.dedent(f"""
+    pacman_content = textwrap.dedent(f"""\
         [options]
         HoldPkg = pacman glibc
         Architecture = auto
@@ -802,8 +789,8 @@ def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
 
 
 def write_mpd_tmpfiles(mnt_point: Path, username: str) -> None:
-    base_path = mnt_point / "etc" / "tmpfiles.d" / "mpd.conf"
-    base_path.parent.mkdir(parents=True, exist_ok=True)
+    base_path = mnt_point / "etc" / "tmpfiles.d"
+    base_path.mkdir(parents=True, exist_ok=True)
     base_path.write_text(
         f"d /home/{username}/.cache/mpd 0755 {username} mpd -\n"
         f"d /home/{username}/.cache/mpd/playlists 0755 {username} mpd -\n"
@@ -947,57 +934,42 @@ def process_copy(mnt_point, usb_key_dir: str, user_name: str, to_cp):
     return chown_ls
 
 
-def show_menu(
-    arch_config_handler: ArchConfigHandler,
-    mirror_list_handler: MirrorListHandler,
-) -> None:
-    upgrade = check_version_upgrade()
-    title_text = "Archlinux"
-
-    if upgrade:
-        text = tr("New version available") + f": {upgrade}"
-        title_text += f" ({text})"
-
-    global_menu = GlobalMenu(
-        arch_config_handler.config,
-        mirror_list_handler,
-        arch_config_handler.args.skip_boot,
-    )
-
-    result: ArchConfig | None = tui.run(global_menu)
-    if result is None:
-        sys.exit(0)
-
-
-# ApplicationHandler
-def perform_installation(
-    arch_config_handler: ArchConfigHandler,
-) -> None:
+###########################################################
+# Installer
+###########################################################
+def perform_installation(arch_config_handler: ArchConfigHandler) -> None:
     start_time = time.monotonic()
-    info("Starting installation...")
+    mountpoint = arch_config_handler.args.mountpoint
     config = arch_config_handler.config
     if not config.disk_config:
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    with Installer(mountpoint, disk_config, kernels=["linux"]) as installation:
+    run_mkinitcpio = not config.bootloader_config or not config.bootloader_config.uki
+    mountpoint = disk_config.mountpoint if disk_config.mountpoint else mountpoint
+    with Installer(
+        mountpoint,
+        disk_config,
+        kernels=config.kernels,
+        silent=arch_config_handler.args.silent,
+    ) as installation:
+        ############-Ensure User Pass Exists-##########
         if not (pw := src_pass_file(usb_key_dir, my_pass)):
             pw = ask_pass(user_name)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
+        installation.sanity_check()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             if (
                 disk_config.disk_encryption
                 and disk_config.disk_encryption.encryption_type
-                != EncryptionType.NO_ENCRYPTION
+                != EncryptionType.NoEncryption
             ):
                 installation.generate_key_files()
-
+        installation.setup_swap()
         installation.minimal_installation(
-            [Repository.Multilib],
-            True,
-            "yulia",
-            LocaleConfiguration("us", "en_US", "UTF-8"),
+            hostname=hostname,
+            locale_config=LocaleConfiguration(kb_layout, sys_lang, sys_enc),
         )
         ###############-Install reflector-###############
         installation.add_additional_packages("reflector")
@@ -1005,9 +977,9 @@ def perform_installation(
         options = refl_options + ["--save /etc/pacman.d/mirrorlist"]
         run_chroot([f"reflector {' '.join(options)}"], mountpoint)
         ####################-Systemd-####################
-        installation.setup_swap()
         installation.add_bootloader(Bootloader.Systemd)
         modify_systemd(mountpoint)
+        ###########-WiFi Pass and Time Zone-############
         installation.copy_iso_network_config()
         installation.set_timezone(timezone)
         #############-Pkg Management-###############
@@ -1072,12 +1044,14 @@ def perform_installation(
         configure_sudo(user_name, mountpoint, passwordless_sudo=False)
         #############-Own Everything and User Services-###############
         installation.genfstab()
-        debug(f"Disk states after installing:\n{disk_layouts()}")
+        # modify_fstab(mountpoint)
+
         if not arch_config_handler.args.silent:
             elapsed_time = time.monotonic() - start_time
             action: PostInstallationAction = tui.run(
                 lambda: select_post_installation(elapsed_time)
             )
+
             match action:
                 case PostInstallationAction.EXIT:
                     pass
@@ -1090,37 +1064,53 @@ def perform_installation(
                         pass
 
 
-def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
+###########################################################
+# Main
+###########################################################
+async def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     if arch_config_handler is None:
         arch_config_handler = ArchConfigHandler()
-    if not arch_config_handler.args.silent:
-        show_menu(arch_config_handler, MirrorListHandler(offline=False, verbose=False))
+
+    disk_config = await DiskLayoutConfigurationMenu(disk_layout_config=None).show()
+    arch_config_handler.config.disk_config = disk_config
+
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
+
     if arch_config_handler.args.dry_run:
         return
+
     if not arch_config_handler.args.silent:
         aborted = False
         res: bool = tui.run(config.confirm_config)
+
         if not res:
             debug("Installation aborted")
             aborted = True
+
         if aborted:
-            return main(arch_config_handler)
+            return await main(arch_config_handler)
+
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+
         if not delayed_warning(tr("Starting device modifications in ")):
-            return main()
+            return await main()
+
         fs_handler.perform_filesystem_operations()
-    ref_cmd = ["reflector", *refl_options, "--save", "/etc/pacman.d/mirrorlist"]
-    run_cmd(ref_cmd)
-    config_pac_conf(None, 10, noextract_lines)
-    chaotic_repo()
-    perform_installation(
-        arch_config_handler,
-    )
+
+    perform_installation(arch_config_handler)
 
 
 if __name__ == "__main__":
-    main()
+    tui.run(main)
+#     ref_cmd = ["reflector", *refl_options, "--save", "/etc/pacman.d/mirrorlist"]
+#     run_cmd(ref_cmd)
+#     config_pac_conf(None, 10, noextract_lines)
+#     chaotic_repo()
+#     perform_installation(mountpoint)
+#
+#
+# mnt_cp_keys(usb_key_dir, usb_cp_files, wireguard_dir)
+# _minimal()
