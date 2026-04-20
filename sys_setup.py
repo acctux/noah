@@ -1040,7 +1040,15 @@ def perform_installation(
         process_copy(mountpoint, usb_key_dir, user_name, to_cp)
         user_service(mountpoint, user_name)
         enable_user_serv(
-            [usr_srv_default, usr_srv_sockets, usr_srv_graphical], mountpoint, user_name
+            [
+                usr_srv_default,
+                usr_srv_sockets,
+                usr_srv_graphical,
+                cust_graphic,
+                cust_timer,
+            ],
+            mountpoint,
+            user_name,
         )
         install_icon_theme(mountpoint)
         configure_sudo(user_name, mountpoint, passwordless_sudo=False)

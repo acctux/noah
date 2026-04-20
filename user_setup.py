@@ -327,6 +327,25 @@ def clone_repos(git_user: str, git_repo: UserGitRepo):
         fix_git_url(repo_path, git_user, name)
 
 
+def configure_git():
+    result = subprocess.run(["ssh-add", "-l"], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError("Failed to run ssh-add -l")
+    lines = result.stdout.strip().splitlines()
+    if not lines:
+        raise ValueError("No SSH keys found")
+    parts = lines[0].split()
+    if len(parts) < 3:
+        raise ValueError("Unexpected ssh-add output format")
+    my_email = parts[2]
+    my_name = input("Enter full name for git: ").strip()
+    if not my_name:
+        raise ValueError("Name cannot be empty")
+    run_cmd(["git", "config", "--global", "user.email", my_email])
+    run_cmd(["git", "config", "--global", "user.name", my_name])
+    print(f"Configured git with email={my_email} and name={my_name}")
+
+
 ############################
 # Icons/Folders
 ############################
@@ -383,6 +402,16 @@ def verify_install(HOME: Path, git_repos: UserGitRepo):
     return True
 
 
+def uv_add(project_dir):
+    package = "openmeteo-requests"
+    result = subprocess.run(
+        ["uv", "add", package], cwd=project_dir, capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"uv add failed:\n{result.stderr}")
+    return result.stdout
+
+
 ############################
 # Dotfile Symlink
 ############################
@@ -405,11 +434,13 @@ def main(HOME=Path.home()):
         if not enc_path.exists() or not any(enc_path.iterdir()):
             init_gocrypt(enc_path)
         set_folder_icons(dirs_icons)
+        configure_git()
         ensure_github_known_hosts(HOME)
         for target in git_repos:
             clone_repos(git_user, target)
         for plugin in yazi_plugins:
             run_cmd(["ya", "pkg", "add", plugin])
+        uv_add("/home/nick/Lit/polka/local/bin/weather")
         if any((HOME / dots_dir).iterdir()):
             deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
         setup_service(script_dir)
