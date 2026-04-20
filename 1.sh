@@ -77,4 +77,4 @@ EOF
 setup_environment
 clone_repo
 add_user
-echo "Download complete. Run 'python archinstall/sys_setup.py --creds creds.json'"
+echo "Download complete. Run 'cd archinstall' then 'python sys_setup.py --creds creds.json'"

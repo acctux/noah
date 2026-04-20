@@ -2,7 +2,11 @@ from pathlib import Path
 import sys
 import time
 
-from archinstall.lib.args import ArchConfig, ArchConfigHandler
+from archinstall.lib.args import (
+    ArchConfig,
+    ArchConfigHandler,
+    AuthenticationConfiguration,
+)
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.disk.utils import disk_layouts
@@ -19,7 +23,6 @@ from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.locale import LocaleConfiguration
-from archinstall.lib.models.packages import Repository
 from archinstall.lib.models.users import Password
 from pydantic import BaseModel
 import subprocess
@@ -973,12 +976,8 @@ def perform_installation(
                 != EncryptionType.NoEncryption
             ):
                 installation.generate_key_files()
-
         installation.minimal_installation(
-            [Repository.Multilib],
-            True,
-            "yulia",
-            LocaleConfiguration("us", "en_US", "UTF-8"),
+            hostname=hostname, locale_config=LocaleConfiguration("us", "en_US", "UTF-8")
         )
         ###############-Install reflector-###############
         installation.add_additional_packages("reflector")
@@ -1074,6 +1073,9 @@ def perform_installation(
 def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     if arch_config_handler is None:
         arch_config_handler = ArchConfigHandler()
+        arch_config_handler.config.auth_config = AuthenticationConfiguration(
+            users=[User(username=user_name, password=Password("password"), sudo=True)]
+        )
     if not arch_config_handler.args.silent:
         show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
