@@ -25,7 +25,6 @@ from archinstall.tui.ui.components import tui
 from archinstall.lib.models.locale import LocaleConfiguration
 from archinstall.lib.models.packages import Repository
 from archinstall.lib.models.users import Password
-from archinstall.lib.disk.disk_menu import DiskLayoutConfigurationMenu
 from pydantic import BaseModel
 import subprocess
 import json
@@ -1016,90 +1015,86 @@ def perform_installation(
         chaotic_repo(mountpoint)
         installation.add_additional_packages(
             amd_pkgs
-            #     + nvidia_pkgs
-            #     + pipewire_pkgs
-            #     + hardware_pkgs
-            #     + base_pkgs
-            #     + cli_pkgs
-            #     + basic_pkgs
-            #     + android_pkgs
-            #     + monitor_pkgs
-            #     + network_pkgs
-            #     + lang_pkgs
-            #     + media_pkgs
-            #     + hyprland_pkgs
-            #     + office_pkgs
-            #     + apple_pkgs
-            #     + coding_pkgs
-            #     + mariadb_pkgs
-            #     + pydep_pkgs
-            #     + gaming_pkgs
+            + nvidia_pkgs
+            + pipewire_pkgs
+            + hardware_pkgs
+            + base_pkgs
+            + cli_pkgs
+            + basic_pkgs
+            + android_pkgs
+            + monitor_pkgs
+            + network_pkgs
+            + lang_pkgs
+            + media_pkgs
+            + hyprland_pkgs
+            + office_pkgs
+            + apple_pkgs
+            + coding_pkgs
+            + mariadb_pkgs
+            + pydep_pkgs
+            + gaming_pkgs
             + chaotic_pkgs
         )
-        # #############-Etc Management-###############
-        # modify_mkinit(mountpoint, mkinit_hooks)
-        # sys_dots(mountpoint, script_d, script_pwd_to_cp)
-        # copy_dir(Path("/root") / wireguard_dir, mountpoint / "etc" / "wireguard")
-        # installation.enable_service(sys_services + custom_services)
-        # run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
-        # #############-User and Sudo-###############
-        # clone_dots_to_skel(mountpoint, git_name, dots_git)
-        # installation.create_users(User(user_name, Password(pw), True, groups))
-        # configure_sudo(user_name, mountpoint, passwordless_sudo=True)
-        # write_mpd_tmpfiles(mountpoint, user_name)
-        # run_chroot(
-        #     [
-        #         f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
-        #         "xdg-user-dirs-update",
-        #     ],
-        #     mountpoint,
-        #     user_name,
-        # )
-        # hide_apps(mountpoint, user_name, apps_to_hide)
-        # #############-Copy Keys and Script Dir-#############
-        # copy_dir(script_d, (mountpoint / user_home / script_d.name))
-        # installation.chown(user_name, str(mountpoint / user_home / script_d.name))
-        # to_cp = (
-        #     (".ssh", [ssh_key]),
-        #     (".gnupg", [gpg_key]),
-        #     (f"{script_d.name}", [pass_pass]),
-        # )
-        # process_copy(mountpoint, usb_key_dir, user_name, to_cp)
-        # user_service(mountpoint, user_name)
-        # enable_user_serv(
-        #     [usr_srv_default, usr_srv_sockets, usr_srv_graphical], mountpoint, user_name
-        # )
-        # install_icon_theme(mountpoint)
-        # configure_sudo(user_name, mountpoint, passwordless_sudo=False)
-        # #############-Own Everything and User Services-###############
-        # installation.genfstab()
-        # debug(f"Disk states after installing:\n{disk_layouts()}")
-        # if not arch_config_handler.args.silent:
-        #     elapsed_time = time.monotonic() - start_time
-        #     action: PostInstallationAction = tui.run(
-        #         lambda: select_post_installation(elapsed_time)
-        #     )
-        #     match action:
-        #         case PostInstallationAction.EXIT:
-        #             pass
-        #         case PostInstallationAction.REBOOT:
-        #             _ = os.system("reboot")  # type: ignore[deprecated]
-        #         case PostInstallationAction.CHROOT:
-        #             try:
-        #                 installation.drop_to_shell()
-        #             except Exception:
-        #                 pass
+        #############-Etc Management-###############
+        modify_mkinit(mountpoint, mkinit_hooks)
+        sys_dots(mountpoint, script_d, script_pwd_to_cp)
+        copy_dir(Path("/root") / wireguard_dir, mountpoint / "etc" / "wireguard")
+        installation.enable_service(sys_services + custom_services)
+        run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
+        #############-User and Sudo-###############
+        clone_dots_to_skel(mountpoint, git_name, dots_git)
+        installation.create_users(User(user_name, Password(pw), True, groups))
+        configure_sudo(user_name, mountpoint, passwordless_sudo=True)
+        write_mpd_tmpfiles(mountpoint, user_name)
+        run_chroot(
+            [
+                f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
+                "xdg-user-dirs-update",
+            ],
+            mountpoint,
+            user_name,
+        )
+        hide_apps(mountpoint, user_name, apps_to_hide)
+        #############-Copy Keys and Script Dir-#############
+        copy_dir(script_d, (mountpoint / user_home / script_d.name))
+        installation.chown(user_name, str(mountpoint / user_home / script_d.name))
+        to_cp = (
+            (".ssh", [ssh_key]),
+            (".gnupg", [gpg_key]),
+            (f"{script_d.name}", [pass_pass]),
+        )
+        process_copy(mountpoint, usb_key_dir, user_name, to_cp)
+        user_service(mountpoint, user_name)
+        enable_user_serv(
+            [usr_srv_default, usr_srv_sockets, usr_srv_graphical], mountpoint, user_name
+        )
+        install_icon_theme(mountpoint)
+        configure_sudo(user_name, mountpoint, passwordless_sudo=False)
+        #############-Own Everything and User Services-###############
+        installation.genfstab()
+        debug(f"Disk states after installing:\n{disk_layouts()}")
+        if not arch_config_handler.args.silent:
+            elapsed_time = time.monotonic() - start_time
+            action: PostInstallationAction = tui.run(
+                lambda: select_post_installation(elapsed_time)
+            )
+            match action:
+                case PostInstallationAction.EXIT:
+                    pass
+                case PostInstallationAction.REBOOT:
+                    _ = os.system("reboot")  # type: ignore[deprecated]
+                case PostInstallationAction.CHROOT:
+                    try:
+                        installation.drop_to_shell()
+                    except Exception:
+                        pass
 
 
 def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     if arch_config_handler is None:
         arch_config_handler = ArchConfigHandler()
-    mirror_list_handler = MirrorListHandler(
-        offline=arch_config_handler.args.offline,
-        verbose=arch_config_handler.args.verbose,
-    )
     if not arch_config_handler.args.silent:
-        show_menu(arch_config_handler, mirror_list_handler)
+        show_menu(arch_config_handler, MirrorListHandler(offline=False, verbose=False))
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
@@ -1118,6 +1113,10 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
         if not delayed_warning(tr("Starting device modifications in ")):
             return main()
         fs_handler.perform_filesystem_operations()
+    ref_cmd = ["reflector", *refl_options, "--save", "/etc/pacman.d/mirrorlist"]
+    run_cmd(ref_cmd)
+    config_pac_conf(None, 10, noextract_lines)
+    chaotic_repo()
     perform_installation(
         arch_config_handler,
     )
