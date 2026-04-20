@@ -7,8 +7,8 @@ DEPENDENCIES=("git" "pacman-contrib" "python-pyyaml")
 setup_environment() {
   local tries=0
   local max_tries=5
-  if [ -z "$INSTALL_USERNAME" ] || [ -z "$INSTALL_PASSWORD" ]; then
-    echo "Error: INSTALL_USERNAME and INSTALL_PASSWORD environment variables must be set."
+  if [ -z "$ARCH_USER" ] || [ -z "$ARCH_PASS" ]; then
+    echo "Error: use ARCH_USER=**** ARCH_PASS=****"
     exit 1
   fi
   while ((tries < max_tries)); do
@@ -56,8 +56,8 @@ clone_repo() {
 
 add_user() {
   JSON_FILE="$CLONE_DIR/user_config.json"
-  username="$INSTALL_USERNAME"
-  password="$INSTALL_PASSWORD"
+  username="$ARCH_USER"
+  password="$ARCH_PASS"
   hashed_pass=$(openssl passwd -6 "$password")
   cat >"$JSON_FILE" <<EOF
 {
