@@ -140,7 +140,7 @@ monitor_pkgs = [
     "rocm-smi-lib",  # btop dependency for amd gpu
     "nvtop",
     "powertop",
-    "qjournalctl",
+    "gnome-logs",
     "systemctl-tui",
 ]
 base_pkgs = [
@@ -316,7 +316,6 @@ pydep_pkgs = [
     "python-wand",  # wallpaper script
 ]
 gaming_pkgs = [
-    "citron-git",
     "gnome-chess",
     "gnuchess",
     "lib32-mangohud",
@@ -337,6 +336,7 @@ chaotic_pkgs = [
     "betterbird-bin",
     "cachyos-ananicy-rules-git",
     "dxvk-mingw-git",
+    "eden-git",
     "firedragon",
     "logiops",
     "nchat-git",
