@@ -7,10 +7,6 @@ DEPENDENCIES=("git" "pacman-contrib" "python-pyyaml")
 setup_environment() {
   local tries=0
   local max_tries=5
-  if [ -z "$ARCH_USER" ] || [ -z "$ARCH_PASS" ]; then
-    echo "Error: use | ARCH_USER=**** ARCH_PASS=**** sh"
-    exit 1
-  fi
   while ((tries < max_tries)); do
     if ! pacman-key --init; then
       echo "pacman-key --init failed."
@@ -54,27 +50,6 @@ clone_repo() {
   fi
 }
 
-add_user() {
-  JSON_FILE="$CLONE_DIR/creds.json"
-  username="$ARCH_USER"
-  password="$ARCH_PASS"
-  hashed_pass=$(openssl passwd -6 "$password")
-  cat >"$JSON_FILE" <<EOF
-{
-  "users": [
-    {
-      "sudo": true,
-      "username": "$username",
-      "enc_password": "$hashed_pass"
-    }
-  ],
-  "root_enc_password": "$hashed_pass"
-}
-EOF
-  echo "JSON file created/overwritten successfully at $JSON_FILE"
-}
-
 setup_environment
 clone_repo
-add_user
 echo "Download complete. Run 'cd archinstall' then 'python sys_setup.py --creds creds.json'"
