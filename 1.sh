@@ -55,7 +55,7 @@ clone_repo() {
 }
 
 add_user() {
-  JSON_FILE="$CLONE_DIR/user_config.json"
+  JSON_FILE="$CLONE_DIR/creds.json"
   username="$ARCH_USER"
   password="$ARCH_PASS"
   hashed_pass=$(openssl passwd -6 "$password")
@@ -77,4 +77,4 @@ EOF
 setup_environment
 clone_repo
 add_user
-echo "Download complete. Run 'python archinstall/sys_setup.py'"
+echo "Download complete. Run 'python archinstall/sys_setup.py --creds creds.json'"
