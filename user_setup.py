@@ -1093,11 +1093,15 @@ def perform_installation(
                         pass
 
 
-async def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
+def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     if arch_config_handler is None:
         arch_config_handler = ArchConfigHandler()
-    disk_config = await DiskLayoutConfigurationMenu(disk_layout_config=None).show()
-    arch_config_handler.config.disk_config = disk_config
+    mirror_list_handler = MirrorListHandler(
+        offline=arch_config_handler.args.offline,
+        verbose=arch_config_handler.args.verbose,
+    )
+    if not arch_config_handler.args.silent:
+        show_menu(arch_config_handler, mirror_list_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
@@ -1110,14 +1114,16 @@ async def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
             debug("Installation aborted")
             aborted = True
         if aborted:
-            return await main(arch_config_handler)
+            return main(arch_config_handler)
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         if not delayed_warning(tr("Starting device modifications in ")):
-            return await main()
+            return main()
         fs_handler.perform_filesystem_operations()
-    perform_installation(arch_config_handler)
+    perform_installation(
+        arch_config_handler,
+    )
 
 
 if __name__ == "__main__":
-    tui.run(main)
+    main()
