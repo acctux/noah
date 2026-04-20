@@ -940,9 +940,7 @@ def process_copy(mnt_point, usb_key_dir: str, user_name: str, to_cp):
 def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu = GlobalMenu(arch_config_handler.config)
     global_menu.disable_all()
-    global_menu.set_enabled("archinstall_language", True)
     global_menu.set_enabled("disk_config", True)
-    global_menu.set_enabled("swap", True)
     global_menu.set_enabled("__config__", True)
     result: ArchConfig | None = tui.run(global_menu)
     if result is None:
@@ -1096,9 +1094,7 @@ def main(pw: str, arch_config_handler: ArchConfigHandler | None = None) -> None:
     run_cmd(ref_cmd)
     config_pac_conf(None, 10, noextract_lines)
     chaotic_repo()
-    perform_installation(
-        arch_config_handler,
-    )
+    perform_installation(arch_config_handler)
 
 
 if __name__ == "__main__":
