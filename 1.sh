@@ -8,7 +8,7 @@ setup_environment() {
   local tries=0
   local max_tries=5
   if [ -z "$ARCH_USER" ] || [ -z "$ARCH_PASS" ]; then
-    echo "Error: use ARCH_USER=**** ARCH_PASS=****"
+    echo "Error: use | ARCH_USER=**** ARCH_PASS=**** sh"
     exit 1
   fi
   while ((tries < max_tries)); do
