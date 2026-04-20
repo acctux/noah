@@ -965,8 +965,6 @@ def perform_installation(
         return
     disk_config = config.disk_config
     with Installer(mountpoint, disk_config, kernels=["linux"]) as installation:
-        if not (pw := src_pass_file(usb_key_dir, my_pass)):
-            pw = ask_pass(user_name)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -1023,8 +1021,9 @@ def perform_installation(
         run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
         #############-User and Sudo-###############
         clone_dots_to_skel(mountpoint, git_name, dots_git)
-        installation.create_users(User(user_name, Password(pw), True, groups))
-        configure_sudo(user_name, mountpoint, passwordless_sudo=True)
+        if config.auth_config:
+            if config.auth_config.users:
+                installation.create_users(config.auth_config.users)
         write_mpd_tmpfiles(mountpoint, user_name)
         run_chroot(
             [
@@ -1070,14 +1069,14 @@ def perform_installation(
                         pass
 
 
-def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
-    if arch_config_handler is None:
-        arch_config_handler = ArchConfigHandler()
-        arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            users=[User(username=user_name, password=Password("password"), sudo=True)]
-        )
-    if not arch_config_handler.args.silent:
-        show_menu(arch_config_handler)
+def main(pw: str, arch_config_handler: ArchConfigHandler | None = None) -> None:
+    arch_config_handler = ArchConfigHandler()
+    arch_config_handler.config.auth_config = AuthenticationConfiguration(
+        users=[
+            User(username=user_name, password=Password(pw), sudo=True, groups=groups)
+        ]
+    )
+    show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
@@ -1090,11 +1089,11 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
             debug("Installation aborted")
             aborted = True
         if aborted:
-            return main(arch_config_handler)
+            return main(pw, arch_config_handler)
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         if not delayed_warning("Starting device modifications in "):
-            return main()
+            return main(pw)
         fs_handler.perform_filesystem_operations()
     ref_cmd = ["reflector", *refl_options, "--save", "/etc/pacman.d/mirrorlist"]
     run_cmd(ref_cmd)
@@ -1107,4 +1106,6 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 
 if __name__ == "__main__":
     mnt_cp_keys(usb_key_dir, usb_cp_files, wireguard_dir)
-    main()
+    if not (pw := src_pass_file(usb_key_dir, my_pass)):
+        pw = ask_pass(user_name)
+    main(pw)
