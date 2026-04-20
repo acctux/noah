@@ -17,7 +17,6 @@ from archinstall.lib.models import Bootloader
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
-from archinstall.lib.translationhandler import tr
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.locale import LocaleConfiguration
 from archinstall.lib.models.packages import Repository
@@ -1092,7 +1091,7 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
             return main(arch_config_handler)
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-        if not delayed_warning(tr("Starting device modifications in ")):
+        if not delayed_warning("Starting device modifications in "):
             return main()
         fs_handler.perform_filesystem_operations()
     ref_cmd = ["reflector", *refl_options, "--save", "/etc/pacman.d/mirrorlist"]
