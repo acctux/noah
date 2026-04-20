@@ -3,7 +3,6 @@
 REPO_URL="https://github.com/acctux/noah.git"
 CLONE_DIR="$HOME/archinstall"
 DEPENDENCIES=("git" "pacman-contrib" "python-pyyaml")
-JSON_FILE="$HOME/user_config.json"
 
 setup_environment() {
   local tries=0
@@ -52,28 +51,33 @@ clone_repo() {
 }
 
 add_user() {
-    read -p "Enter username: " username
-    while true; do
-        read -s -p "Enter password: " password
-        echo
-        read -s -p "Confirm password: " password_confirm
-        echo
-        if [ "$password" == "$password_confirm" ]; then
-            break
-        else
-            echo "Passwords do not match. Please try again."
-        fi
-    done
-    hashed_pass=$(openssl passwd -6 "$password")
-    if [ -f "$JSON_FILE" ]; then
-        jq --arg u "$username" --arg p "$hashed_pass" \
-           '.users[0].username = $u | .users[0].enc_password = $p' \
-           "$JSON_FILE" > tmp.json && mv tmp.json "$JSON_FILE"
-        echo "User updated successfully."
+  JSON_FILE="$HOME/archinstall/user_config.json"
+  read -p "Enter username: " username
+  while true; do
+    read -s -p "Enter password: " password
+    echo
+    read -s -p "Confirm password: " password_confirm
+    echo
+    if [ "$password" == "$password_confirm" ]; then
+      break
     else
-        echo "JSON file not found!"
-        exit 1
+      echo "Passwords do not match. Please try again."
     fi
+  done
+  hashed_pass=$(openssl passwd -6 "$password")
+  cat >"$JSON_FILE" <<EOF
+{
+  "users": [
+    {
+      "sudo": true,
+      "username": "$username",
+      "enc_password": "$hashed_pass"
+    }
+  ],
+  "root_enc_password": "$hashed_pass"
+}
+EOF
+  echo "JSON file created/overwritten successfully at $JSON_FILE"
 }
 
 setup_environment
