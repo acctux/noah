@@ -344,7 +344,7 @@ chaotic_pkgs = [
     "ocrmypdf",
     "octopi",
     "paru",
-    "proton-ge-custom-bin",
+    "proton-cachyos",
     "rpcs3-git",
 ]
 ###########################################################
