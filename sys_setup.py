@@ -697,7 +697,7 @@ def user_service(
     name = f"{user_script.rsplit('.', 1)[0]}.service"
     service_content = textwrap.dedent(f"""
     [Unit]
-    Description=Open Alacritty running {run_script} on login
+    Description=Open kitty {run_script} on login
     After=graphical-session.target
 
     [Service]

@@ -207,7 +207,9 @@ def import_ssh(HOME: Path, key_file: str):
 def import_gpg(gpg_path: Path):
     key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
-    import_result = gpg.import_keys(key_data, passphrase=ask_pass("GPG Password: ", 6))
+    import_result = gpg.import_keys(
+        key_data, passphrase=ask_pass("GPG Password: ", False, 6)
+    )
     print(import_result.results)
 
 
