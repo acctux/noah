@@ -705,7 +705,7 @@ def user_service(
     (mnt_point / dir).mkdir(parents=True, exist_ok=True)
     run_script = f"/home/{user_name}/{script_dir}/{user_script}"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
-    service_content = textwrap.dedent(f"""\
+    service_content = textwrap.dedent(f"""
     [Unit]
     Description=Open Alacritty running {run_script} on login
     After=graphical-session.target
@@ -755,7 +755,7 @@ def chaotic_repo(mnt_point: Path | None = None):
 
 
 def config_pac_conf(mnt_point: Path | None, parallel_downloads=10, noextract_lines=[]):
-    pacman_content = textwrap.dedent(f"""\
+    pacman_content = textwrap.dedent(f"""
         [options]
         HoldPkg = pacman glibc
         Architecture = auto
