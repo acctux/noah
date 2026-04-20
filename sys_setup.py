@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 import sys
 import time
@@ -14,12 +13,10 @@ from archinstall.lib.general.general_menu import (
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, SysCommand
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.models import Bootloader
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
-from archinstall.lib.packages.util import check_version_upgrade
 from archinstall.lib.translationhandler import tr
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.locale import LocaleConfiguration
@@ -389,9 +386,6 @@ apps_to_hide = [
     "jconsole-java-openjdk",
     "khal",
     "kvantummanager",
-    "libreoffice-base",
-    "libreoffice-draw",
-    "libreoffice-math",
     "nvtop",
     "octopi-cachecleaner",
     "octopi-notifier",
@@ -945,23 +939,13 @@ def process_copy(mnt_point, usb_key_dir: str, user_name: str, to_cp):
     return chown_ls
 
 
-def show_menu(
-    arch_config_handler: ArchConfigHandler,
-    mirror_list_handler: MirrorListHandler,
-) -> None:
-    upgrade = check_version_upgrade()
-    title_text = "Archlinux"
-
-    if upgrade:
-        text = tr("New version available") + f": {upgrade}"
-        title_text += f" ({text})"
-
-    global_menu = GlobalMenu(
-        arch_config_handler.config,
-        mirror_list_handler,
-        arch_config_handler.args.skip_boot,
-    )
-
+def show_menu(arch_config_handler: ArchConfigHandler) -> None:
+    global_menu = GlobalMenu(arch_config_handler.config)
+    global_menu.disable_all()
+    global_menu.set_enabled("archinstall_language", True)
+    global_menu.set_enabled("disk_config", True)
+    global_menu.set_enabled("swap", True)
+    global_menu.set_enabled("__config__", True)
     result: ArchConfig | None = tui.run(global_menu)
     if result is None:
         sys.exit(0)
@@ -1080,7 +1064,7 @@ def perform_installation(
                 case PostInstallationAction.EXIT:
                     pass
                 case PostInstallationAction.REBOOT:
-                    _ = os.system("reboot")  # type: ignore[deprecated]
+                    _ = subprocess.run(["sudo", "reboot"], check=True)
                 case PostInstallationAction.CHROOT:
                     try:
                         installation.drop_to_shell()
@@ -1092,7 +1076,7 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     if arch_config_handler is None:
         arch_config_handler = ArchConfigHandler()
     if not arch_config_handler.args.silent:
-        show_menu(arch_config_handler, MirrorListHandler(offline=False, verbose=False))
+        show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
