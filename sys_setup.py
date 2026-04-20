@@ -1,7 +1,3 @@
-from pathlib import Path
-import sys
-import time
-
 from archinstall.lib.args import (
     ArchConfig,
     ArchConfigHandler,
@@ -25,6 +21,9 @@ from archinstall.tui.ui.components import tui
 from archinstall.lib.models.locale import LocaleConfiguration
 from archinstall.lib.models.users import Password
 from pydantic import BaseModel
+from pathlib import Path
+import sys
+import time
 import subprocess
 import json
 import re
@@ -40,9 +39,6 @@ from utils import get_logger, run_cmd, ask_pass
 user_name = "nick"
 hostname = "yulia"
 kernel = ["linux"]
-kb_layout = "us"
-sys_lang = "en_US"
-sys_enc = "UTF-8"
 timezone = "US/Eastern"
 groups = ["adm", "games", "realtime", "storage", "video"]
 git_name = "acctux"
@@ -458,7 +454,7 @@ cust_graphic = UserSrv(
         "polkit-gnome.service",
         "snixembed.service",
         "swayosd.service",
-        "swww-daemon.service",
+        "awww-daemon.service",
     ],
 )
 cust_timer = UserSrv(
@@ -1024,6 +1020,7 @@ def perform_installation(
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
+        configure_sudo(user_name, mountpoint, passwordless_sudo=True)
         write_mpd_tmpfiles(mountpoint, user_name)
         run_chroot(
             [
