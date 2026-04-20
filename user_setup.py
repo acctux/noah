@@ -279,7 +279,7 @@ coding_pkgs = [
     "neovim-lspconfig",
     "rust",
     "uv",
-    #### Language Servers
+    # Language Servers
     "bash-language-server",
     "lua-language-server",
     "rust-analyzer",
@@ -288,12 +288,12 @@ coding_pkgs = [
     "ty",
     "vscode-json-languageserver",
     "yaml-language-server",
-    #### Formatters
+    # Formatters
     "prettier",
     "ruff",
     "shfmt",
     "stylua",
-    ## Tree sitter
+    # Tree sitter
     "tree-sitter-bash",
     "tree-sitter-cli",
     "tree-sitter-python",
@@ -802,8 +802,8 @@ def sys_dots(mnt_point: Path, script_dir: Path, sys_dir_cp: list[str]):
 
 
 def write_mpd_tmpfiles(mnt_point: Path, username: str) -> None:
-    base_path = mnt_point / "etc" / "tmpfiles.d"
-    base_path.mkdir(parents=True, exist_ok=True)
+    base_path = mnt_point / "etc" / "tmpfiles.d" / "mpd.conf"
+    base_path.parent.mkdir(parents=True, exist_ok=True)
     base_path.write_text(
         f"d /home/{username}/.cache/mpd 0755 {username} mpd -\n"
         f"d /home/{username}/.cache/mpd/playlists 0755 {username} mpd -\n"
