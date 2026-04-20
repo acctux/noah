@@ -62,7 +62,7 @@ usb_cp_files = [ssh_key, gpg_key, pass_pass, my_pass]
 refl_options = [
     "--country US",
     "--protocol https",
-    "--latest 10",
+    "--latest 15",
     "--sort rate",
     "--number 3",
 ]
@@ -971,7 +971,7 @@ def perform_installation(
             if (
                 disk_config.disk_encryption
                 and disk_config.disk_encryption.encryption_type
-                != EncryptionType.NO_ENCRYPTION
+                != EncryptionType.NoEncryption
             ):
                 installation.generate_key_files()
 
