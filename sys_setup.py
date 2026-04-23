@@ -119,7 +119,6 @@ hardware_pkgs = [
     "bluez-tools",
     "bluez-utils",  # for loggy
     "brightnessctl",
-    "cpupower",
     "dosfstools",
     "exfatprogs",
     "kanshi",
@@ -240,7 +239,6 @@ hyprland_pkgs = [
     "capitaine-cursors",
     "fuzzel",
     "gnome-keyring",
-    "gsimplecal",
     "hypridle",
     "hyprland",
     "hyprlock",
@@ -324,7 +322,6 @@ gaming_pkgs = [
     "wine-staging",
     "winetricks",
 ]
-# --CHAOTIC PKGS--
 chaotic_pkgs = [
     "ayugram-desktop-git",
     "qt6-imageformats",  # AyuGram missing dependency
@@ -382,6 +379,10 @@ apps_to_hide = [
     "bvnc",
     "jshell-java-openjdk",
     "jconsole-java-openjdk",
+    "libreOffice-base",
+    "libreOffice-draw",
+    "libreOffice-impress",
+    "libreOffice-math",
     "khal",
     "kvantummanager",
     "nvtop",
@@ -408,11 +409,6 @@ apps_to_hide = [
 ###########################################################
 class UserSrv(BaseModel):
     source: str = "/usr/lib/systemd/user"
-    services: list[str]
-    target: str
-
-
-class CustUserSrv(BaseModel):
     services: list[str]
     target: str
 
@@ -450,6 +446,7 @@ cust_graphic = UserSrv(
         "ayugram.service",
         "clip-persist.service",
         "kdeconnectd.service",
+        "kanshi.service",
         "playerctld.service",
         "polkit-gnome.service",
         "snixembed.service",
