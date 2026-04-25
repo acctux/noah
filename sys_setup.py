@@ -180,6 +180,7 @@ basic_pkgs = [
     "khal",
     "partitionmanager",
     "qalculate-qt",
+    "qrencode",  # qr codes
     "qt5ct",
     "qt6ct",
     "taskwarrior-tui",
@@ -211,6 +212,7 @@ network_pkgs = [
     "profile-sync-daemon",
     "protonmail-bridge-core",
     "wireguard-tools",
+    "wpa_supplicant",
 ]
 lang_pkgs = [
     "hunspell-en_us",
