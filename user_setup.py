@@ -31,7 +31,7 @@ HOME = Path.home()
 CONFIG_DIR = HOME / ".config"
 SHARE_DIR = HOME / ".local" / "share"
 DOTS_P = HOME / "Lit" / "polka"
-BASE = HOME / "Lit/Docs/base"
+BASE = HOME / "Lit" / "Docs" / "base"
 dots_dir = "polka"
 git_repos = [UserGitRepo(target_dir=git_dir, repos=[docs, "noah", dots_dir])]
 dirs_to_link = ["local/bin"]
@@ -91,8 +91,8 @@ def iwctl_scan():
     time.sleep(10)
 
 
-def run_sudo_commands(
-    sudo_cmds=[
+def run_sudo_commands():
+    sudo_cmds = [
         ["sudo", "rm", "/etc/resolv.conf"],
         ["sudo", "resolvconf", "-u"],
         ["sudo", "firewall-cmd", "--set-default-zone=block"],
@@ -104,8 +104,7 @@ def run_sudo_commands(
             "--datadir=/var/lib/mysql",
         ],
         ["tuned-adm", "profile", "laptop-battery-powersave"],
-    ],
-):
+    ]
     for cmd in sudo_cmds:
         result = run_cmd(cmd, True)
         if result and result.returncode != 0:
@@ -113,7 +112,7 @@ def run_sudo_commands(
 
 
 ############################
-# Helpers
+# Dotfile Symlink
 ############################
 def link_path(src: Path, dst: Path) -> bool:
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -166,9 +165,6 @@ def file_candidates(
                 yield src, dst_dir / src.relative_to(src_dir)
 
 
-############################
-# Main
-############################
 def deploy_dotfiles(
     HOME: Path,
     dot_dir: Path,
@@ -402,10 +398,13 @@ def verify_install(HOME: Path, git_repos: UserGitRepo):
     return True
 
 
-def uv_add(project_dir):
+def uv_add():
     package = "openmeteo-requests"
     result = subprocess.run(
-        ["uv", "add", package], cwd=project_dir, capture_output=True, text=True
+        ["uv", "add", package],
+        cwd=f"/home/{user_name}/Lit/polka/local/bin/weather",
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
         raise RuntimeError(f"uv add failed:\n{result.stderr}")
@@ -413,7 +412,7 @@ def uv_add(project_dir):
 
 
 ############################
-# Dotfile Symlink
+# Main
 ############################
 def main(HOME=Path.home()):
     script_dir = Path(__file__).resolve().parent.name
@@ -440,9 +439,9 @@ def main(HOME=Path.home()):
             clone_repos(git_user, target)
         for plugin in yazi_plugins:
             run_cmd(["ya", "pkg", "add", plugin])
-        uv_add("/home/nick/Lit/polka/local/bin/weather")
         if any((HOME / dots_dir).iterdir()):
             deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
+        uv_add()
         setup_service(script_dir)
         for target in git_repos:
             if not verify_install(HOME, target):

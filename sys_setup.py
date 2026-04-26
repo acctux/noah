@@ -561,7 +561,6 @@ def get_device(min_gb=20, usb_fs_type="ext4") -> str:
         )
     )
     candidates = []
-    selected_path = ""
 
     def recurse(devices):
         for dev in devices:
