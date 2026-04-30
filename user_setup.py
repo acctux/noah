@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import pyperclip
+import textwrap
 from utils import get_logger, run_cmd, ping, ask_pass, UserGitRepo
 
 log = get_logger("Noah")
@@ -65,7 +66,7 @@ yazi_plugins = [
 ]
 
 
-def cleanup(HOME: Path):
+def cleanup(HOME: Path) -> None:
     for f in [(HOME / "keys" / "pass.txt")]:
         if f.exists():
             f.unlink()
@@ -84,15 +85,15 @@ def run_interactive(cmd: list[str], check=True) -> int:
     return returncode
 
 
-def iwctl_scan():
+def iwctl_scan() -> None:
     result = run_cmd(["sudo", "iwctl", "station", "wlan0", "scan"], True)
     if result and result.returncode != 0:
         return
     time.sleep(10)
 
 
-def run_sudo_commands():
-    sudo_cmds = [
+def run_commands(
+    cmds=[
         ["sudo", "rm", "/etc/resolv.conf"],
         ["sudo", "resolvconf", "-u"],
         ["sudo", "firewall-cmd", "--set-default-zone=block"],
@@ -103,9 +104,10 @@ def run_sudo_commands():
             "--basedir=/usr",
             "--datadir=/var/lib/mysql",
         ],
-        ["tuned-adm", "profile", "laptop-battery-powersave"],
-    ]
-    for cmd in sudo_cmds:
+        ["tuned-adm", "profile", "laptop-ac-powersave"],
+    ],
+):
+    for cmd in cmds:
         result = run_cmd(cmd, True)
         if result and result.returncode != 0:
             log.error(f"Failed: {cmd}")
@@ -187,64 +189,69 @@ def deploy_dotfiles(
 ############################
 # Encryption/Keys
 ############################
-def import_ssh(HOME: Path, key_file: str):
-    key_path = HOME / ".ssh" / key_file
-    socket = f"/run/user/{os.getuid()}/gcr/ssh"
-    os.environ["SSH_AUTH_SOCK"] = socket
-    if not Path(socket).exists():
-        run_cmd(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
-        run_cmd(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-    if run_cmd(["ssh-add", str(key_path)], check=True):
-        log.info(f"SSH key {key_path} added or already present.")
-    else:
-        log.error(f"Failed to add SSH key {key_path}.")
+def import_ssh(key_file: str, key_dir=HOME / ".ssh") -> None:
+    key_path = key_dir / key_file
+    if key_path.exists():
+        socket = f"/run/user/{os.getuid()}/gcr/ssh"
+        os.environ["SSH_AUTH_SOCK"] = socket
+        if not Path(socket).exists():
+            run_cmd(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
+            run_cmd(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
+        if run_cmd(["ssh-add", str(key_path)], check=True):
+            log.info(f"SSH key {key_path} added or already present.")
+        else:
+            log.error(f"Failed to add SSH key {key_path}.")
 
 
-def import_gpg(gpg_path: Path):
-    key_data = gpg_path.read_text()
-    gpg = gnupg.GPG()
-    import_result = gpg.import_keys(
-        key_data, passphrase=ask_pass("GPG Password: ", False, 6)
-    )
-    print(import_result.results)
+def import_gpg(gpg_key: str, gpg_dir=HOME / ".gnupg") -> None:
+    gpg_path = gpg_dir / gpg_key
+    if gpg_path.exists():
+        key_data = gpg_path.read_text()
+        gpg = gnupg.GPG()
+        import_result = gpg.import_keys(
+            key_data, passphrase=ask_pass("GPG Password: ", False, 6)
+        )
+        print(import_result.results)
 
 
-def init_gocrypt(enc_dir: Path):
-    enc_dir.mkdir(parents=True, exist_ok=True)
-    log.info(f"gocryptfs directory {enc_dir} created.")
-    while True:
-        pw1 = getpass.getpass("Enter new gocryptfs password: ")
-        pw2 = getpass.getpass("Confirm password: ")
-        if pw1 == pw2 and pw1:
-            break
-        log.warning("Passwords do not match or empty. Try again.\n")
-    cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
-    run_cmd(cmd, check=True, input_text=pw1)
-    log.info(f"gocryptfs initialized at {enc_dir}.")
+def init_gocrypt(enc_dir: Path) -> None:
+    if not enc_dir.exists():
+        enc_dir.mkdir(parents=True, exist_ok=True)
+        log.info(f"gocryptfs directory {enc_dir} created.")
+    if not Path(enc_dir / "gocryptfs.conf").exists():
+        while True:
+            pw1 = getpass.getpass("Enter new gocryptfs password: ")
+            pw2 = getpass.getpass("Confirm password: ")
+            if pw1 == pw2 and pw1:
+                break
+            log.warning("Passwords do not match or empty. Try again.\n")
+        cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
+        run_cmd(cmd, check=True, input_text=pw1)
+        log.info(f"gocryptfs initialized at {enc_dir}.")
 
 
-def setup_service(user_script="user_setup.py", script_dir: str | None = None) -> None:
-    run_script = HOME / user_script
-    if script_dir:
-        run_script = HOME / script_dir / user_script
+def setup_service(script_dir: str, script="user_setup.py") -> None:
+    run_script = HOME / script_dir / script
     service_name = f"{run_script.stem}.service"
     service_path = HOME / ".config" / "systemd" / "user" / service_name
-    service_path.write_text(f"""[Unit]
-Description=Open Alacritty running {user_script} on login
-After=graphical-session.target
+    svc_txt = textwrap.dedent(f"""\
+        [Unit]
+        Description=Open Alacritty running {script} on login
+        After=graphical-session.target
 
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/kitty python {run_script}
-Restart=no
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/bin/kitty python {run_script}
+        Restart=no
 
-[Install]
-WantedBy=graphical-session.target
-""")
+        [Install]
+        WantedBy=graphical-session.target
+    """)
+    service_path.write_text(svc_txt)
     run_cmd(["systemctl", "--user", "enable", service_name])
 
 
-def enable_mariadb(user_name):
+def enable_mariadb(user_name) -> None:
     while True:
         p1 = getpass.getpass("Mariadb password: ")
         p2 = getpass.getpass("Confirm: ")
@@ -274,8 +281,7 @@ def enable_mariadb(user_name):
 ############################
 # Git/Repos
 ############################
-def ensure_github_known_hosts(HOME: Path):
-    kh = HOME / ".ssh" / "known_hosts"
+def ensure_github_known_hosts(kh=HOME / ".ssh" / "known_hosts") -> None:
     kh.parent.mkdir(parents=True, exist_ok=True)
     if not kh.exists():
         kh.touch()
@@ -289,7 +295,7 @@ def ensure_github_known_hosts(HOME: Path):
             log.warning("Failed to scan github.com for known_hosts")
 
 
-def fix_git_url(repo_path: Path, git_user: str, repo_name: str):
+def fix_git_url(repo_path: Path, git_user: str, repo_name: str) -> None:
     config_path = repo_path / ".git" / "config"
     if config_path.exists():
         with open(config_path, "r") as config_file:
@@ -305,7 +311,7 @@ def fix_git_url(repo_path: Path, git_user: str, repo_name: str):
                 log.info(f"Fixed URL in {repo_path}: {current_url} -> {new_url}")
 
 
-def clone_repos(git_user: str, git_repo: UserGitRepo):
+def clone_repos(git_user: str, git_repo: UserGitRepo) -> None:
     base_path = Path(git_repo.target_dir)
     for name in git_repo.repos:
         repo_path = base_path / name
@@ -323,7 +329,7 @@ def clone_repos(git_user: str, git_repo: UserGitRepo):
         fix_git_url(repo_path, git_user, name)
 
 
-def configure_git():
+def configure_git() -> None:
     result = subprocess.run(["ssh-add", "-l"], capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError("Failed to run ssh-add -l")
@@ -345,11 +351,14 @@ def configure_git():
 ############################
 # Icons/Folders
 ############################
-def set_folder_icons(custom_folder_icons: list[tuple[str, str]], HOME=HOME):
+def set_folder_icons(
+    custom_folder_icons: list[tuple[str, str]],
+    icon_dir="/usr/share/icons/WhiteSur-dark/places/scalable",
+) -> None:
     for folder, icon_name in custom_folder_icons:
+        icon = f"{icon_dir}/{icon_name}.svg"
         dir_path = HOME / folder
         dir_path.mkdir(parents=True, exist_ok=True)
-        icon = f"/usr/share/icons/WhiteSur-dark/places/scalable/{icon_name}.svg"
         if Path(icon).exists():
             icon_uri = f"file://{icon}"
             cmd = ["gio", "set", str(dir_path), "metadata::custom-icon", icon_uri]
@@ -380,7 +389,7 @@ def launch_apps(apps=["firedragon", "protonmail-bridge", "betterbird", "steam"])
         log.info(f"{app} closed")
 
 
-def verify_install(HOME: Path, git_repos: UserGitRepo):
+def verify_install(git_repos: UserGitRepo):
     base_path = HOME / git_repos.target_dir
     for target in git_repos:
         for repo in target:
@@ -411,6 +420,38 @@ def uv_add():
     return result.stdout
 
 
+def scrcpy_setup(port=5555, timeout=3) -> None:
+    answer = input("Is your Android phone connected? (Y/n): ").strip().lower()
+    if answer not in ("y", "yes", ""):
+        print("Please connect your device via USB first.")
+        return
+    ip = next(
+        (
+            line.split("src")[-1].strip()
+            for line in subprocess.run(
+                ["adb", "shell", "ip", "route"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            ).stdout.splitlines()
+            if "wlan0" in line and "src" in line
+        ),
+        None,
+    )
+    if not ip:
+        print("Could not determine device IP.")
+        return
+    target = f"{ip}:{port}"
+    print(f"Trying {target}")
+    msg = subprocess.run(
+        ["adb", "connect", target],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    print((msg.stdout + msg.stderr).lower())
+
+
 ############################
 # Main
 ############################
@@ -420,21 +461,19 @@ def main(HOME=Path.home()):
     enc_path = HOME / "Desktop" / enc_dir
     if not cache_file.exists():
         run_interactive(["chsh", "-s", "/usr/bin/zsh"])
-        run_sudo_commands()
+        run_commands()
         time.sleep(3)
         iwctl_scan()
         if not ping:
             iwctl_scan()
         enable_mariadb(user_name)
-        if (HOME / ".ssh" / ssh_key).exists():
-            import_ssh(HOME, ssh_key)
-        if (HOME / ".gnupg" / gpg_key).exists():
-            import_gpg(HOME / ".gnupg" / gpg_key)
+        import_ssh(ssh_key)
+        import_gpg(gpg_key)
         if not enc_path.exists() or not any(enc_path.iterdir()):
             init_gocrypt(enc_path)
         set_folder_icons(dirs_icons)
         configure_git()
-        ensure_github_known_hosts(HOME)
+        ensure_github_known_hosts()
         for target in git_repos:
             clone_repos(git_user, target)
         for plugin in yazi_plugins:
@@ -442,14 +481,15 @@ def main(HOME=Path.home()):
         if any((HOME / dots_dir).iterdir()):
             deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
         uv_add()
+        scrcpy_setup()
         setup_service(script_dir)
         for target in git_repos:
-            if not verify_install(HOME, target):
-                log.error("Installation verification failed. Cache file not updated.")
+            if not verify_install(target):
+                log.error("Verification failed. Cache not updated.")
                 return
         cleanup(HOME)
         cache_file.touch()
-        if input("Do you want to reboot the system? [Y/n]: ").strip().lower() == "n":
+        if input("Reboot now? [Y/n]: ").strip().lower() == "n":
             log.info("Reboot cancelled.")
             return
         run_cmd(["systemctl", "reboot"], True)

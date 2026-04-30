@@ -119,6 +119,7 @@ hardware_pkgs = [
     "bluez-tools",
     "bluez-utils",  # for loggy
     "brightnessctl",
+    "dmidecode",
     "dosfstools",
     "exfatprogs",
     "kanshi",
@@ -132,6 +133,7 @@ hardware_pkgs = [
 monitor_pkgs = [
     "btop",
     "rocm-smi-lib",  # btop dependency for amd gpu
+    "jolt",
     "nvtop",
     "powertop",
     "gnome-logs",
@@ -235,7 +237,7 @@ media_pkgs = [
     "pavucontrol",
     "playerctl",
     "rmpc",
-    "yt-dlp",
+    "yt-dlp",  # for mpv youtube playback
 ]
 hyprland_pkgs = [
     "capitaine-cursors",
@@ -338,7 +340,7 @@ chaotic_pkgs = [
     "ocrmypdf",
     "octopi",
     "paru",
-    "proton-cachyos",
+    "proton-cachyos-slr",
     "rpcs3-git",
 ]
 ###########################################################
@@ -1050,8 +1052,10 @@ def perform_installation(
         )
         install_icon_theme(mountpoint)
         configure_sudo(user_name, mountpoint, passwordless_sudo=False)
-        #############-Own Everything and User Services-###############
+        #############-Fstab-###############
         installation.genfstab()
+        modify_fstab(mountpoint)
+        #############-Menu-###############
         debug(f"Disk states after installing:\n{disk_layouts()}")
         if not arch_config_handler.args.silent:
             elapsed_time = time.monotonic() - start_time

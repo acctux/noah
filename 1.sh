@@ -1,8 +1,8 @@
 #!/bin/bash
 
-REPO_URL="https://github.com/acctux/noah.git"
+REPO="acctux/noah"
 CLONE_DIR="$HOME/archinstall"
-DEPENDENCIES=("git" "pacman-contrib" "python-pyyaml")
+DEPENDENCIES=("git" "pacman-contrib")
 
 setup_environment() {
   local tries=0
@@ -42,7 +42,7 @@ setup_environment() {
 clone_repo() {
   rm -rf "$CLONE_DIR"
   echo "Cloning repository..."
-  if git clone "$REPO_URL" "$CLONE_DIR"; then
+  if git clone "https://github.com/${REPO}.git" "$CLONE_DIR"; then
     echo "Repository cloned successfully."
   else
     echo "Git clone failed."
