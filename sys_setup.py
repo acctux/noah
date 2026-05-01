@@ -152,6 +152,7 @@ base_pkgs = [
 cli_pkgs = [
     "bat-extras",
     "eza",
+    "cliphist",
     "fd",
     "fzf",
     "git-delta",
@@ -176,7 +177,6 @@ basic_pkgs = [
     "authenticator",
     "baobab",
     "bustle",
-    "cliphist",
     "featherpad",
     "file-roller",
     "gocryptfs",
@@ -559,8 +559,8 @@ def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700) -> None:
 
 def yes_no(prompt: str) -> bool:
     while True:
-        response = input(f"{prompt} (y/n): ").strip().lower()
-        if response in ("y", "yes"):
+        response = input(f"{prompt} (Y/n): ").strip().lower()
+        if response in ("y", "yes", ""):
             return True
         if response in ("n", "no"):
             return False
@@ -1155,24 +1155,22 @@ def perform_installation(
             mountpoint,
             user_name,
         )
-        hide_apps(mountpoint, user_name, apps_to_hide)
+        configure_sudo(user_name, mountpoint, passwordless_sudo=False)
         #############-Copy Keys and Script Dir-#############
         copy_dir(script_d, (mountpoint / user_home / script_d.name))
         installation.chown(user_name, str(mountpoint / user_home / script_d.name))
-        to_cp = {
-            ".ssh": ["ssh_key"],
-            ".gnupg": ["gpg_key"],
-            "scripts": ["pass_pass"],
-        }
+        to_cp = {".ssh": [ssh_key], ".gnupg": [gpg_key], "scripts": [pass_pass]}
         process_copy(mountpoint, usb_key_dir, user_name, to_cp)
+        #############-User Services-#############
         user_service(mountpoint, user_name)
         enable_user_serv(
             [usr_srv, usr_sockets, usr_graphical, cust_graphic, cust_timer],
             mountpoint,
             user_name,
         )
+        #############-Apps/Icons-#############
+        hide_apps(mountpoint, user_name, apps_to_hide)
         install_icon_theme(mountpoint)
-        configure_sudo(user_name, mountpoint, passwordless_sudo=False)
         #############-Fstab-###############
         installation.genfstab()
         modify_fstab(mountpoint)
