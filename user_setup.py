@@ -472,7 +472,6 @@ def scrcpy_setup(port=5555, timeout=3) -> None:
 # Main
 ############################
 def main(HOME=Path.home()):
-    script_dir = Path(__file__).resolve().parent.name
     cache_file = HOME / ".cache" / "noah_success.txt"
     enc_path = HOME / "Desktop" / enc_dir
     if not cache_file.exists():
@@ -499,7 +498,7 @@ def main(HOME=Path.home()):
             deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
         uv_add()
         scrcpy_setup()
-        setup_service(script_dir)
+        setup_service(Path(__file__).resolve().parent.name)
         for target in git_repos:
             if not verify_install(target):
                 log.error("Verification failed. Cache not updated.")

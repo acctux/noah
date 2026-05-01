@@ -551,7 +551,8 @@ def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700) -> None:
     if path.exists():
         if path.is_file():
             path.chmod(f_mode)
-        path.chmod(d_mode)
+        else:
+            path.chmod(d_mode)
     else:
         log.warning(f"{path} not found.")
 
@@ -667,7 +668,6 @@ def umount_usb(usb_mount: Path):
     if usb_mount.exists():
         try:
             shutil.rmtree(usb_mount)
-            usb_mount.unlink(missing_ok=True)
         except OSError:
             pass
 
@@ -949,7 +949,6 @@ def install_icon_theme(
             f"bash {tmp}/install.sh",
         ],
         mnt_point,
-        peek=True,
     )
     icon_path = mnt_point / icon_dir
     for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
@@ -1004,18 +1003,25 @@ def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
     copy_dir(skel_tmp, mnt_point / "etc" / "skel")
 
 
-def process_copy(mnt_point, usb_key_dir: str, user_name: str, to_cp):
-    chown_ls = []
-    for folder, files_list in to_cp:
+def process_copy(
+    mnt_point: Path, usb_key_dir: str, user_name: str, to_cp: dict[str, list[str]]
+) -> None:
+    chown_cmds = []
+    for folder, files_list in to_cp.items():
         mnt_dir = mnt_point / "home" / user_name / folder
+        mnt_dir.mkdir(parents=True, exist_ok=True)
         for f in files_list:
             dest = mnt_dir / f
-            copy_file(Path(f"/root/{usb_key_dir}/{f}"), dest)
-            chown_line = f"chown {user_name}:{user_name} {dest.relative_to(mnt_point)}"
-            chown_ls.append(chown_line)
+            src = Path(f"/root/{usb_key_dir}/{f}")
+            copy_file(src, dest)
+            rel_path = dest.relative_to(mnt_point)
+            chown_cmds.append(f"chown {user_name}:{user_name} /{rel_path}")
             ind_key_permission(dest)
+        rel_dir = mnt_dir.relative_to(mnt_point)
+        chown_cmds.append(f"chown {user_name}:{user_name} /{rel_dir}")
         ind_key_permission(mnt_dir)
-    return chown_ls
+    if chown_cmds:
+        run_chroot(chown_cmds, mnt_point)
 
 
 def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list):
@@ -1062,7 +1068,7 @@ def perform_installation(
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    with Installer(mountpoint, disk_config, kernels=["linux"]) as installation:
+    with Installer(mountpoint, disk_config, kernels=kernel) as installation:
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -1140,6 +1146,7 @@ def perform_installation(
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
         configure_sudo(user_name, mountpoint, passwordless_sudo=True)
+        log.info(f"Installing {aur_pkgs}")
         run_chroot(
             [
                 f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
@@ -1152,11 +1159,11 @@ def perform_installation(
         #############-Copy Keys and Script Dir-#############
         copy_dir(script_d, (mountpoint / user_home / script_d.name))
         installation.chown(user_name, str(mountpoint / user_home / script_d.name))
-        to_cp = (
-            (".ssh", [ssh_key]),
-            (".gnupg", [gpg_key]),
-            (f"{script_d.name}", [pass_pass]),
-        )
+        to_cp = {
+            ".ssh": ["ssh_key"],
+            ".gnupg": ["gpg_key"],
+            "scripts": ["pass_pass"],
+        }
         process_copy(mountpoint, usb_key_dir, user_name, to_cp)
         user_service(mountpoint, user_name)
         enable_user_serv(
@@ -1221,5 +1228,6 @@ def main(pw: str) -> None:
 if __name__ == "__main__":
     mnt_cp_keys(usb_key_dir, usb_cp_files, wireguard_dir)
     if not (pw := src_pass_file(usb_key_dir, my_pass)):
+        log.info("No password file found. Please enter Password")
         pw = ask_pass(user_name)
     main(pw)
