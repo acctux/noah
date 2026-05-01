@@ -295,7 +295,7 @@ coding_pkgs = [
     "shellcheck",
     "biome",
     "luacheck",
-    "yamllint"
+    "yamllint",
     # Tree sitter
     "tree-sitter-bash",
     "tree-sitter-cli",
