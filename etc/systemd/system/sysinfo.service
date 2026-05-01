@@ -4,7 +4,7 @@ After=multi-user.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/wireguard-list.sh
+ExecStart=/usr/local/bin/sysinfo.sh
 
 [Install]
 WantedBy=multi-user.target

@@ -8,18 +8,18 @@ import subprocess
 import time
 from systemd import journal
 
-DEVICE_MAC = "D8_AD_27_39_6C_FE"
+DEVICE_MAC = "D8_AD_27_39_6D_05"
 DEVICE_PATH = f"/org/bluez/hci0/dev_{DEVICE_MAC.replace(':', '_')}"
 FLAGFILE = Path("/tmp/mouse_connected.flag")
 
 
-def run_cmd(cmd, check=False):
+def run_cmd(cmd, check=False) -> str:
     return subprocess.run(
         cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check
     ).stdout.strip()
 
 
-def logid_failed(check_str="[WARN] Failed"):
+def logid_failed(check_str="[WARN] Failed") -> bool:
     j = journal.Reader()
     j.add_match(_SYSTEMD_UNIT="logid.service")
     j.seek_tail()
@@ -32,7 +32,7 @@ def logid_failed(check_str="[WARN] Failed"):
     return False
 
 
-def logid_nuclear():
+def logid_nuclear() -> None:
     print("Performing logid nuclear restart...")
     run_cmd(["sudo", "systemctl", "stop", "logid.service"])
     time.sleep(1)
@@ -55,12 +55,18 @@ def restart_logid():
 async def get_device_property(prop: str):
     try:
         bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
-        introspect = await bus.introspect("org.bluez", DEVICE_PATH)
-        device = bus.get_proxy_object("org.bluez", DEVICE_PATH, introspect)
-        props_iface = device.get_interface("org.freedesktop.DBus.Properties")
-        reply = await props_iface.call_get("org.bluez.Device1", prop)
+        msg = Message(
+            destination="org.bluez",
+            path=DEVICE_PATH,
+            interface="org.freedesktop.DBus.Properties",
+            member="Get",
+            signature="ss",
+            body=["org.bluez.Device1", prop],
+        )
+        reply = await bus.call(msg)
         bus.disconnect()
-        return reply.value
+        val = reply.body[0]
+        return val.value if hasattr(val, "value") else val
     except Exception as e:
         print(f"Error reading {prop}: {e}")
         return None
@@ -74,9 +80,11 @@ def handle_signal(msg):
     if msg.body[0] != "org.bluez.Device1":
         return
     changed = msg.body[1]
-    val = getattr(
-        changed.get("ServicesResolved"), "value", changed.get("ServicesResolved")
-    )
+    if "ServicesResolved" not in changed:
+        return
+    val = changed["ServicesResolved"]
+    if hasattr(val, "value"):
+        val = val.value
     if val is True:
         print("ServicesResolved = True → Triggering logid_nuclear")
         restart_logid()

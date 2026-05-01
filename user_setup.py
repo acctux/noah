@@ -64,6 +64,8 @@ yazi_plugins = [
     "uhs-robert/recycle-bin",
     "h-hg/yamb",
 ]
+firewall_services = ["kdeconnect", "ssh", "wireguard"]
+firewall_ports = ["6881-6889/tcp", "6881-6889/udp"]
 
 
 def cleanup(HOME: Path) -> None:
@@ -96,7 +98,6 @@ def run_commands(
     cmds=[
         ["sudo", "rm", "/etc/resolv.conf"],
         ["sudo", "resolvconf", "-u"],
-        ["sudo", "firewall-cmd", "--set-default-zone=block"],
         ["sudo", "systemctl", "restart", "iwd"],
         [
             "mariadb-install-db",
@@ -111,6 +112,21 @@ def run_commands(
         result = run_cmd(cmd, True)
         if result and result.returncode != 0:
             log.error(f"Failed: {cmd}")
+
+
+def run_firewall(firewall_services: list, firewall_ports: list):
+    def fw_cmd(*args):
+        return ["sudo", "firewall-cmd", "--permanent", "--zone=block"] + list(args)
+
+    firewall_cmds = [
+        ["sudo", "firewall-cmd", "--set-default-zone=block"],
+        *[fw_cmd(f"--add-service={s}") for s in firewall_services],
+        *[fw_cmd(f"--add-port={p}") for p in firewall_ports],
+    ]
+    for cmd in firewall_cmds:
+        result = run_cmd(cmd, True)
+        if result and result.returncode != 0:
+            log.error(f"Firewall failed: {cmd}")
 
 
 ############################
@@ -461,6 +477,7 @@ def main(HOME=Path.home()):
     enc_path = HOME / "Desktop" / enc_dir
     if not cache_file.exists():
         run_interactive(["chsh", "-s", "/usr/bin/zsh"])
+        run_firewall(firewall_services, firewall_ports)
         run_commands()
         time.sleep(3)
         iwctl_scan()
