@@ -940,16 +940,16 @@ def modify_mkinit(mnt_point: Path, hooks: list[str]):
 # User Space
 ###################################
 def install_icon_theme(
-    mnt_point: Path, old="#ffffff", new="#F4F5F6", icon_dir="/usr/share/icons"
+    mnt_point: Path,
+    git="vinceliuice/WhiteSur-icon-theme",
+    old="#ffffff",
+    new="#F4F5F6",
+    icon_dir="/usr/share/icons",
 ):
     tmp = "/tmp/icons"
-    run_chroot(
-        [
-            f"git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git {tmp}",
-            f"bash {tmp}/install.sh",
-        ],
-        mnt_point,
-    )
+    log.info("Installing {")
+    cmd = [f"git clone https://github.com/{git}.git {tmp}", f"bash {tmp}/install.sh"]
+    run_chroot(cmd, mnt_point)
     icon_path = mnt_point / icon_dir
     for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
         text = svg.read_text()
@@ -973,7 +973,6 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
             files_to_write[str(user_file)] = (
                 "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
             )
-            log.info(f"{user_file} will be created")
         else:
             if yes_no(f"{system_file} not found, create anyway?"):
                 files_to_write[str(user_file)] = (

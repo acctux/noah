@@ -95,11 +95,10 @@ def run_cmd(
 
 
 def ping(host: str) -> bool:
+    cmd = ["ping", "-c", "1", host]
     return (
         subprocess.run(
-            ["ping", "-c", "1", host],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         ).returncode
         == 0
     )
