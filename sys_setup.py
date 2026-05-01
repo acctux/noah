@@ -785,7 +785,6 @@ def config_pac(
     parallel_downloads: int,
     noextract_lines: list,
     mnt_point: Path | None = None,
-    pkgs_to_cache: int = 2,
 ):
     pacman_content = dedent(f"""\
         [options]
@@ -810,7 +809,6 @@ def config_pac(
     """)
     files_to_write = {
         "etc/pacman.conf": pacman_content.strip(),
-        "etc/conf.d/pacman-contrib": f'PACCACHE_ARGS="-k {pkgs_to_cache}"\n',
     }
     if mnt_point:
         write_files(files_to_write, mnt_point)
@@ -1089,7 +1087,7 @@ def perform_installation(
         installation.copy_iso_network_config()
         installation.set_timezone(timezone)
         #############-Pkg Management-###############
-        config_pac(10, noextract_lines, mountpoint, pkgs_to_cache)
+        config_pac(10, noextract_lines, mountpoint)
         chaotic_repo(mountpoint)
         installation.add_additional_packages(
             amd_pkgs
@@ -1128,6 +1126,7 @@ def perform_installation(
             d /home/{user_name}/.cache/mpd 0755 {user_name} mpd -
             d /home/{user_name}/.cache/mpd/playlists 0755 {user_name} mpd -
         """),
+                "etc/conf.d/pacman-contrib": f'PACCACHE_ARGS="-k {pkgs_to_cache}"\n',
             },
             mountpoint,
         )
