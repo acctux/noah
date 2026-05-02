@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from archinstall.lib.args import (
     ArchConfig,
     ArchConfigHandler,
