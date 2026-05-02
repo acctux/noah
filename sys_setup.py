@@ -558,19 +558,21 @@ def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700) -> None:
         log.warning(f"{path} not found.")
 
 
-def yes_no(prompt: str) -> bool:
+def yes_no(prompt: str, default: bool = True) -> bool:
     while True:
-        response = input(f"{prompt} (Y/n): ").strip().lower()
-        if response in ("y", "yes", ""):
+        suffix = "(Y/n)" if default else "(y/N)"
+        response = input(f"{prompt} {suffix}: ").strip().lower()
+        if response == "":
+            return default
+        if response in ("y", "yes"):
             return True
         if response in ("n", "no"):
             return False
         print("Please enter 'y' or 'n'.")
 
 
-def update_mirrorlist(mountpoint: Path | None = None, country="US"):
-    save_arg = ["--save", "/etc/pacman.d/mirrorlist"]
-    refl_options = [
+def update_mirrorlist(mountpoint: Path | None = None, country: str = "US"):
+    options = [
         "--country",
         country,
         "--protocol",
@@ -581,14 +583,14 @@ def update_mirrorlist(mountpoint: Path | None = None, country="US"):
         "rate",
         "--number",
         "3",
+        "--save",
+        "/etc/pacman.d/mirrorlist",
     ]
-    cmd = ["reflector", *refl_options, *save_arg]
+    cmd = ["reflector", *options]
     if mountpoint:
-        chroot_cmd = ["reflector " + " ".join(refl_options + save_arg)]
-        run_chroot(chroot_cmd, mountpoint)
-        conf_path = mountpoint / "etc" / "xdg" / "reflector" / "reflector.conf"
-        with open(conf_path, "w") as f:
-            f.write(" ".join(refl_options + save_arg) + "\n")
+        run_chroot([" ".join(cmd)], mountpoint)
+        conf_path = mountpoint / "etc/xdg/reflector/reflector.conf"
+        conf_path.write_text(" ".join(options) + "\n")
     else:
         run_cmd(cmd)
 
@@ -601,7 +603,6 @@ def check_missing(
     key_files: list[str] | None = None,
     wireguard_dir: str | None = None,
 ) -> list[str]:
-    log = get_logger("Needed")
     missing_files = []
     if key_files:
         for key in key_files:
@@ -610,8 +611,6 @@ def check_missing(
                 missing_files.append(key)
     if wireguard_dir and not (HOME / wireguard_dir).is_dir():
         missing_files.append(wireguard_dir)
-    if missing_files:
-        log.warning(", ".join(missing_files))
     return missing_files
 
 
@@ -666,11 +665,6 @@ def umount_usb(usb_mount: Path):
     cmd = ["umount", str(usb_mount)]
     run_cmd(cmd, check=True, shell=True)
     log.info(f"Unmounted USB from {usb_mount}.")
-    if usb_mount.exists():
-        try:
-            shutil.rmtree(usb_mount)
-        except OSError:
-            pass
 
 
 def mnt_cp_keys(
@@ -679,12 +673,10 @@ def mnt_cp_keys(
     wireguard_dir: str | None = None,
     usb_mnt=Path("/mnt/usb"),
 ):
-    if usb_mnt.is_mount():
-        if yes_no("Found /mnt/usb, try unmount?"):
-            umount_usb(usb_mnt)
-    if key_dir and key_files or wireguard_dir:
-        if check_missing(key_dir, key_files, wireguard_dir):
-            if yes_no("Mount USB to copy missing files?"):
+    if (key_dir and key_files) or wireguard_dir:
+        missing = check_missing(key_dir, key_files, wireguard_dir)
+        if missing:
+            if yes_no(f"Mount USB to copy {', '.join(missing)}"):
                 selected_path = get_device()
                 usb_mnt.mkdir(parents=True, exist_ok=True)
                 cmd = [f"mount -t ext4 -o ro {selected_path} {usb_mnt}"]
@@ -695,8 +687,6 @@ def mnt_cp_keys(
                 if wireguard_dir:
                     if not (HOME / wireguard_dir).exists():
                         copy_dir(usb_mnt / wireguard_dir, HOME / wireguard_dir)
-                if yes_no("Unmount USB?"):
-                    umount_usb(usb_mnt)
     else:
         log.info("All required files present.")
 
