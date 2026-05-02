@@ -562,14 +562,14 @@ def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700) -> None:
 def yes_no(prompt: str, default: bool = True) -> bool:
     while True:
         suffix = "(Y/n)" if default else "(y/N)"
-        response = input(f"{prompt} {suffix}: ").strip().lower()
+        response = input(log.info(f"{prompt} {suffix}: ")).strip().lower()
         if response == "":
             return default
         if response in ("y", "yes"):
             return True
         if response in ("n", "no"):
             return False
-        print("Please enter 'y' or 'n'.")
+        log.warning("Please enter 'y' or 'n'.")
 
 
 def update_mirrorlist(mountpoint: Path | None = None, country: str = "US"):
