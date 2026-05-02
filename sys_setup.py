@@ -497,13 +497,13 @@ def run_chroot(
         if peek:
             script.write("set -e\n")
         for cmd in commands:
-            if user_name:
+            if username:
                 log.info(f"Will run as {username}: {cmd}")
                 cmd = f"su - {username} -c {shlex.quote(cmd)}"
             log.info(f"Will run: {cmd}")
             script.write(cmd + "\n")
     chroot_path.chmod(0o755)
-    SysCommand(f"arch-chroot -S {mnt_point} {cmd}")
+    SysCommand(f"arch-chroot -S {mnt_point} /{script_path}")
     chroot_path.unlink()
 
 
