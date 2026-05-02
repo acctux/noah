@@ -1169,6 +1169,7 @@ def perform_installation(
         )
         #############-Apps/Icons-#############
         hide_apps(mountpoint, user_name, apps_to_hide)
+        log.info("Installing icon theme.")
         install_icon_theme(mountpoint)
         #############-Fstab-###############
         installation.genfstab()
