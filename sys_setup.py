@@ -88,6 +88,15 @@ noextract_lines = [
     "NoExtract = usr/share/icons/capitaine-cursors/*",
 ]
 pkgs_to_cache = 2
+reflector_options = [
+    "--country US",
+    "--protocol https",
+    "--latest 15",
+    "--sort rate",
+    "--number 3",
+    "--save /etc/pacman.d/mirrorlist",
+]
+
 ###########################################################
 # PKGS
 ###########################################################
@@ -784,36 +793,25 @@ def config_pac(
     }
     if mnt_point:
         write_files(files_to_write, mnt_point)
-        run_chroot(["pacman -Sy"], mnt_point)
     else:
         write_files(files_to_write, mnt_point=None)
-        run_cmd(["pacman", "-Sy"], True)
 
 
 ###################################
 # ETC/BOOT
 ###################################
-def update_mirrorlist(mountpoint: Path | None = None, country: str = "US"):
-    options = [
-        "--country",
-        country,
-        "--protocol",
-        "https",
-        "--latest",
-        "15",
-        "--sort",
-        "rate",
-        "--number",
-        "3",
-        "--save",
-        "/etc/pacman.d/mirrorlist",
-    ]
-    cmd = ["reflector", *options]
+def update_mirrorlist(options: list[str], mountpoint: Path | None = None):
     if mountpoint:
-        run_chroot([" ".join(cmd)], mountpoint)
-        conf_path = mountpoint / "etc/xdg/reflector/reflector.conf"
-        conf_path.write_text(" ".join(options) + "\n")
+        copy_file(
+            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
+        )
+        write_files(
+            {"etc/xdg/reflector/reflector.conf": "\n".join(options)}, mountpoint
+        )
     else:
+        cmd = ["reflector"]
+        for opt in options:
+            cmd.extend(opt.split())
         run_cmd(cmd)
 
 
