@@ -639,7 +639,7 @@ def usb_cp_keys(usb_mount: Path, key_dir: str, key_files: list[str]):
 
 def umount_usb(usb_mount: Path):
     cmd = ["umount", str(usb_mount)]
-    run_cmd(cmd, check=True, shell=True)
+    run_cmd(cmd, check=True)
     log.info(f"Unmounted USB from {usb_mount}.")
 
 
@@ -649,6 +649,8 @@ def mnt_cp_keys(
     wireguard_dir: str | None = None,
     usb_mnt=Path("/mnt/usb"),
 ):
+    if usb_mnt.is_mount():
+        umount_usb(usb_mnt)
     if (key_dir and key_files) or wireguard_dir:
         missing = check_missing(key_dir, key_files, wireguard_dir)
         if missing:
@@ -1008,19 +1010,15 @@ def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list):
         f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
         for ext in ext_names
     ]
-    try:
-        if file_path.exists():
-            data = json.loads(file_path.read_text())
-        else:
-            data = {"policies": {"Extensions": {"Install": []}}}
-        install = data["policies"]["Extensions"]["Install"]
-        for ext in new_exts:
-            if ext not in install:
-                install.append(ext)
-        file_path.write_text(json.dumps(data, indent=2))
-        log.info("Firefox extensions updated successfully.")
-    except Exception as e:
-        log.error(f"Error: {e}")
+    data = {"policies": {"Extensions": {"Install": []}}}
+    if file_path.exists():
+        data = json.loads(file_path.read_text())
+    install = data["policies"]["Extensions"]["Install"]
+    for ext in new_exts:
+        if ext not in install:
+            install.append(ext)
+    file_path.write_text(json.dumps(data, indent=2))
+    log.info("Firefox extensions updated successfully.")
 
 
 ###################################
