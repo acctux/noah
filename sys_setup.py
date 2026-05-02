@@ -549,12 +549,12 @@ def write_files(files: dict[str, str], mnt_point: Path | None) -> None:
         log.info(f"Wrote {path_obj}")
 
 
-def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700) -> None:
+def ind_key_permission(path: Path, f_permissions=0o600, d_permissions=0o700) -> None:
     if path.exists():
         if path.is_file():
-            path.chmod(f_mode)
+            path.chmod(f_permissions)
         else:
-            path.chmod(d_mode)
+            path.chmod(d_permissions)
     else:
         log.warning(f"{path} not found.")
 
@@ -570,30 +570,6 @@ def yes_no(prompt: str, default: bool = True) -> bool:
         if response in ("n", "no"):
             return False
         log.warning("Please enter 'y' or 'n'.")
-
-
-def update_mirrorlist(mountpoint: Path | None = None, country: str = "US"):
-    options = [
-        "--country",
-        country,
-        "--protocol",
-        "https",
-        "--latest",
-        "15",
-        "--sort",
-        "rate",
-        "--number",
-        "3",
-        "--save",
-        "/etc/pacman.d/mirrorlist",
-    ]
-    cmd = ["reflector", *options]
-    if mountpoint:
-        run_chroot([" ".join(cmd)], mountpoint)
-        conf_path = mountpoint / "etc/xdg/reflector/reflector.conf"
-        conf_path.write_text(" ".join(options) + "\n")
-    else:
-        run_cmd(cmd)
 
 
 ###################################
@@ -746,7 +722,7 @@ def user_service(
 ###################################
 def chaotic_repo(mnt_point: Path | None = None):
     log.info("Setting up Chaotic-AUR repository.")
-    key_serv = "keyserver.ubuntu.com"
+    key_serv = "hkps://keyserver.ubuntu.com"
     chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
     cmds_setup = [
         ["pacman-key", "--init"],
@@ -813,6 +789,30 @@ def config_pac(
 ###################################
 # ETC/BOOT
 ###################################
+def update_mirrorlist(mountpoint: Path | None = None, country: str = "US"):
+    options = [
+        "--country",
+        country,
+        "--protocol",
+        "https",
+        "--latest",
+        "15",
+        "--sort",
+        "rate",
+        "--number",
+        "3",
+        "--save",
+        "/etc/pacman.d/mirrorlist",
+    ]
+    cmd = ["reflector", *options]
+    if mountpoint:
+        run_chroot([" ".join(cmd)], mountpoint)
+        conf_path = mountpoint / "etc/xdg/reflector/reflector.conf"
+        conf_path.write_text(" ".join(options) + "\n")
+    else:
+        run_cmd(cmd)
+
+
 def configure_sudo(user_name: str, mnt_point: Path, passwordless_sudo=True):
     sudoers_file = f"etc/sudoers.d/00_{user_name}"
     if passwordless_sudo:
