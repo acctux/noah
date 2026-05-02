@@ -173,7 +173,8 @@ base_pkgs = [
     "pkgfile",
     "plymouth",
     "rebuild-detector",
-    "reflectorxdg-user-dirs",
+    "reflector",
+    "xdg-user-dirs",
 ]
 cli_pkgs = [
     "bat-extras",
@@ -1069,11 +1070,9 @@ def perform_installation(
                 installation.create_users(config.auth_config.users)
         configure_sudo(user_name, mountpoint, passwordless_sudo=True)
         log.info(f"Installing {aur_pkgs}")
+        pkgs = " ".join(aur_pkgs)
         run_chroot(
-            [
-                f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
-                "xdg-user-dirs-update",
-            ],
+            [f"paru -S --noconfirm --needed {pkgs}", "xdg-user-dirs-update"],
             mountpoint,
             user_name,
         )
