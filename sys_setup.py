@@ -562,7 +562,7 @@ def ind_key_permission(path: Path, f_mode=0o600, d_mode=0o700) -> None:
 def yes_no(prompt: str, default: bool = True) -> bool:
     while True:
         suffix = "(Y/n)" if default else "(y/N)"
-        response = input(log.info(f"{prompt} {suffix}: ")).strip().lower()
+        response = input(f"{prompt} {suffix}: ").strip().lower()
         if response == "":
             return default
         if response in ("y", "yes"):
