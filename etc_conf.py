@@ -1,5 +1,4 @@
 from textwrap import dedent
-from sys_setup import user_name
 
 net_etc = {
     "etc/iwd/main.conf": dedent("""\
@@ -86,10 +85,6 @@ maria_etc = {
     """),
 }
 user_dirs_etc = {
-    "etc/tmpfiles.d/mpd.conf": dedent(f"""\
-        d /home/{user_name}/.cache/mpd 0755 {user_name} mpd -
-        d /home/{user_name}/.cache/mpd/playlists 0755 {user_name} mpd -
-    """),
     "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
     "etc/xdg/user-dirs.defaults": dedent("""\
         DOCUMENTS=Desktop/Documents

@@ -1051,6 +1051,10 @@ def perform_installation(
                 **hardware_etc,
                 **logid_etc,
                 **ly_etc,
+                "etc/tmpfiles.d/mpd.conf": dedent(f"""\
+                    d /home/{user_name}/.cache/mpd 0755 {user_name} mpd -
+                    d /home/{user_name}/.cache/mpd/playlists 0755 {user_name} mpd -
+                """),
             },
             mountpoint,
         )
