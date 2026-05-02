@@ -722,7 +722,7 @@ def user_service(
 ###################################
 def chaotic_repo(mnt_point: Path | None = None):
     log.info("Setting up Chaotic-AUR repository.")
-    key_serv = "hkps://keyserver.ubuntu.com"
+    key_serv = "keyserver.ubuntu.com"
     chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
     cmds_setup = [
         ["pacman-key", "--init"],
