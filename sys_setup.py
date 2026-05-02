@@ -1060,7 +1060,7 @@ def perform_installation(
         ###############-Install reflector-###############
         installation.add_additional_packages("reflector")
         log.info("Updating mirror list.")
-        update_mirrorlist(mountpoint)
+        update_mirrorlist(reflector_options, mountpoint)
         ####################-Systemd-####################
         installation.setup_swap()
         installation.add_bootloader(Bootloader.Systemd)
@@ -1194,7 +1194,7 @@ def main(pw: str) -> None:
         if not delayed_warning("Starting device modifications in "):
             return main(pw)
         fs_handler.perform_filesystem_operations()
-    update_mirrorlist()
+    update_mirrorlist(reflector_options)
     config_pac(10, noextract_lines)
     chaotic_repo()
     perform_installation(arch_config_handler)
