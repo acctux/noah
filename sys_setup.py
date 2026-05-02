@@ -439,7 +439,7 @@ usr_sockets = UserSrv(
         "mpd.socket",
     ],
 )
-usr_graphic = UserSrv(
+usr_graphical = UserSrv(
     source="/usr/lib/systemd/user",
     target="graphical-session",
     services=[
@@ -580,16 +580,6 @@ def write_files(files: dict[str, str], mnt_point: Path | None) -> None:
         path_obj.parent.mkdir(parents=True, exist_ok=True)
         path_obj.write_text(flush_content + "\n")
         log.info(f"Wrote {path_obj}")
-
-
-def ind_key_permission(path: Path, f_permissions=0o600, d_permissions=0o700) -> None:
-    if path.exists():
-        if path.is_file():
-            path.chmod(f_permissions)
-        else:
-            path.chmod(d_permissions)
-    else:
-        log.warning(f"{path} not found.")
 
 
 def yes_no(prompt: str, default: bool = True) -> bool:
@@ -771,8 +761,7 @@ def chaotic_repo(mnt_point: Path):
     with pacman_conf.open("a") as f:
         f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
     run_cmd(["pacman", "-Sy"], check=True)
-    for cmd in cmds_setup:
-        run_chroot([" ".join(cmd)], mnt_point)
+    run_chroot([" ".join(cmd) for cmd in cmds_setup], mnt_point)
     pacman_conf = mnt_point / "etc/pacman.conf"
     with pacman_conf.open("a") as f:
         f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
@@ -798,8 +787,7 @@ def configure_sudo(user_name: str, mnt_point: Path, pless=False):
 
 
 def sys_dots(mnt_point: Path, script_dir: Path):
-    sys_dir_cp = ["etc", "usr"]
-    for dir_name in sys_dir_cp:
+    for dir_name in ["etc", "usr"]:
         source_dir = script_dir / dir_name
         target_dir = mnt_point / dir_name
         log.info("Processing %s -> %s", source_dir, target_dir)
@@ -883,37 +871,37 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
     run_chroot(cmd, mnt_point)
 
 
-def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
-    sk = mnt_point / "etc" / "skel"
-    cmd = ["git", "clone", f"https://github.com/{git_name}/{dots_git}.git", f"{sk}"]
+def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str) -> None:
+    tmp = mnt_point / "tmp" / dots_git
+    cmd = ["git", "clone", f"https://github.com/{git_name}/{dots_git}.git", f"{tmp}"]
     run_cmd(cmd, True)
-    shutil.rmtree(sk / ".git")
-    for p in sk.iterdir():
+    shutil.rmtree(tmp / ".git")
+    for p in tmp.iterdir():
         p.rename(p.parent / ("." + p.name))
+    copy_dir(tmp, mnt_point / "etc" / "skel")
 
 
-def process_copy(
+def copy_keys(
     mnt_point: Path, usb_key_dir: str, user_name: str, to_cp: dict[str, list[str]]
 ) -> None:
     chown_cmds = []
     for folder, files_list in to_cp.items():
-        mnt_dir = mnt_point / "home" / user_name / folder
+        sys_dir = Path("home") / user_name / folder
+        mnt_dir = mnt_point / sys_dir
         mnt_dir.mkdir(parents=True, exist_ok=True)
+        chown_cmds.append(f"chown {user_name}:{user_name} /{sys_dir}")
+        mnt_dir.chmod(0o700)
         for f in files_list:
             dest = mnt_dir / f
             src = Path(f"/root/{usb_key_dir}/{f}")
             copy_file(src, dest)
-            rel_path = dest.relative_to(mnt_point)
-            chown_cmds.append(f"chown {user_name}:{user_name} /{rel_path}")
-            ind_key_permission(dest)
-        rel_dir = mnt_dir.relative_to(mnt_point)
-        chown_cmds.append(f"chown {user_name}:{user_name} /{rel_dir}")
-        ind_key_permission(mnt_dir)
+            chown_cmds.append(f"chown {user_name}:{user_name} /{sys_dir}/{f}")
+            dest.chmod(0o600)
     if chown_cmds:
         run_chroot(chown_cmds, mnt_point)
 
 
-def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list):
+def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> None:
     file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
     new_exts = [
         f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
@@ -927,6 +915,7 @@ def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list):
         if ext not in install:
             install.append(ext)
     file_path.write_text(json.dumps(data, indent=2))
+    log.info("Firefox extensions updated successfully.")
 
 
 ###################################
@@ -969,12 +958,9 @@ def perform_installation(
         ###############-Install reflector-###############
         mirror_list = "etc/pacman.d/mirrorlist"
         copy_file(Path(f"/{mirror_list}"), mountpoint / mirror_list)
-        refl_opts_str = "\n".join(reflector_options)
-        write_files({"etc/xdg/reflector/reflector.conf": refl_opts_str}, mountpoint)
         ####################-Systemd-####################
         installation.setup_swap()
         installation.add_bootloader(Bootloader.Systemd)
-        plymouth_setup(mountpoint)
         installation.copy_iso_network_config()
         installation.set_timezone(timezone)
         #############-Pkg Management-###############
@@ -1004,7 +990,12 @@ def perform_installation(
         )
         #############-Etc Management-###############
         modify_mkinit(mountpoint, mkinit_hooks, plymouth=True)
+        plymouth_setup(mountpoint)
+        #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
+        installation.enable_service(sys_services + custom_services)
+        run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
+        #############-Etc Management-###############
         write_files(
             {
                 **user_dirs_etc,
@@ -1022,8 +1013,8 @@ def perform_installation(
             mountpoint,
         )
         copy_dir(Path("/root") / wireguard_dir, mountpoint / "etc" / "wireguard")
-        installation.enable_service(sys_services + custom_services)
-        run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
+        refl_opts_str = "\n".join(reflector_options)
+        write_files({"etc/xdg/reflector/reflector.conf": refl_opts_str}, mountpoint)
         set_firefox_extensions(mountpoint, firefox_browser, firefox_extensions)
         #############-User and Sudo-###############
         clone_dots_to_skel(mountpoint, git_name, dots_git)
@@ -1044,16 +1035,17 @@ def perform_installation(
         copy_dir(script_d, (mountpoint / user_home / script_d.name))
         installation.chown(user_name, str(mountpoint / user_home / script_d.name))
         to_cp = {".ssh": [ssh_key], ".gnupg": [gpg_key], "scripts": [pass_pass]}
-        process_copy(mountpoint, usb_key_dir, user_name, to_cp)
+        copy_keys(mountpoint, usb_key_dir, user_name, to_cp)
         #############-User Services-#############
         user_service(mountpoint, user_name)
         enable_user_serv(
-            [usr_srv, usr_sockets, usr_graphic, cust_graphic, cust_timer],
+            [usr_srv, usr_sockets, usr_graphical, cust_graphic, cust_timer],
             mountpoint,
             user_name,
         )
         #############-Apps/Icons-#############
         hide_apps(mountpoint, user_name, apps_to_hide)
+        log.info("Installing icon theme.")
         install_icon_theme(mountpoint)
         #############-Fstab-###############
         installation.genfstab()
@@ -1080,8 +1072,9 @@ def perform_installation(
 def main(pw: str) -> None:
     arch_config_handler = ArchConfigHandler()
     arch_config_handler.config.auth_config = AuthenticationConfiguration(
-        None,
-        [User(username=user_name, password=Password(pw), sudo=True, groups=groups)],
+        users=[
+            User(username=user_name, password=Password(pw), sudo=True, groups=groups)
+        ]
     )
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
