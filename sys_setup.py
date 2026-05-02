@@ -960,25 +960,16 @@ def install_icon_theme(
 
 
 def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
-    system_dir = mnt_point / "usr/share/applications"
     user_dir = mnt_point / "home" / username / ".local" / "share" / "applications"
     user_dir.mkdir(parents=True, exist_ok=True)
     files_to_write = {}
     for app in applications:
         if not app.endswith(".desktop"):
             app = f"{app}.desktop"
-        system_file = system_dir / app
         user_file = user_dir / app
-        if system_file.exists() and not user_file.exists():
-            files_to_write[str(user_file)] = (
-                "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
-            )
-        else:
-            if yes_no(f"{system_file} not found, create anyway?"):
-                files_to_write[str(user_file)] = (
-                    "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
-                )
-                log.info(f"{user_file} will be created")
+        files_to_write[str(user_file)] = (
+            "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
+        )
     write_files(files_to_write, mnt_point)
     cmd = [
         f"sudo chown -R {username}:{username} /home/{username}/.local/share/applications"
