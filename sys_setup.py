@@ -679,9 +679,9 @@ def mnt_cp_keys(
             if yes_no(f"Mount USB to copy {', '.join(missing)}"):
                 selected_path = get_device()
                 usb_mnt.mkdir(parents=True, exist_ok=True)
-                cmd = [f"mount -t ext4 -o ro {selected_path} {usb_mnt}"]
-                run_cmd(cmd, check=True, shell=True)
-                time.sleep(1)
+                cmd = ["mount", "-o", "ro", str(selected_path), str(usb_mnt)]
+                run_cmd(cmd, check=True)
+                time.sleep(2)
                 if key_dir and key_files:
                     usb_cp_keys(usb_mnt, key_dir, key_files)
                 if wireguard_dir:
@@ -759,17 +759,18 @@ def chaotic_repo(mnt_point: Path | None = None):
         for cmd in cmds_setup:
             run_chroot([" ".join(cmd)], mnt_point)
         pacman_conf = mnt_point / "etc/pacman.conf"
-        run_chroot(["pacman -Sy"], mnt_point)
     else:
         for cmd in cmds_setup:
             run_cmd(cmd, check=True)
         pacman_conf = Path("/etc/pacman.conf")
-        run_cmd(["pacman", "-Sy"], check=True)
-    section = "[chaotic-aur]"
     content = pacman_conf.read_text()
-    if section not in content:
+    if "[chaotic-aur]" not in content:
         with pacman_conf.open("a") as f:
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+    if mnt_point:
+        run_chroot(["pacman -Sy"], mnt_point)
+    else:
+        run_cmd(["pacman", "-Sy"], check=True)
 
 
 def config_pac(
@@ -1106,9 +1107,9 @@ def perform_installation(
                 **logid_etc,
                 **ly_etc,
                 "etc/tmpfiles.d/mpd.conf": dedent(f"""\
-            d /home/{user_name}/.cache/mpd 0755 {user_name} mpd -
-            d /home/{user_name}/.cache/mpd/playlists 0755 {user_name} mpd -
-        """),
+                    d /home/{user_name}/.cache/mpd 0755 {user_name} mpd -
+                    d /home/{user_name}/.cache/mpd/playlists 0755 {user_name} mpd -
+                """),
                 "etc/conf.d/pacman-contrib": f'PACCACHE_ARGS="-k {pkgs_to_cache}"\n',
             },
             mountpoint,
