@@ -665,6 +665,8 @@ def mnt_cp_keys(
                 if wireguard_dir:
                     if not (HOME / wireguard_dir).exists():
                         copy_dir(usb_mnt / wireguard_dir, HOME / wireguard_dir)
+                time.sleep(2)
+                umount_usb(usb_mnt)
     else:
         log.info("All required files present.")
 
