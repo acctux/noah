@@ -1,4 +1,5 @@
 from textwrap import dedent
+from sys_setup import user_name
 
 net_etc = {
     "etc/iwd/main.conf": dedent("""\
@@ -80,23 +81,39 @@ net_etc = {
 
 maria_etc = {
     "etc/my.cnf.d/server.cnf": dedent("""\
-            [mariadb]
-            bind-address = localhost
+        [mariadb]
+        bind-address = localhost
     """),
 }
 user_dirs_etc = {
+    "etc/tmpfiles.d/mpd.conf": dedent(f"""\
+        d /home/{user_name}/.cache/mpd 0755 {user_name} mpd -
+        d /home/{user_name}/.cache/mpd/playlists 0755 {user_name} mpd -
+    """),
+    "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
     "etc/xdg/user-dirs.defaults": dedent("""\
-            DOCUMENTS=Desktop/Documents
-            DESKTOP=Desktop
-            MUSIC=Desktop/Music
-            PICTURES=Desktop/Pictures
-            VIDEOS=Desktop/Videos
-            DOWNLOAD=Desktop/Downloads
-            TEMPLATES=Desktop/Templates
-            PUBLICSHARE=Desktop/Public
+        DOCUMENTS=Desktop/Documents
+        DESKTOP=Desktop
+        MUSIC=Desktop/Music
+        PICTURES=Desktop/Pictures
+        VIDEOS=Desktop/Videos
+        DOWNLOAD=Desktop/Downloads
+        TEMPLATES=Desktop/Templates
+        PUBLICSHARE=Desktop/Public
     """),
 }
 hardware_etc = {
+    "etc/systemd/zram-generator.conf": dedent("""\
+        [zram0]
+        zram-size = min(ram / 3, 8192)
+        compression-algorithm = zstd
+    """),
+    "etc/sysctl.d/99-zram.conf": dedent("""\
+        vm.swappiness = 180
+        vm.watermark_boost_factor = 0
+        vm.watermark_scale_factor = 125
+        vm.page-cluster = 0
+    """),
     "etc/fuse.conf": dedent("""\
         user_allow_other
     """),
@@ -107,36 +124,36 @@ hardware_etc = {
         vm.max_map_count = 2147483642
     """),
     "etc/sysctl.d/99-net.conf": dedent("""\
-            net.core.rmem_max = 8388608
-            net.core.wmem_max = 8388608
+        net.core.rmem_max = 8388608
+        net.core.wmem_max = 8388608
     """),
     "etc/udisks2/mount_options.conf": dedent("""\
-            [defaults]
-            defaults=noatime
+        [defaults]
+        defaults=noatime
     """),
     "etc/udev/rules.d/99-thunderbolt.rules": dedent("""\
-            ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{authorized}=="0", ATTR{authorized}="1"
+        ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{authorized}=="0", ATTR{authorized}="1"
     """),
     "etc/polkit-1/rules.d/49-rules.rules": dedent("""\
-            polkit.addRule(function(action, subject) {
-                if (
-                    subject.isInGroup("storage") &&
-                    (
-                        action.id == "org.freedesktop.udisks2.filesystem-mount" ||
-                        action.id == "org.freedesktop.udisks2.filesystem-mount-system" ||
-                        action.id == "org.freedesktop.udisks2.encrypted-unlock" ||
-                        action.id == "org.freedesktop.udisks2.encrypted-unlock-system"
-                    )
-                ) {
-                    return polkit.Result.YES;
-                }
-                if (
-                    action.id === "org.kde.kpmcore.externalcommand.init" &&
-                    subject.isInGroup("wheel")
-                ) {
-                    return polkit.Result.YES;
-                }
-            });
+        polkit.addRule(function(action, subject) {
+            if (
+                subject.isInGroup("storage") &&
+                (
+                    action.id == "org.freedesktop.udisks2.filesystem-mount" ||
+                    action.id == "org.freedesktop.udisks2.filesystem-mount-system" ||
+                    action.id == "org.freedesktop.udisks2.encrypted-unlock" ||
+                    action.id == "org.freedesktop.udisks2.encrypted-unlock-system"
+                )
+            ) {
+                return polkit.Result.YES;
+            }
+            if (
+                action.id === "org.kde.kpmcore.externalcommand.init" &&
+                subject.isInGroup("wheel")
+            ) {
+                return polkit.Result.YES;
+            }
+        });
     """),
 }
 logid_etc = {
@@ -315,67 +332,67 @@ logid_etc = {
 }
 ly_etc = {
     "etc/ly/config.ini": dedent("""\
-            allow_empty_password = true
-            animation = matrix
-            animation_timeout_sec = 0
-            asterisk = *
-            auth_fails = 10
-            bg = 0x00101013
-            bigclock = none
-            blank_box = true
-            border_fg = 0x00D3DAE3
-            box_title = null
-            brightness_down_cmd = /usr/bin/brightnessctl -q s 10%-
-            brightness_down_key = F5
-            brightness_up_cmd = /usr/bin/brightnessctl -q s +10%
-            brightness_up_key = F6
-            clear_password = false
-            clock = null
-            cmatrix_fg = 0x000000FF
-            cmatrix_min_codepoint = 0x21
-            cmatrix_max_codepoint = 0x7B
-            colormix_col1 = 0x0000FF00
-            colormix_col2 = 0x000000CC
-            colormix_col3 = 0x20000000
-            console_dev = /dev/console
-            default_input = login
-            doom_top_color = 0x00FF0000
-            doom_middle_color = 0x00FFFF00
-            doom_bottom_color = 0x00FFFFFF
-            error_bg = 0x00000000
-            error_fg = 0x01FF0000
-            fg = 0x00D3DAE3
-            hide_borders = false
-            hide_key_hints = false
-            initial_info_text = null
-            input_len = 34
-            lang = en
-            load = true
-            login_cmd = null
-            logout_cmd = null
-            margin_box_h = 2
-            margin_box_v = 1
-            min_refresh_delta = 5
-            numlock = true
-            path = /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-            restart_cmd = /sbin/shutdown -r now
-            restart_key = F2
-            save = true
-            service_name = ly
-            session_log = .cache/ly
-            setup_cmd = /etc/ly/setup.sh
-            shutdown_cmd = /sbin/shutdown -a now
-            shutdown_key = F1
-            sleep_cmd = null
-            sleep_key = F3
-            text_in_center = false
-            tty = 2
-            vi_default_mode = normal
-            vi_mode = false
-            waylandsessions = /usr/share/wayland-sessions
-            x_cmd = /usr/bin/X
-            xauth_cmd = /usr/bin/xauth
-            xinitrc = ~/.xinitrc
-            xsessions = /usr/share/xsessions
+        allow_empty_password = true
+        animation = matrix
+        animation_timeout_sec = 0
+        asterisk = *
+        auth_fails = 10
+        bg = 0x00101013
+        bigclock = none
+        blank_box = true
+        border_fg = 0x00D3DAE3
+        box_title = null
+        brightness_down_cmd = /usr/bin/brightnessctl -q s 10%-
+        brightness_down_key = F5
+        brightness_up_cmd = /usr/bin/brightnessctl -q s +10%
+        brightness_up_key = F6
+        clear_password = false
+        clock = null
+        cmatrix_fg = 0x000000FF
+        cmatrix_min_codepoint = 0x21
+        cmatrix_max_codepoint = 0x7B
+        colormix_col1 = 0x0000FF00
+        colormix_col2 = 0x000000CC
+        colormix_col3 = 0x20000000
+        console_dev = /dev/console
+        default_input = login
+        doom_top_color = 0x00FF0000
+        doom_middle_color = 0x00FFFF00
+        doom_bottom_color = 0x00FFFFFF
+        error_bg = 0x00000000
+        error_fg = 0x01FF0000
+        fg = 0x00D3DAE3
+        hide_borders = false
+        hide_key_hints = false
+        initial_info_text = null
+        input_len = 34
+        lang = en
+        load = true
+        login_cmd = null
+        logout_cmd = null
+        margin_box_h = 2
+        margin_box_v = 1
+        min_refresh_delta = 5
+        numlock = true
+        path = /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        restart_cmd = /sbin/shutdown -r now
+        restart_key = F2
+        save = true
+        service_name = ly
+        session_log = .cache/ly
+        setup_cmd = /etc/ly/setup.sh
+        shutdown_cmd = /sbin/shutdown -a now
+        shutdown_key = F1
+        sleep_cmd = null
+        sleep_key = F3
+        text_in_center = false
+        tty = 2
+        vi_default_mode = normal
+        vi_mode = false
+        waylandsessions = /usr/share/wayland-sessions
+        x_cmd = /usr/bin/X
+        xauth_cmd = /usr/bin/xauth
+        xinitrc = ~/.xinitrc
+        xsessions = /usr/share/xsessions
     """)
 }

@@ -83,11 +83,28 @@ mkinit_hooks = [
 ###########################################################
 # PACMAN CONF
 ###########################################################
-noextract_lines = [
-    "NoExtract = etc/xdg/autostart/firewall-applet.desktop",
-    "NoExtract = usr/share/icons/capitaine-cursors/*",
-]
-pkgs_to_cache = 2
+pacman_content = dedent("""\
+        [options]
+        HoldPkg = pacman glibc
+        Architecture = auto
+        Color
+        ILoveCandy
+        ParallelDownloads = 10
+        DownloadUser = alpm
+        SigLevel    = Required DatabaseOptional
+        LocalFileSigLevel = Optional
+        NoExtract = etc/xdg/autostart/firewall-applet.desktop
+        NoExtract = usr/share/icons/capitaine-cursors/*
+
+        [core]
+        Include = /etc/pacman.d/mirrorlist
+
+        [extra]
+        Include = /etc/pacman.d/mirrorlist
+
+        [multilib]
+        Include = /etc/pacman.d/mirrorlist
+    """)
 reflector_options = [
     "--country US",
     "--protocol https",
@@ -96,7 +113,6 @@ reflector_options = [
     "--number 3",
     "--save /etc/pacman.d/mirrorlist",
 ]
-
 ###########################################################
 # PKGS
 ###########################################################
@@ -157,7 +173,7 @@ base_pkgs = [
     "pkgfile",
     "plymouth",
     "rebuild-detector",
-    "xdg-user-dirs",
+    "reflectorxdg-user-dirs",
 ]
 cli_pkgs = [
     "bat-extras",
@@ -486,7 +502,6 @@ apps_to_hide = [
 ###########################################################
 # CONSTANTS
 ###########################################################
-script_d = Path(__file__).resolve().parent
 user_home = f"home/{user_name}"
 HOME = Path.home()
 mountpoint = Path("/mnt/arch")
@@ -752,69 +767,17 @@ def chaotic_repo(mnt_point: Path | None = None):
         for cmd in cmds_setup:
             run_cmd(cmd, check=True)
         pacman_conf = Path("/etc/pacman.conf")
-    content = pacman_conf.read_text()
-    if "[chaotic-aur]" not in content:
-        with pacman_conf.open("a") as f:
-            f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+    with pacman_conf.open("a") as f:
+        f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
     if mnt_point:
         run_chroot(["pacman -Sy"], mnt_point)
     else:
         run_cmd(["pacman", "-Sy"], check=True)
 
 
-def config_pac(
-    parallel_downloads: int,
-    noextract_lines: list,
-    mnt_point: Path | None = None,
-):
-    pacman_content = dedent(f"""\
-        [options]
-        HoldPkg = pacman glibc
-        Architecture = auto
-        Color
-        ILoveCandy
-        ParallelDownloads = {parallel_downloads}
-        DownloadUser = alpm
-        SigLevel    = Required DatabaseOptional
-        LocalFileSigLevel = Optional
-        {"\n".join(noextract_lines)}
-
-        [core]
-        Include = /etc/pacman.d/mirrorlist
-
-        [extra]
-        Include = /etc/pacman.d/mirrorlist
-
-        [multilib]
-        Include = /etc/pacman.d/mirrorlist
-    """)
-    files_to_write = {
-        "etc/pacman.conf": pacman_content.strip(),
-    }
-    if mnt_point:
-        write_files(files_to_write, mnt_point)
-    else:
-        write_files(files_to_write, mnt_point=None)
-
-
 ###################################
 # ETC/BOOT
 ###################################
-def update_mirrorlist(options: list[str], mountpoint: Path | None = None):
-    if mountpoint:
-        copy_file(
-            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        )
-        write_files(
-            {"etc/xdg/reflector/reflector.conf": "\n".join(options)}, mountpoint
-        )
-    else:
-        cmd = ["reflector"]
-        for opt in options:
-            cmd.extend(opt.split())
-        run_cmd(cmd)
-
-
 def configure_sudo(user_name: str, mnt_point: Path, passwordless_sudo=True):
     sudoers_file = f"etc/sudoers.d/00_{user_name}"
     if passwordless_sudo:
@@ -891,23 +854,6 @@ def systemd_post(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
         },
         mnt_point,
     )
-
-
-def zram_post(mnt_point: Path, zram_divisor: int = 3):
-    zram_files = {
-        "etc/systemd/zram-generator.conf": dedent(f"""\
-            [zram0]
-            zram-size = min(ram / {zram_divisor}, 8192)
-            compression-algorithm = zstd
-        """),
-        "etc/sysctl.d/99-zram.conf": dedent("""\
-            vm.swappiness = 180
-            vm.watermark_boost_factor = 0
-            vm.watermark_scale_factor = 125
-            vm.page-cluster = 0
-        """),
-    }
-    write_files(zram_files, mnt_point)
 
 
 def modify_fstab(mnt_point: Path) -> None:
@@ -1037,6 +983,7 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
 def perform_installation(
     arch_config_handler: ArchConfigHandler,
 ) -> None:
+    script_d = Path(__file__).resolve().parent
     start_time = time.monotonic()
     info("Starting installation...")
     config = arch_config_handler.config
@@ -1058,18 +1005,18 @@ def perform_installation(
             hostname=hostname, locale_config=LocaleConfiguration("us", "en_US", "UTF-8")
         )
         ###############-Install reflector-###############
-        installation.add_additional_packages("reflector")
-        log.info("Updating mirror list.")
-        update_mirrorlist(reflector_options, mountpoint)
+        mirror_list = "etc/pacman.d/mirrorlist"
+        copy_file(Path(f"/{mirror_list}"), mountpoint / mirror_list)
+        refl_opts_str = "\n".join(reflector_options)
+        write_files({"etc/xdg/reflector/reflector.conf": refl_opts_str}, mountpoint)
         ####################-Systemd-####################
         installation.setup_swap()
         installation.add_bootloader(Bootloader.Systemd)
         systemd_post(mountpoint)
-        zram_post(mountpoint)
         installation.copy_iso_network_config()
         installation.set_timezone(timezone)
         #############-Pkg Management-###############
-        config_pac(10, noextract_lines, mountpoint)
+        write_files({"etc/pacman.conf": pacman_content}, mnt_point=mountpoint)
         chaotic_repo(mountpoint)
         installation.add_additional_packages(
             amd_pkgs
@@ -1104,11 +1051,6 @@ def perform_installation(
                 **hardware_etc,
                 **logid_etc,
                 **ly_etc,
-                "etc/tmpfiles.d/mpd.conf": dedent(f"""\
-                    d /home/{user_name}/.cache/mpd 0755 {user_name} mpd -
-                    d /home/{user_name}/.cache/mpd/playlists 0755 {user_name} mpd -
-                """),
-                "etc/conf.d/pacman-contrib": f'PACCACHE_ARGS="-k {pkgs_to_cache}"\n',
             },
             mountpoint,
         )
@@ -1194,8 +1136,9 @@ def main(pw: str) -> None:
         if not delayed_warning("Starting device modifications in "):
             return main(pw)
         fs_handler.perform_filesystem_operations()
-    update_mirrorlist(reflector_options)
-    config_pac(10, noextract_lines)
+    cmd = ["reflector", *(part for opt in reflector_options for part in opt.split())]
+    run_cmd(cmd)
+    write_files({"etc/pacman.conf": pacman_content}, mnt_point=None)
     chaotic_repo()
     perform_installation(arch_config_handler)
 
