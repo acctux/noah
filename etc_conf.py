@@ -77,7 +77,6 @@ net_etc = {
         };
     """),
 }
-
 maria_etc = {
     "etc/my.cnf.d/server.cnf": dedent("""\
         [mariadb]
@@ -85,7 +84,6 @@ maria_etc = {
     """),
 }
 user_dirs_etc = {
-    "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
     "etc/xdg/user-dirs.defaults": dedent("""\
         DOCUMENTS=Desktop/Documents
         DESKTOP=Desktop
@@ -95,6 +93,29 @@ user_dirs_etc = {
         DOWNLOAD=Desktop/Downloads
         TEMPLATES=Desktop/Templates
         PUBLICSHARE=Desktop/Public
+    """),
+}
+sys_etc = {
+    "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
+    "boot/loader/loader.conf": dedent("""\
+        default @saved
+        timeout 1
+        editor no
+    """),
+    "etc/pacman.d/hooks/95-systemd-boot.hook": dedent("""\
+        [Trigger]
+        Type = Package
+        Operation = Upgrade
+        Target = systemd
+
+        [Action]
+        Description = Gracefully upgrading systemd-boot...
+        When = PostTransaction
+        Exec = /usr/bin/systemctl restart systemd-boot-update.service
+    """),
+    "etc/systemd/journald.conf.d/00-journal-size.conf": dedent("""\
+        [Journal]
+        SystemMaxUse=50M
     """),
 }
 hardware_etc = {

@@ -32,7 +32,15 @@ import shlex
 import shutil
 from textwrap import dedent
 from utils import get_logger, run_cmd, ask_pass
-from etc_conf import ly_etc, logid_etc, hardware_etc, maria_etc, net_etc, user_dirs_etc
+from etc_conf import (
+    ly_etc,
+    logid_etc,
+    hardware_etc,
+    maria_etc,
+    net_etc,
+    user_dirs_etc,
+    sys_etc,
+)
 
 
 ###########################################################
@@ -431,7 +439,7 @@ usr_sockets = UserSrv(
         "mpd.socket",
     ],
 )
-usr_graphical = UserSrv(
+usr_graphic = UserSrv(
     source="/usr/lib/systemd/user",
     target="graphical-session",
     services=[
@@ -699,9 +707,7 @@ def mnt_cp_keys(
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(units: UserSrv | list[UserSrv], mnt_point: Path, user_name: str):
-    if isinstance(units, UserSrv):
-        units = [units]
+def enable_user_serv(units: list[UserSrv], mnt_point: Path, user_name: str):
     user_commands: list[str] = []
     base_dir = Path(f"/home/{user_name}/.config/systemd/user")
     for unit in units:
@@ -743,14 +749,13 @@ def user_service(
         mnt_point,
     )
     unit = UserSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
-    enable_user_serv(unit, mnt_point, user_name)
+    enable_user_serv([unit], mnt_point, user_name)
 
 
 ###################################
 # PACMAN
 ###################################
-def chaotic_repo(mnt_point: Path | None = None):
-    log.info("Setting up Chaotic-AUR repository.")
+def chaotic_repo(mnt_point: Path):
     key_serv = "keyserver.ubuntu.com"
     chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
     cmds_setup = [
@@ -760,35 +765,26 @@ def chaotic_repo(mnt_point: Path | None = None):
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
-    if mnt_point:
-        for cmd in cmds_setup:
-            run_chroot([" ".join(cmd)], mnt_point)
-        pacman_conf = mnt_point / "etc/pacman.conf"
-    else:
-        for cmd in cmds_setup:
-            run_cmd(cmd, check=True)
-        pacman_conf = Path("/etc/pacman.conf")
+    for cmd in cmds_setup:
+        run_cmd(cmd, check=True)
+    pacman_conf = Path("/etc/pacman.conf")
     with pacman_conf.open("a") as f:
         f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
-    if mnt_point:
-        run_chroot(["pacman -Sy"], mnt_point)
-    else:
-        run_cmd(["pacman", "-Sy"], check=True)
+    run_cmd(["pacman", "-Sy"], check=True)
+    for cmd in cmds_setup:
+        run_chroot([" ".join(cmd)], mnt_point)
+    pacman_conf = mnt_point / "etc/pacman.conf"
+    with pacman_conf.open("a") as f:
+        f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+    run_chroot(["pacman -Sy"], mnt_point)
 
 
 ###################################
 # ETC/BOOT
 ###################################
-def configure_sudo(user_name: str, mnt_point: Path, passwordless_sudo=True):
-    sudoers_file = f"etc/sudoers.d/00_{user_name}"
-    if passwordless_sudo:
-        sudoers_line = f"{user_name} ALL=(ALL:ALL) NOPASSWD:ALL"
-        prt_val = "without password requirement"
-    else:
-        sudoers_line = f"{user_name} ALL=(ALL:ALL) ALL"
-        prt_val = "with password requirement"
+def configure_sudo(user_name: str, mnt_point: Path, pless=False):
     sudoers_content = dedent(f"""\
-        {sudoers_line}
+        {user_name} ALL=(ALL:ALL) {"NOPASSWD:ALL" if pless else "ALL"}
         Defaults    insults
         Defaults    passwd_tries=10
         Defaults    lecture=never
@@ -797,8 +793,8 @@ def configure_sudo(user_name: str, mnt_point: Path, passwordless_sudo=True):
         Defaults    timestamp_type=global
         Defaults    editor=/usr/sbin/nvim, !env_editor
     """)
-    write_files({sudoers_file: sudoers_content}, mnt_point)
-    log.info(f"Created {sudoers_file} {prt_val} for {user_name}")
+    write_files({f"etc/sudoers.d/00_{user_name}": sudoers_content}, mnt_point)
+    log.info(f"{'Removed' if pless else 'Created'} pass requirement for {user_name}")
 
 
 def sys_dots(mnt_point: Path, script_dir: Path):
@@ -816,7 +812,7 @@ def sys_dots(mnt_point: Path, script_dir: Path):
         log.info("Copied %s to %s", source_dir, target_dir)
 
 
-def systemd_post(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
+def plymouth_setup(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
     entries_dir = mnt_point / "boot" / "loader" / "entries"
     for entry in entries_dir.iterdir():
         lines = entry.read_text().splitlines()
@@ -830,31 +826,6 @@ def systemd_post(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
                 line = "options " + " ".join(existing_opts)
             new_lines.append(line)
         entry.write_text("\n".join(new_lines) + "\n")
-    write_files(
-        {
-            "boot/loader/loader.conf": dedent("""\
-                default @saved
-                timeout 1
-                editor no
-            """),
-            "etc/pacman.d/hooks/95-systemd-boot.hook": dedent("""\
-                [Trigger]
-                Type = Package
-                Operation = Upgrade
-                Target = systemd
-
-                [Action]
-                Description = Gracefully upgrading systemd-boot...
-                When = PostTransaction
-                Exec = /usr/bin/systemctl restart systemd-boot-update.service
-            """),
-            "etc/systemd/journald.conf.d/00-journal-size.conf": dedent("""\
-                [Journal]
-                SystemMaxUse=50M
-            """),
-        },
-        mnt_point,
-    )
 
 
 def modify_fstab(mnt_point: Path) -> None:
@@ -867,8 +838,10 @@ def modify_fstab(mnt_point: Path) -> None:
     fstab_path.write_text(content)
 
 
-def modify_mkinit(mnt_point: Path, hooks: list[str]):
+def modify_mkinit(mnt_point: Path, hooks: list[str], plymouth: bool):
     mkinitcpio_conf_path = f"{mnt_point}/etc/mkinitcpio.conf"
+    if plymouth:
+        hooks.insert(6, "plymouth")
     with open(mkinitcpio_conf_path, "r+") as mkinit:
         content = mkinit.read()
         content = re.sub(r"\nHOOKS=.*", f"\nHOOKS=({' '.join(hooks)})", content)
@@ -888,7 +861,6 @@ def install_icon_theme(
     icon_dir="/usr/share/icons",
 ):
     tmp = "/tmp/icons"
-    log.info("Installing {")
     cmd = [f"git clone https://github.com/{git}.git {tmp}", f"bash {tmp}/install.sh"]
     run_chroot(cmd, mnt_point)
     icon_path = mnt_point / icon_dir
@@ -902,32 +874,22 @@ def install_icon_theme(
 
 def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
     user_dir = mnt_point / "home" / username / ".local" / "share" / "applications"
-    files_to_write = {}
+    files_dict = {}
     for app in applications:
-        if not app.endswith(".desktop"):
-            app = f"{app}.desktop"
-        files_to_write[str(user_dir / app)] = (
-            "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
-        )
-    write_files(files_to_write, mnt_point)
+        app = f"{app}.desktop"
+        files_dict[str(user_dir / app)] = "[Desktop Entry]\nNoDisplay=true\n"
+    write_files(files_dict, mnt_point)
     cmd = [f"chown -R {username}:{username} /home/{username}/.local/share/applications"]
     run_chroot(cmd, mnt_point)
 
 
 def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
-    skel_tmp = Path.home() / dots_git
-    cmd = [
-        "git",
-        "clone",
-        f"https://github.com/{git_name}/{dots_git}.git",
-        f"{skel_tmp}",
-    ]
-    if not skel_tmp.exists():
-        run_cmd(cmd, True)
-        shutil.rmtree(skel_tmp / ".git")
-        for p in skel_tmp.iterdir():
-            p.rename(p.parent / ("." + p.name))
-    copy_dir(skel_tmp, mnt_point / "etc" / "skel")
+    sk = mnt_point / "etc" / "skel"
+    cmd = ["git", "clone", f"https://github.com/{git_name}/{dots_git}.git", f"{sk}"]
+    run_cmd(cmd, True)
+    shutil.rmtree(sk / ".git")
+    for p in sk.iterdir():
+        p.rename(p.parent / ("." + p.name))
 
 
 def process_copy(
@@ -965,7 +927,6 @@ def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list):
         if ext not in install:
             install.append(ext)
     file_path.write_text(json.dumps(data, indent=2))
-    log.info("Firefox extensions updated successfully.")
 
 
 ###################################
@@ -1013,7 +974,7 @@ def perform_installation(
         ####################-Systemd-####################
         installation.setup_swap()
         installation.add_bootloader(Bootloader.Systemd)
-        systemd_post(mountpoint)
+        plymouth_setup(mountpoint)
         installation.copy_iso_network_config()
         installation.set_timezone(timezone)
         #############-Pkg Management-###############
@@ -1042,7 +1003,7 @@ def perform_installation(
             + chaotic_pkgs
         )
         #############-Etc Management-###############
-        modify_mkinit(mountpoint, mkinit_hooks)
+        modify_mkinit(mountpoint, mkinit_hooks, plymouth=True)
         sys_dots(mountpoint, script_d)
         write_files(
             {
@@ -1052,6 +1013,7 @@ def perform_installation(
                 **hardware_etc,
                 **logid_etc,
                 **ly_etc,
+                **sys_etc,
                 "etc/tmpfiles.d/mpd.conf": dedent(f"""\
                     d /home/{user_name}/.cache/mpd 0755 {user_name} mpd -
                     d /home/{user_name}/.cache/mpd/playlists 0755 {user_name} mpd -
@@ -1068,15 +1030,16 @@ def perform_installation(
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
-        configure_sudo(user_name, mountpoint, passwordless_sudo=True)
-        log.info(f"Installing {aur_pkgs}")
-        pkgs = " ".join(aur_pkgs)
+        configure_sudo(user_name, mountpoint, pless=True)
         run_chroot(
-            [f"paru -S --noconfirm --needed {pkgs}", "xdg-user-dirs-update"],
+            [
+                f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
+                "xdg-user-dirs-update",
+            ],
             mountpoint,
             user_name,
         )
-        configure_sudo(user_name, mountpoint, passwordless_sudo=False)
+        configure_sudo(user_name, mountpoint)
         #############-Copy Keys and Script Dir-#############
         copy_dir(script_d, (mountpoint / user_home / script_d.name))
         installation.chown(user_name, str(mountpoint / user_home / script_d.name))
@@ -1085,13 +1048,12 @@ def perform_installation(
         #############-User Services-#############
         user_service(mountpoint, user_name)
         enable_user_serv(
-            [usr_srv, usr_sockets, usr_graphical, cust_graphic, cust_timer],
+            [usr_srv, usr_sockets, usr_graphic, cust_graphic, cust_timer],
             mountpoint,
             user_name,
         )
         #############-Apps/Icons-#############
         hide_apps(mountpoint, user_name, apps_to_hide)
-        log.info("Installing icon theme.")
         install_icon_theme(mountpoint)
         #############-Fstab-###############
         installation.genfstab()
@@ -1118,9 +1080,8 @@ def perform_installation(
 def main(pw: str) -> None:
     arch_config_handler = ArchConfigHandler()
     arch_config_handler.config.auth_config = AuthenticationConfiguration(
-        users=[
-            User(username=user_name, password=Password(pw), sudo=True, groups=groups)
-        ]
+        None,
+        [User(username=user_name, password=Password(pw), sudo=True, groups=groups)],
     )
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
@@ -1139,10 +1100,8 @@ def main(pw: str) -> None:
         if not delayed_warning("Starting device modifications in "):
             return main(pw)
         fs_handler.perform_filesystem_operations()
-    cmd = ["reflector", *(part for opt in reflector_options for part in opt.split())]
-    run_cmd(cmd)
+    run_cmd(["reflector", *(part for opt in reflector_options for part in opt.split())])
     write_files({"etc/pacman.conf": pacman_content}, mnt_point=None)
-    chaotic_repo()
     perform_installation(arch_config_handler)
 
 
