@@ -487,7 +487,7 @@ log = get_logger("Noah")
 # UTILS
 #########################
 def run_chroot(
-    commands: list[str], mnt_point: Path, user_name: str | None = None, peek=True
+    commands: list[str], mnt_point: Path, username: str | None = None, peek=True
 ):
     script_path = "var/tmp/user-commands.sh"
     chroot_path = mnt_point / script_path
@@ -497,11 +497,12 @@ def run_chroot(
         if peek:
             script.write("set -e\n")
         for cmd in commands:
+            if user_name:
+                log.info(f"Will run as {username}: {cmd}")
+                cmd = f"su - {username} -c {shlex.quote(cmd)}"
+            log.info(f"Will run: {cmd}")
             script.write(cmd + "\n")
     chroot_path.chmod(0o755)
-    cmd = f"bash /{script_path}"
-    if user_name:
-        cmd = f"su - {user_name} -c {shlex.quote(cmd)}"
     SysCommand(f"arch-chroot -S {mnt_point} {cmd}")
     chroot_path.unlink()
 
@@ -961,20 +962,16 @@ def install_icon_theme(
 
 def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
     user_dir = mnt_point / "home" / username / ".local" / "share" / "applications"
-    user_dir.mkdir(parents=True, exist_ok=True)
     files_to_write = {}
     for app in applications:
         if not app.endswith(".desktop"):
             app = f"{app}.desktop"
-        user_file = user_dir / app
-        files_to_write[str(user_file)] = (
+        files_to_write[str(user_dir / app)] = (
             "[Desktop Entry]\nHidden=true\nNoDisplay=true\n"
         )
     write_files(files_to_write, mnt_point)
-    cmd = [
-        f"sudo chown -R {username}:{username} /home/{username}/.local/share/applications"
-    ]
-    run_chroot(cmd, mnt_point, username)
+    cmd = [f"chown -R {username}:{username} /home/{username}/.local/share/applications"]
+    run_chroot(cmd, mnt_point)
 
 
 def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str):
