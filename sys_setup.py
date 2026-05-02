@@ -500,7 +500,7 @@ def run_chroot(
             if username:
                 log.info(f"Will run as {username}: {cmd}")
                 cmd = f"su - {username} -c {shlex.quote(cmd)}"
-            log.info(f"Will run: {cmd}")
+            log.info(f"Chroot run: {cmd}")
             script.write(cmd + "\n")
     chroot_path.chmod(0o755)
     SysCommand(f"arch-chroot -S {mnt_point} /{script_path}")
@@ -606,8 +606,7 @@ def check_missing(
     missing_files = []
     if key_files:
         for key in key_files:
-            key_path = HOME / f"{key_dir}/{key}"
-            if not key_path.exists():
+            if not (HOME / f"{key_dir}/{key}").exists():
                 missing_files.append(key)
     if wireguard_dir and not (HOME / wireguard_dir).is_dir():
         missing_files.append(wireguard_dir)
