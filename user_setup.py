@@ -72,7 +72,7 @@ def run(cmd, *, interactive=False, check=True, input_text=None, cwd=None):
 
 def iwctl_scan() -> None:
     result = run(["sudo", "iwctl", "station", "wlan0", "scan"])
-    if result and result.returncode != 0:
+    if result.returncode != 0:
         return
     time.sleep(10)
 
