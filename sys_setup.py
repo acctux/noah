@@ -822,7 +822,7 @@ def install_icon_theme(
 
 
 def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
-    user_dir = "home/username/.local/share/applications"
+    user_dir = f"home/{username}/.local/share/applications"
     for app in applications:
         app = f"{app}.desktop"
         files_dict = {f"{user_dir}/{app}": "[Desktop Entry]\nHide=true\n"}
@@ -1053,8 +1053,9 @@ def main(pw: str) -> None:
 
 
 if __name__ == "__main__":
-    mnt_cp_keys(usb_key_dir, usb_cp_files, wireguard_dir)
-    if not (pw := src_pass_file(usb_key_dir, my_pass)):
-        log.info("No password file found. Please enter Password")
-        pw = ask_pass(user_name)
-    main(pw)
+    # mnt_cp_keys(usb_key_dir, usb_cp_files, wireguard_dir)
+    # if not (pw := src_pass_file(usb_key_dir, my_pass)):
+    #     log.info("No password file found. Please enter Password")
+    #     pw = ask_pass(user_name)
+    # main(pw)
+    hide_apps(mountpoint, user_name, apps_to_hide)
