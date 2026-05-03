@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import pyperclip
 import textwrap
-from utils import get_logger, run_cmd, ping, ask_pass, UserGitRepo
+from utils import get_logger, ping, ask_pass, UserGitRepo
 
 log = get_logger("Noah")
 ###########################################################
@@ -86,7 +86,7 @@ def run(cmd, *, interactive=False, check=True, input_text=None):
 
 
 def iwctl_scan() -> None:
-    result = run_cmd(["sudo", "iwctl", "station", "wlan0", "scan"], True)
+    result = run(["sudo", "iwctl", "station", "wlan0", "scan"])
     if result and result.returncode != 0:
         return
     time.sleep(10)
@@ -102,7 +102,7 @@ def run_firewall(firewall_services: list, firewall_ports: list):
         *[fw_cmd(f"--add-port={p}") for p in firewall_ports],
     ]
     for cmd in firewall_cmds:
-        result = run_cmd(cmd, True)
+        result = run(cmd)
         if result and result.returncode != 0:
             log.error(f"Firewall failed: {cmd}")
 
@@ -189,9 +189,9 @@ def import_ssh(key_file: str, key_dir=HOME / ".ssh") -> None:
         socket = f"/run/user/{os.getuid()}/gcr/ssh"
         os.environ["SSH_AUTH_SOCK"] = socket
         if not Path(socket).exists():
-            run_cmd(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
-            run_cmd(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-        if run_cmd(["ssh-add", str(key_path)], check=True):
+            run(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
+            run(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
+        if run(["ssh-add", str(key_path)], check=True):
             log.info(f"SSH key {key_path} added or already present.")
         else:
             log.error(f"Failed to add SSH key {key_path}.")
@@ -220,7 +220,7 @@ def init_gocrypt(enc_dir: Path) -> None:
                 break
             log.warning("Passwords do not match or empty. Try again.\n")
         cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
-        run_cmd(cmd, check=True, input_text=pw1)
+        run(cmd, check=True, input_text=pw1)
         log.info(f"gocryptfs initialized at {enc_dir}.")
 
 
@@ -242,7 +242,7 @@ def setup_service(script_dir: str, script="user_setup.py") -> None:
         WantedBy=graphical-session.target
     """)
     service_path.write_text(svc_txt)
-    run_cmd(["systemctl", "--user", "enable", service_name])
+    run(["systemctl", "--user", "enable", service_name])
 
 
 def enable_mariadb(user_name) -> None:
@@ -274,7 +274,7 @@ def enable_mariadb(user_name) -> None:
         ],
     ]
     for cmd in commands:
-        result = run_cmd(cmd, True)
+        result = run(cmd)
         if result and result.returncode != 0:
             log.error(f"Command failed: {cmd}")
 
@@ -288,28 +288,12 @@ def ensure_github_known_hosts(kh=HOME / ".ssh" / "known_hosts") -> None:
         kh.touch()
     content = kh.read_text(errors="ignore")
     if "github.com" not in content:
-        scan = run_cmd(["ssh-keyscan", "-H", "github.com"], check=True)
+        scan = run(["ssh-keyscan", "-H", "github.com"])
         if scan and scan.stdout:
             kh.write_text(content + scan.stdout)
             log.info("Added github.com to known_hosts")
         else:
             log.warning("Failed to scan github.com for known_hosts")
-
-
-def fix_git_url(repo_path: Path, git_user: str, repo_name: str) -> None:
-    config_path = repo_path / ".git" / "config"
-    if config_path.exists():
-        with open(config_path, "r") as config_file:
-            config = config_file.read()
-        match = re.search(r"url = (git@.*\.git|https://.*\.git)", config)
-        if match:
-            current_url = match.group(0).split("=")[1].strip()
-            if "git@" not in current_url:
-                new_url = f"git@github.com:{git_user}/{repo_name}.git"
-                config = config.replace(current_url, new_url)
-                with open(config_path, "w") as config_file:
-                    config_file.write(config)
-                log.info(f"Fixed URL in {repo_path}: {current_url} -> {new_url}")
 
 
 def clone_repos(git_user: str, git_repo: UserGitRepo) -> None:
@@ -319,15 +303,13 @@ def clone_repos(git_user: str, git_repo: UserGitRepo) -> None:
         if repo_path.exists() and any(repo_path.iterdir()):
             continue
         repo_path.mkdir(parents=True, exist_ok=True)
-        git_str = f"git@github.com:{git_user}/{name}.git"
-        if run_cmd(
-            ["git", "clone", git_str, str(repo_path)],
+        if run(
+            ["git", "clone", f"git@github.com:{git_user}/{name}.git", str(repo_path)],
             check=True,
         ):
             log.info(f"Cloned {name} into {repo_path}")
         else:
             log.warning(f"Failed to clone {name}.")
-        fix_git_url(repo_path, git_user, name)
 
 
 def configure_git() -> None:
@@ -342,8 +324,8 @@ def configure_git() -> None:
     my_name = input("Enter your full real name (git): ").strip()
     if not my_name:
         raise ValueError("Name cannot be empty")
-    run_cmd(["git", "config", "--global", "user.email", my_email])
-    run_cmd(["git", "config", "--global", "user.name", my_name])
+    run(["git", "config", "--global", "user.email", my_email])
+    run(["git", "config", "--global", "user.name", my_name])
     print(f"Configured git with email={my_email} and name={my_name}")
 
 
@@ -361,7 +343,7 @@ def set_folder_icons(
         if Path(icon).exists():
             icon_uri = f"file://{icon}"
             cmd = ["gio", "set", str(dir_path), "metadata::custom-icon", icon_uri]
-            run_cmd(cmd, True)
+            run(cmd)
 
 
 ############################
@@ -475,8 +457,8 @@ def main(HOME=Path.home()):
         # set_folder_icons(dirs_icons)
         # configure_git()
         # ensure_github_known_hosts()
-        # for target in git_repos:
-        #     clone_repos(git_user, target)
+        for target in git_repos:
+            clone_repos(git_user, target)
         # for plugin in yazi_plugins:
         #     run_cmd(["ya", "pkg", "add", plugin])
         if any((DOTS_P).iterdir()):
@@ -493,7 +475,7 @@ def main(HOME=Path.home()):
         if input("Reboot now? [Y/n]: ").strip().lower() == "n":
             log.info("Reboot cancelled.")
             return
-        run_cmd(["systemctl", "reboot"], True)
+        run(["systemctl", "reboot"])
     else:
         pass_and_input(pass_manager_pass, (HOME))
         launch_apps()
