@@ -407,9 +407,8 @@ def verify_install(git_repos: UserGitRepo):
 
 
 def uv_add():
-    package = "openmeteo-requests"
     result = subprocess.run(
-        ["uv", "add", package],
+        ["uv", "add", "openmeteo-requests"],
         cwd=f"/home/{user_name}/Lit/polka/local/bin/weather",
         capture_output=True,
         text=True,
@@ -458,7 +457,6 @@ def main(HOME=Path.home()):
     cache_file = HOME / ".cache" / "noah_success.txt"
     enc_path = HOME / "Desktop" / enc_dir
     if not cache_file.exists():
-        uv_add()
         run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
         run_firewall(firewall_services, firewall_ports)
         cmds = [
@@ -486,6 +484,7 @@ def main(HOME=Path.home()):
             run_cmd(["ya", "pkg", "add", plugin])
         if any((DOTS_P).iterdir()):
             deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
+        uv_add()
         scrcpy_setup()
         setup_service(Path(__file__).resolve().parent.name)
         for target in git_repos:
