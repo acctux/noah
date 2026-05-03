@@ -297,16 +297,15 @@ def ensure_github_known_hosts(kh=HOME / ".ssh" / "known_hosts") -> None:
             log.warning("Failed to scan github.com for known_hosts")
 
 
-def clone_repos(git_user: str, git_repos: list, target_dir: Path) -> None:
+def clone_repos(git_user: str, git_repos: list, git_dir: Path) -> None:
     for name in git_repos:
-        repo_path = target_dir / name
+        repo_path = git_dir / name
         if any(repo_path.iterdir()):
             log.info(f"{repo_path} found, not cloning.")
             continue
         repo_path.mkdir(parents=True, exist_ok=True)
         if run(
-            ["git", "clone", f"git@github.com:{git_user}/{name}.git", str(repo_path)],
-            check=True,
+            ["git", "clone", f"git@github.com:{git_user}/{name}.git", str(repo_path)]
         ):
             log.info(f"Cloned {name} into {repo_path}")
         else:
