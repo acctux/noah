@@ -182,6 +182,9 @@ def init_gocrypt(enc_dir: Path) -> None:
         log.info(f"gocryptfs initialized at {enc_dir}.")
 
 
+############################
+# MariaDB
+############################
 def enable_mariadb(user_name) -> None:
     while True:
         p1 = getpass.getpass("Mariadb password: ")

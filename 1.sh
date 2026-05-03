@@ -53,3 +53,4 @@ clone_repo() {
 setup_environment
 clone_repo
 echo "Download complete. Run 'python archinstall/sys_setup.py'"
+exec python /home/root/archinstall/sys_setup.py
