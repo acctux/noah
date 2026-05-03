@@ -4,12 +4,10 @@ import os
 from pathlib import Path
 import time
 import gnupg
-import re
 import shutil
 import subprocess
 import pyperclip
-import textwrap
-from utils import get_logger, ping, ask_pass, UserGitRepo
+from utils import get_logger, ping, ask_pass, UserGitRepo, yes_no
 
 log = get_logger("Noah")
 ###########################################################
@@ -20,39 +18,35 @@ ssh_key = "id_ed25519"
 gpg_key = "my_sec_gpg.asc"
 pass_manager_pass = "pass.txt"
 git_user = "acctux"
-git_dir = "Lit"
-docs = "Docs"
-desk = "Desktop"
-games = "Games"
-enc_dir = "Encrypted"
 ###########################################################
 # GIT/DOT FILE
 ############################################################
 HOME = Path.home()
-CONFIG_DIR = HOME / ".config"
-SHARE_DIR = HOME / ".local" / "share"
-git_path = HOME / "Lit"
-dots_path = git_path / "polka"
-BASE = git_path / "Docs" / "base"
+DESKTOP = HOME / "Desktop"
+ENCRYPTED = DESKTOP / "Encrypted"
+GIT_DIR = HOME / "Lit"
+dots_path = GIT_DIR / "polka"
+DOCS = GIT_DIR / "Docs"
 repos = ["Docs", "noah", "polka"]
 dirs_to_link = ["local/bin"]
+secret_dots = DOCS / "base"
 ind_dirs = [
-    ((BASE / "fonts"), (SHARE_DIR / "fonts")),
-    ((BASE / "task"), (CONFIG_DIR / "task")),
-    ((BASE / "zsh"), (CONFIG_DIR / "zsh")),
-    ((BASE / "git"), (CONFIG_DIR / "git")),
-    ((BASE / "gh"), (CONFIG_DIR / "gh")),
+    ("fonts", HOME / ".local" / "share"),
+    ("task", HOME / ".config"),
+    ("zsh", HOME / ".config"),
+    ("git", HOME / ".config"),
+    ("gh", HOME / ".config"),
 ]
 ###########################################################
 # ICONS
 ###########################################################
 dirs_icons = [
-    (f"{desk}/{games}", "folder-games"),
-    (f"{desk}/{enc_dir}", "folder-locked"),
-    (git_dir, "folder-github"),
-    (f"{git_dir}/noah", "folder-root"),
-    (f"{git_dir}/{docs}", "folder-bookmark"),
-    (f"{git_dir}/polka", "folder-html"),
+    (DESKTOP / "Games", "folder-games"),
+    (ENCRYPTED, "folder-locked"),
+    (GIT_DIR, "folder-github"),
+    (GIT_DIR / "noah", "folder-root"),
+    (DOCS, "folder-bookmark"),
+    (dots_path, "folder-html"),
 ]
 ###########################################################
 # YAZI
@@ -68,20 +62,11 @@ firewall_services = ["kdeconnect", "ssh", "wireguard"]
 firewall_ports = ["6881-6889/tcp", "6881-6889/udp"]
 
 
-def cleanup(HOME: Path) -> None:
-    for f in [(HOME / "keys" / "pass.txt")]:
-        if f.exists():
-            f.unlink()
-    for d in [(HOME / "archinstall")]:
-        if d.exists():
-            shutil.rmtree(d)
-
-
-def run(cmd, *, interactive=False, check=True, input_text=None):
+def run(cmd, *, interactive=False, check=True, input_text=None, cwd=""):
     if interactive:
         return subprocess.Popen(cmd).wait()
     return subprocess.run(
-        cmd, input=input_text, check=check, text=True, capture_output=True
+        cmd, input=input_text, check=check, text=True, capture_output=True, cwd=cwd
     )
 
 
@@ -92,91 +77,64 @@ def iwctl_scan() -> None:
     time.sleep(10)
 
 
-def run_firewall(firewall_services: list, firewall_ports: list):
-    def fw_cmd(*args):
-        return ["sudo", "firewall-cmd", "--permanent", "--zone=block"] + list(args)
-
-    firewall_cmds = [
-        ["sudo", "firewall-cmd", "--set-default-zone=block"],
-        *[fw_cmd(f"--add-service={s}") for s in firewall_services],
-        *[fw_cmd(f"--add-port={p}") for p in firewall_ports],
-    ]
-    for cmd in firewall_cmds:
-        result = run(cmd)
-        if result and result.returncode != 0:
-            log.error(f"Firewall failed: {cmd}")
-
-
 ############################
 # Dotfile Symlink
 ############################
-def link_path(src: Path, dst: Path) -> bool:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    rel = src.relative_to(dst.parent, walk_up=True)
-    if dst.is_symlink() and dst.readlink() == rel:
-        return False
-    else:
-        if dst.is_dir():
-            shutil.rmtree(dst)
-        dst.unlink(missing_ok=True)
-    if dst.exists():
-        if dst.is_dir() and not dst.is_symlink():
-            shutil.rmtree(dst)
-        else:
-            dst.unlink(missing_ok=True)
-        log.info(f"Removed: {dst}")
-    dst.symlink_to(rel, target_is_directory=src.is_dir())
-    log.info(f"Linked: {dst} → {rel}")
-    return True
-
-
-def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
-    parts = src.relative_to(source_dir).parts
-    return target_dir / Path("." + parts[0], *parts[1:])
-
-
-def file_candidates(
-    target_dir: Path,
-    dotfiles_dir: Path,
-    dirs_to_link: list[str],
-    ind_dirs: list[tuple[Path, Path]],
-):
-    for src in dotfiles_dir.rglob("*"):
-        if src.is_file():
-            rel = src.relative_to(dotfiles_dir)
-            if rel.parts[0] == ".git":
-                continue
-            if any(rel.is_relative_to(Path(d)) for d in dirs_to_link):
-                continue
-            yield src, dotted_destination(src, dotfiles_dir, target_dir)
-    for d in dirs_to_link:
-        src = dotfiles_dir / d
-        if src.is_dir():
-            yield src, dotted_destination(src, dotfiles_dir, target_dir)
-    for src_dir, dst_dir in ind_dirs:
-        if not src_dir.is_dir():
-            continue
-        for src in src_dir.rglob("*"):
-            if src.is_file():
-                yield src, dst_dir / src.relative_to(src_dir)
-
-
 def deploy_dotfiles(
     HOME: Path,
     dot_dir: Path,
     dirs_to_link: list[str],
-    ind_dirs: list[tuple[Path, Path]],
+    ind_dirs: list[tuple[str, Path]],
+    sec_dots_dir: Path,
 ):
-    if not dot_dir.is_dir():
-        log.error(f"Dotfiles directory not found: {dot_dir}")
-        return
+    def link_path(src: Path, dst: Path) -> bool:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        rel = src.relative_to(dst.parent, walk_up=True)
+        if dst.is_symlink() and dst.readlink() == rel:
+            return False
+        if dst.exists():
+            if dst.is_dir() and not dst.is_symlink():
+                shutil.rmtree(dst)
+            else:
+                dst.unlink(missing_ok=True)
+            log.info(f"Removed: {dst}")
+        dst.symlink_to(rel, target_is_directory=src.is_dir())
+        log.info(f"Linked: {dst} → {rel}")
+        return True
+
     linked = 0
-    for src, dst in file_candidates(HOME, dot_dir, dirs_to_link, ind_dirs):
+    for src in dot_dir.rglob("*"):
+        if not src.is_file():
+            continue
+        rel = src.relative_to(dot_dir)
+        if rel.parts[0] == ".git":
+            continue
+        if any(rel.is_relative_to(Path(d)) for d in dirs_to_link):
+            continue
+        dst = HOME / ("." + str(rel))
+        dst.parent.mkdir(parents=True, exist_ok=True)
         if link_path(src, dst):
             linked += 1
-    if shutil.which("hyprctl"):
-        subprocess.run(["hyprctl", "reload"], check=False)
-        log.info("Hyprland reloaded")
+    for d in dirs_to_link:
+        src = dot_dir / d
+        if not src.is_dir():
+            continue
+        dst = HOME / ("." + d)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if link_path(src, dst):
+            linked += 1
+    for src_name, dst_dir in ind_dirs:
+        src_dir = sec_dots_dir / src_name
+        if not src_dir.is_dir():
+            continue
+        for src in src_dir.rglob("*"):
+            if not src.is_file():
+                continue
+            dst = dst_dir / src.relative_to(src_dir)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if link_path(src, dst):
+                linked += 1
+    run(["hyprctl", "reload"])
     log.info(f"Linked: {linked}")
 
 
@@ -222,27 +180,6 @@ def init_gocrypt(enc_dir: Path) -> None:
         cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
         run(cmd, check=True, input_text=pw1)
         log.info(f"gocryptfs initialized at {enc_dir}.")
-
-
-def setup_service(script_dir: str, script="user_setup.py") -> None:
-    run_script = HOME / script_dir / script
-    service_name = f"{run_script.stem}.service"
-    service_path = HOME / ".config" / "systemd" / "user" / service_name
-    svc_txt = textwrap.dedent(f"""\
-        [Unit]
-        Description=Open Alacritty running {script} on login
-        After=graphical-session.target
-
-        [Service]
-        Type=oneshot
-        ExecStart=/usr/bin/kitty python {run_script}
-        Restart=no
-
-        [Install]
-        WantedBy=graphical-session.target
-    """)
-    service_path.write_text(svc_txt)
-    run(["systemctl", "--user", "enable", service_name])
 
 
 def enable_mariadb(user_name) -> None:
@@ -312,17 +249,14 @@ def clone_repos(git_user: str, git_repos: list, git_dir: Path) -> None:
 
 
 def configure_git() -> None:
-    result = subprocess.run(["ssh-add", "-l"], capture_output=True, text=True)
+    result = run(["ssh-add", "-l"])
     lines = result.stdout.strip().splitlines()
     if not lines:
         log.warning("No SSH keys found")
+        return
     parts = lines[0].split()
-    if len(parts) < 3:
-        log.warning("Unexpected ssh-add output format")
     my_email = parts[2]
     my_name = input("Enter your full real name (git): ").strip()
-    if not my_name:
-        raise ValueError("Name cannot be empty")
     run(["git", "config", "--global", "user.email", my_email])
     run(["git", "config", "--global", "user.name", my_name])
     print(f"Configured git with email={my_email} and name={my_name}")
@@ -332,16 +266,15 @@ def configure_git() -> None:
 # Icons/Folders
 ############################
 def set_folder_icons(
-    custom_folder_icons: list[tuple[str, str]],
+    custom_folder_icons: list[tuple[Path, str]],
     icon_dir="/usr/share/icons/WhiteSur-dark/places/scalable",
 ) -> None:
     for folder, icon_name in custom_folder_icons:
         icon = f"{icon_dir}/{icon_name}.svg"
-        dir_path = HOME / folder
-        dir_path.mkdir(parents=True, exist_ok=True)
+        folder.mkdir(parents=True, exist_ok=True)
         if Path(icon).exists():
             icon_uri = f"file://{icon}"
-            cmd = ["gio", "set", str(dir_path), "metadata::custom-icon", icon_uri]
+            cmd = ["gio", "set", str(folder), "metadata::custom-icon", icon_uri]
             run(cmd)
 
 
@@ -387,47 +320,24 @@ def verify_install(git_repos: UserGitRepo):
     return True
 
 
-def uv_add():
-    result = subprocess.run(
-        ["uv", "add", "openmeteo-requests"],
-        cwd=f"/home/{user_name}/Lit/polka/local/bin/weather",
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"uv add failed:\n{result.stderr}")
-    return result.stdout
-
-
-def scrcpy_setup(port=5555, timeout=3) -> None:
-    answer = input("Is your Android phone connected? (Y/n): ").strip().lower()
-    if answer not in ("y", "yes", ""):
-        print("Please connect your device via USB first.")
+def scrcpy_setup(port=5555) -> None:
+    answer = yes_no("Is your Android phone connected?")
+    if not answer:
+        log.info("Please connect your device via USB first.")
         return
     ip = next(
         (
             line.split("src")[-1].strip()
-            for line in subprocess.run(
-                ["adb", "shell", "ip", "route"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            ).stdout.splitlines()
+            for line in run(["adb", "shell", "ip", "route"]).stdout.splitlines()
             if "wlan" in line and "src" in line
-        ),
-        None,
+        )
     )
     if not ip:
         print("Could not determine device IP.")
         return
     target = f"{ip}:{port}"
-    print(f"Trying {target}")
-    msg = subprocess.run(
-        ["adb", "connect", target],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+    log.info(f"Trying {target}")
+    msg = run(["adb", "connect", target])
     print((msg.stdout + msg.stderr).lower())
 
 
@@ -435,48 +345,50 @@ def scrcpy_setup(port=5555, timeout=3) -> None:
 # Main
 ############################
 def main(HOME=Path.home()):
-    cache_file = HOME / ".cache" / "noah_success.txt"
-    enc_path = HOME / "Desktop" / enc_dir
-    if not cache_file.exists():
-        # run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-        # run_firewall(firewall_services, firewall_ports)
-        # run(["sudo", "rm", "/etc/resolv.conf"])
-        # run(["sudo", "resolvconf", "-u"])
-        # run(["sudo", "systemctl", "restart", "iwd"])
-        # run(["tuned-adm", "profile", "laptop-ac-powersave"])
-        # time.sleep(3)
-        # iwctl_scan()
-        # if not ping:
-        #     iwctl_scan()
-        # enable_mariadb(user_name)
-        # import_ssh(ssh_key)
-        # import_gpg(gpg_key)
-        # if not enc_path.exists() or not any(enc_path.iterdir()):
-        #     init_gocrypt(enc_path)
-        # set_folder_icons(dirs_icons)
-        # configure_git()
-        # ensure_github_known_hosts()
-        clone_repos(git_user, repos, git_path)
-        # for plugin in yazi_plugins:
-        #     run_cmd(["ya", "pkg", "add", plugin])
-        if any((dots_path).iterdir()):
-            deploy_dotfiles(HOME, dots_path, dirs_to_link, ind_dirs)
-        uv_add()
-        scrcpy_setup()
-        setup_service(Path(__file__).resolve().parent.name)
-        cleanup(HOME)
-        cache_file.touch()
-        if input("Reboot now? [Y/n]: ").strip().lower() == "n":
-            log.info("Reboot cancelled.")
-            return
+    run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    run(["sudo", "firewall-cmd", "--set-default-zone=block"])
+    fw_cmd = ["sudo", "firewall-cmd", "--permanent", "--zone=block"]
+    for service in firewall_services:
+        run(fw_cmd + [f"--add-service={service}"])
+    for port in firewall_ports:
+        run(fw_cmd + [f"--add-port={port}"])
+    run(["sudo", "rm", "/etc/resolv.conf"])
+    run(["sudo", "resolvconf", "-u"])
+    run(["sudo", "systemctl", "restart", "iwd"])
+    run(["tuned-adm", "profile", "laptop-ac-powersave"])
+    time.sleep(3)
+    iwctl_scan()
+    if not ping:
+        iwctl_scan()
+    enable_mariadb(user_name)
+    import_ssh(ssh_key)
+    import_gpg(gpg_key)
+    init_gocrypt(ENCRYPTED)
+    set_folder_icons(dirs_icons)
+    configure_git()
+    ensure_github_known_hosts()
+    clone_repos(git_user, repos, GIT_DIR)
+    for plugin in yazi_plugins:
+        run(["ya", "pkg", "add", plugin])
+    if any((dots_path).iterdir()):
+        deploy_dotfiles(HOME, dots_path, dirs_to_link, ind_dirs, secret_dots)
+    run(
+        ["uv", "add", "openmeteo-requests"], cwd=f"/home/{user_name}/.local/bin/weather"
+    )
+    scrcpy_setup()
+    for d in [(HOME / "archinstall")]:
+        if d.exists():
+            shutil.rmtree(d)
+    run(
+        ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
+        interactive=True,
+    )
+    pass_and_input(pass_manager_pass, (HOME))
+    launch_apps()
+    if yes_no("Reboot now?", default=False):
         run(["systemctl", "reboot"])
-    else:
-        pass_and_input(pass_manager_pass, (HOME))
-        launch_apps()
-        run(
-            ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
-            interactive=True,
-        )
+        log.info("Reboot cancelled.")
+        return
 
 
 if __name__ == "__main__":

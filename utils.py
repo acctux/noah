@@ -94,6 +94,18 @@ def run_cmd(
         return e
 
 
+def yes_no(prompt: str, default: bool = True) -> bool:
+    while True:
+        r = input(f"{prompt} {'(Y/n)' if default else '(y/N)'}: ").strip().lower()
+        if r == "":
+            return default
+        if r in ("y"):
+            return True
+        if r in ("n"):
+            return False
+        log.warning("Please enter 'y' or 'n'.")
+
+
 def ping(host: str) -> bool:
     cmd = ["ping", "-c", "1", host]
     return (

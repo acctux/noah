@@ -31,7 +31,7 @@ import re
 import shlex
 import shutil
 from textwrap import dedent
-from utils import get_logger, run_cmd, ask_pass
+from utils import get_logger, run_cmd, ask_pass, yes_no
 from etc_conf import ly_etc, hardware_etc, net_etc, user_dirs_etc, sys_etc
 
 
@@ -619,15 +619,6 @@ def mnt_cp_keys(
     usb_mnt: Path = Path("/mnt/usb"),
     home: Path = Path.home(),
 ):
-    def yes_no(prompt: str) -> bool:
-        while True:
-            r = input(f"{prompt} (Y/n): ").strip().lower()
-            if r in ("y", ""):
-                return True
-            if r == "n":
-                return False
-            log.warning("Please enter 'y' or 'n'.")
-
     missing = []
     if key_dir and key_files:
         missing += [k for k in key_files if not (home / key_dir / k).exists()]
