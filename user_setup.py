@@ -457,8 +457,8 @@ def main(HOME=Path.home()):
     cache_file = HOME / ".cache" / "noah_success.txt"
     enc_path = HOME / "Desktop" / enc_dir
     if not cache_file.exists():
-        run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-        run_firewall(firewall_services, firewall_ports)
+        # run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+        # run_firewall(firewall_services, firewall_ports)
         run(["sudo", "rm", "/etc/resolv.conf"])
         run(["sudo", "resolvconf", "-u"])
         run(["sudo", "systemctl", "restart", "iwd"])
