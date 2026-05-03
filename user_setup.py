@@ -62,7 +62,7 @@ firewall_services = ["kdeconnect", "ssh", "wireguard"]
 firewall_ports = ["6881-6889/tcp", "6881-6889/udp"]
 
 
-def run(cmd, *, interactive=False, check=True, input_text=None, cwd=""):
+def run(cmd, *, interactive=False, check=True, input_text=None, cwd=None):
     if interactive:
         return subprocess.Popen(cmd).wait()
     return subprocess.run(
