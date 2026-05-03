@@ -459,13 +459,10 @@ def main(HOME=Path.home()):
     if not cache_file.exists():
         run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
         run_firewall(firewall_services, firewall_ports)
-        cmds = [
-            ["sudo", "rm", "/etc/resolv.conf"],
-            ["sudo", "resolvconf", "-u"],
-            ["sudo", "systemctl", "restart", "iwd"],
-            ["tuned-adm", "profile", "laptop-ac-powersave"],
-        ]
-        run(cmds)
+        run(["sudo", "rm", "/etc/resolv.conf"])
+        run(["sudo", "resolvconf", "-u"])
+        run(["sudo", "systemctl", "restart", "iwd"])
+        run(["tuned-adm", "profile", "laptop-ac-powersave"])
         time.sleep(3)
         iwctl_scan()
         if not ping:
