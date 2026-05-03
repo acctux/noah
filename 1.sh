@@ -10,30 +10,18 @@ setup_environment() {
   while ((tries < max_tries)); do
     if ! pacman-key --init; then
       echo "pacman-key --init failed."
-      ((tries++))
-      sleep 5
-      continue
-    fi
-    if ! pacman -Sy --noconfirm; then
+    elif ! pacman -Sy --noconfirm; then
       echo "pacman -Sy failed."
-      ((tries++))
-      sleep 5
-      continue
-    fi
-    if ! pacman -S --noconfirm archlinux-keyring; then
+    elif ! pacman -S --noconfirm archlinux-keyring; then
       echo "Installing archlinux-keyring failed."
-      ((tries++))
-      sleep 5
-      continue
-    fi
-    if ! pacman -S --noconfirm --needed "${DEPENDENCIES[@]}"; then
+    elif ! pacman -S --noconfirm --needed "${DEPENDENCIES[@]}"; then
       echo "Package installation failed."
-      ((tries++))
-      sleep 5
-      continue
+    else
+      echo "Environment setup successful."
+      return 0
     fi
-    echo "Environment setup successful."
-    return 0
+    ((tries++))
+    sleep 5
   done
   echo "All $max_tries attempts failed. Exiting."
   exit 1
@@ -52,5 +40,5 @@ clone_repo() {
 
 setup_environment
 clone_repo
-echo "Initial setup complete. Run './archinstall/sys_setup.py'"
+echo "Initial setup complete. Launching Archinstall"
 exec python /root/archinstall/sys_setup.py </dev/tty

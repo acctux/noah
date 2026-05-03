@@ -43,6 +43,7 @@ hostname = "yulia"
 kernel = ["linux"]
 timezone = "US/Eastern"
 groups = ["adm", "games", "realtime", "storage", "video"]
+terminal = "kitty"
 git_name = "acctux"
 dots_git = "polka"
 ###########################################################
@@ -666,9 +667,12 @@ def enable_user_serv(units: list[UsrSrv], mnt_point: Path, username: str):
 def user_service(
     mnt_point: Path,
     username: str,
+    terminal: str,
     user_script="user_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
 ):
+    if terminal.strip().lower() == "alacritty":
+        terminal = "alacritty -e"
     dir_path = f"home/{username}/.config/systemd/user"
     run_script = f"/home/{username}/{script_dir}/{user_script}"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
@@ -676,12 +680,12 @@ def user_service(
         {
             f"{dir_path}/{name}": dedent(f"""\
                 [Unit]
-                Description=Open kitty {run_script} on login
+                Description=Open {terminal} {run_script} on login
                 After=graphical-session.target
 
                 [Service]
                 Type=oneshot
-                ExecStart=/usr/bin/kitty python {run_script}
+                ExecStart=/usr/bin/{terminal} python {run_script}
                 Restart=no
 
                 [Install]
@@ -986,7 +990,7 @@ def perform_installation(
         to_cp = {".ssh": [ssh_key], ".gnupg": [gpg_key], "scripts": [pass_pass]}
         copy_keys(mountpoint, usb_key_dir, user_name, to_cp)
         #############-User Services-#############
-        user_service(mountpoint, user_name)
+        user_service(mountpoint, user_name, terminal)
         enable_user_serv(
             [usr_srv, usr_sockets, usr_graphical, cust_graphic, cust_timer],
             mountpoint,
