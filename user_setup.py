@@ -34,7 +34,7 @@ SHARE_DIR = HOME / ".local" / "share"
 DOTS_P = HOME / "Lit" / "polka"
 BASE = HOME / "Lit" / "Docs" / "base"
 dots_dir = "polka"
-git_repos = [UserGitRepo(target_dir=git_dir, repos=[docs, "noah", dots_dir])]
+repos = [docs, "noah", dots_dir]
 dirs_to_link = ["local/bin"]
 ind_dirs = [
     ((BASE / "fonts"), (SHARE_DIR / "fonts")),
@@ -296,11 +296,11 @@ def ensure_github_known_hosts(kh=HOME / ".ssh" / "known_hosts") -> None:
             log.warning("Failed to scan github.com for known_hosts")
 
 
-def clone_repos(git_user: str, git_repo: UserGitRepo) -> None:
-    base_path = Path(git_repo.target_dir)
-    for name in git_repo.repos:
-        repo_path = base_path / name
-        if repo_path.exists() and any(repo_path.iterdir()):
+def clone_repos(git_user: str, git_repos: list, target_dir: Path) -> None:
+    for name in git_repos:
+        repo_path = target_dir / name
+        if any(repo_path.iterdir()):
+            log.info(f"{repo_path} found, not cloning.")
             continue
         repo_path.mkdir(parents=True, exist_ok=True)
         if run(
