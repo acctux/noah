@@ -31,11 +31,11 @@ repos = ["Docs", "noah", "polka"]
 dirs_to_link = ["local/bin"]
 secret_dots = DOCS / "base"
 ind_dirs = [
-    ("fonts", HOME / ".local" / "share"),
-    ("task", HOME / ".config"),
-    ("zsh", HOME / ".config"),
-    ("git", HOME / ".config"),
-    ("gh", HOME / ".config"),
+    ("fonts", (HOME / ".local" / "share")),
+    ("task", (HOME / ".config")),
+    ("zsh", (HOME / ".config")),
+    ("git", (HOME / ".config")),
+    ("gh", (HOME / ".config")),
 ]
 ###########################################################
 # ICONS
@@ -262,7 +262,7 @@ def configure_git() -> None:
     my_name = input("Enter your full real name (git): ").strip()
     run(["git", "config", "--global", "user.email", my_email])
     run(["git", "config", "--global", "user.name", my_name])
-    print(f"Configured git with email={my_email} and name={my_name}")
+    log.info(f"Configured git with email={my_email} and name={my_name}")
 
 
 ############################
