@@ -31,6 +31,7 @@ enc_dir = "Encrypted"
 HOME = Path.home()
 CONFIG_DIR = HOME / ".config"
 SHARE_DIR = HOME / ".local" / "share"
+git_path = HOME / "Lit" / "polka"
 DOTS_P = HOME / "Lit" / "polka"
 BASE = HOME / "Lit" / "Docs" / "base"
 dots_dir = "polka"
@@ -457,8 +458,7 @@ def main(HOME=Path.home()):
         # set_folder_icons(dirs_icons)
         # configure_git()
         # ensure_github_known_hosts()
-        for target in git_repos:
-            clone_repos(git_user, target)
+        clone_repos(git_user, repos, git_path)
         # for plugin in yazi_plugins:
         #     run_cmd(["ya", "pkg", "add", plugin])
         if any((DOTS_P).iterdir()):
@@ -466,10 +466,6 @@ def main(HOME=Path.home()):
         uv_add()
         scrcpy_setup()
         setup_service(Path(__file__).resolve().parent.name)
-        for target in git_repos:
-            if not verify_install(target):
-                log.error("Verification failed. Cache not updated.")
-                return
         cleanup(HOME)
         cache_file.touch()
         if input("Reboot now? [Y/n]: ").strip().lower() == "n":
