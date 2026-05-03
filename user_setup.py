@@ -16,6 +16,7 @@ log = get_logger("Noah")
 user_name = "nick"
 git_user = "acctux"
 android = True
+firewalld = True
 ###########################################################
 # GIT/DOT FILE
 ############################################################
@@ -348,26 +349,26 @@ def scrcpy_setup(port=5555) -> None:
 # Main
 ############################
 def main(HOME=Path.home()):
-    def scan():
-        if not ping():
-            iwctl_scan()
-            time.sleep(5)
-
-    run(
-        ["uv", "add", "openmeteo-requests"], cwd=f"/home/{user_name}/.local/bin/weather"
-    )
-    run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    run(["sudo", "firewall-cmd", "--set-default-zone=block"])
-    fw_cmd = ["sudo", "firewall-cmd", "--permanent", "--zone=block"]
-    for service in firewall_services:
-        run(fw_cmd + [f"--add-service={service}"])
-    for port in firewall_ports:
-        run(fw_cmd + [f"--add-port={port}"])
-    run(["sudo", "rm", "/etc/resolv.conf"])
-    run(["sudo", "resolvconf", "-u"])
-    run(["sudo", "systemctl", "restart", "iwd"])
-    run(["tuned-adm", "profile", "laptop-ac-powersave"])
-    enable_mariadb(user_name)
+    if shutil.which("zsh"):
+        run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    if shutil.which("firewalld"):
+        run(["sudo", "firewall-cmd", "--set-default-zone=block"])
+        fw_cmd = ["sudo", "firewall-cmd", "--permanent", "--zone=block"]
+        for service in firewall_services:
+            run(fw_cmd + [f"--add-service={service}"])
+        for port in firewall_ports:
+            run(fw_cmd + [f"--add-port={port}"])
+    if shutil.which("iwd") and not ping():
+        run(["sudo", "rm", "/etc/resolv.conf"])
+        run(["sudo", "resolvconf", "-u"])
+        run(["sudo", "systemctl", "restart", "iwd"])
+        time.sleep(5)
+        iwctl_scan()
+        time.sleep(5)
+    if shutil.which("tuned"):
+        run(["tuned-adm", "profile", "laptop-ac-powersave"])
+    if shutil.which("mariadb"):
+        enable_mariadb(user_name)
     if ssh_path.exists():
         import_ssh(ssh_path)
         configure_git()
@@ -375,9 +376,9 @@ def main(HOME=Path.home()):
         clone_repos(git_user, repos + private_repos, GIT_DIR, ssh=True)
     else:
         clone_repos(git_user, repos, GIT_DIR, ssh=False)
-    if gpg_path.exists():
+    if gpg_path and not gpg_path.exists():
         import_gpg(gpg_path)
-    if not (ENCRYPTED / "gocryptfs.conf").exists():
+    if ENCRYPTED and not (ENCRYPTED / "gocryptfs.conf").exists():
         init_gocrypt(ENCRYPTED)
     if dirs_icons:
         set_folder_icons(dirs_icons)
@@ -391,8 +392,9 @@ def main(HOME=Path.home()):
         )
     if android:
         scrcpy_setup()
-    pass_and_input(masterpass_path)
-    launch_apps()
+    if masterpass_path.is_file():
+        pass_and_input(masterpass_path)
+        launch_apps()
     run(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
         interactive=True,

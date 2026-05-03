@@ -45,7 +45,6 @@ timezone = "US/Eastern"
 groups = ["adm", "games", "realtime", "storage", "video"]
 terminal = "kitty"
 dots_git_repo = "acctux/polka"
-virtual_machine = True
 ###########################################################
 # USB PASSED FILES CONF
 ###########################################################
@@ -167,7 +166,7 @@ monitor_pkgs = [
     "gnome-logs",
     "systemctl-tui",
 ]
-sys_pkgs = [
+base_pkgs = [
     "base-devel",
     "logrotate",
     "ly",
@@ -358,24 +357,22 @@ gaming_pkgs = [
     "wine-staging",
     "winetricks",
 ]
-chaotic_base_pkgs = [
-    "firedragon",
-    "neovim-symlinks",
-    "octopi",
-    "paru",
-    "systemd-oomd-defaults",
-]
-chaos_pkgs = [
+chaotic_pkgs = [
     "ayugram-desktop-git",
     "qt6-imageformats",  # AyuGram missing dependency
     "betterbird-bin",
     "cachyos-ananicy-rules-git",
     "eden-git",
+    "firedragon",
     "logiops",
     "nchat-git",
+    "neovim-symlinks",
     "ocrmypdf",
+    "octopi",
+    "paru",
     "proton-cachyos-slr",
     "rpcs3-git",
+    "systemd-oomd-defaults",
 ]
 ###########################################################
 # AUR PKGS
@@ -923,42 +920,28 @@ def perform_installation(
         #############-Pkg Management-###############
         write_files({"etc/pacman.conf": pacman_content}, mnt_point=mountpoint)
         chaotic_repo(mountpoint)
-        base_pkgs = (
+        installation.add_additional_packages(
             amd_pkgs
+            + nvidia_pkgs
             + pipewire_pkgs
             + hardware_pkgs
-            + sys_pkgs
+            + base_pkgs
             + cli_pkgs
             + basic_pkgs
+            + android_pkgs
             + monitor_pkgs
             + network_pkgs
             + lang_pkgs
             + media_pkgs
             + hyprland_pkgs
-            + coding_pkgs
-            + pydep_pkgs
-            + chaotic_base_pkgs
-        )
-        installation.add_additional_packages(
-            base_pkgs
-            + nvidia_pkgs
-            + android_pkgs
             + office_pkgs
             + apple_pkgs
+            + coding_pkgs
             + mariadb_pkgs
+            + pydep_pkgs
             + gaming_pkgs
-            + chaos_pkgs
+            + chaotic_pkgs
         )
-        if not virtual_machine:
-            installation.add_additional_packages(
-                nvidia_pkgs
-                + android_pkgs
-                + office_pkgs
-                + apple_pkgs
-                + mariadb_pkgs
-                + gaming_pkgs
-                + chaos_pkgs
-            )
         #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
         installation.enable_service(sys_services + custom_services)
@@ -991,14 +974,9 @@ def perform_installation(
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
         configure_sudo(user_name, mountpoint, pless=True)
-        run_chroot(
-            [
-                f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
-                "xdg-user-dirs-update",
-            ],
-            mountpoint,
-            user_name,
-        )
+        cmd = [f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"]
+        run_chroot(cmd, mountpoint, user_name)
+        run_chroot(["xdg-user-dirs-update"], mountpoint, user_name)
         configure_sudo(user_name, mountpoint)
         #############-Copy Keys and Script Dir-#############
         copy_dir(script_d, (mountpoint / user_home / script_d.name))

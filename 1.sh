@@ -1,5 +1,4 @@
 #!/bin/bash
-
 REPO="acctux/noah"
 CLONE_DIR="$HOME/archinstall"
 DEPENDENCIES=("git" "pacman-contrib")
@@ -16,6 +15,8 @@ setup_environment() {
       echo "Installing archlinux-keyring failed."
     elif ! pacman -S --noconfirm --needed "${DEPENDENCIES[@]}"; then
       echo "Package installation failed."
+    elif ! git clone "https://github.com/${REPO}.git" "$CLONE_DIR"; then
+      echo "Git clone failed."
     else
       echo "Environment setup successful."
       return 0
@@ -27,18 +28,6 @@ setup_environment() {
   exit 1
 }
 
-clone_repo() {
-  rm -rf "$CLONE_DIR"
-  echo "Cloning repository..."
-  if git clone "https://github.com/${REPO}.git" "$CLONE_DIR"; then
-    echo "Repository cloned successfully."
-  else
-    echo "Git clone failed."
-    exit 1
-  fi
-}
-
 setup_environment
-clone_repo
 echo "Initial setup complete. Launching Archinstall"
 exec python /root/archinstall/sys_setup.py </dev/tty
