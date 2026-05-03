@@ -14,7 +14,6 @@ log = get_logger("Noah")
 # CONF
 ###########################################################
 user_name = "nick"
-ssh_key = "id_ed25519"
 gpg_key = "my_sec_gpg.asc"
 pass_manager_pass = "pass.txt"
 git_user = "acctux"
@@ -22,12 +21,15 @@ git_user = "acctux"
 # GIT/DOT FILE
 ############################################################
 HOME = Path.home()
+ssh_path = HOME / ".ssh" / "id_ed25519"
+gpg_path = HOME / ".gnupg" / "my_sec_gpg.asc"
 DESKTOP = HOME / "Desktop"
 ENCRYPTED = DESKTOP / "Encrypted"
 GIT_DIR = HOME / "Lit"
 dots_path = GIT_DIR / "polka"
 DOCS = GIT_DIR / "Docs"
-repos = ["Docs", "noah", "polka"]
+repos = ["noah", "polka"]
+private_repos = ["Docs"]
 dirs_to_link = ["local/bin"]
 secret_dots = DOCS / "base"
 ind_dirs = [
@@ -70,11 +72,12 @@ def run(cmd, *, interactive=False, check=True, input_text=None, cwd=None):
     )
 
 
-def iwctl_scan() -> None:
+def iwctl_scan() -> bool:
     result = run(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
-    if result.returncode != 0:
-        return
     time.sleep(10)
+    if result.returncode == 0:
+        return True
+    return False
 
 
 ############################
@@ -141,45 +144,38 @@ def deploy_dotfiles(
 ############################
 # Encryption/Keys
 ############################
-def import_ssh(key_file: str, key_dir=HOME / ".ssh") -> None:
-    key_path = key_dir / key_file
-    if key_path.exists():
-        socket = f"/run/user/{os.getuid()}/gcr/ssh"
-        os.environ["SSH_AUTH_SOCK"] = socket
-        if not Path(socket).exists():
-            run(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
-            run(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-        if run(["ssh-add", str(key_path)], check=True):
-            log.info(f"SSH key {key_path} added or already present.")
-        else:
-            log.error(f"Failed to add SSH key {key_path}.")
+def import_ssh(key_path: Path) -> None:
+    socket = f"/run/user/{os.getuid()}/gcr/ssh"
+    os.environ["SSH_AUTH_SOCK"] = socket
+    if not Path(socket).exists():
+        run(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
+        run(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
+    if run(["ssh-add", str(key_path)], check=True):
+        log.info(f"SSH key {key_path} added or already present.")
+    else:
+        log.error(f"Failed to add SSH key {key_path}.")
 
 
-def import_gpg(gpg_key: str, gpg_dir=HOME / ".gnupg") -> None:
-    gpg_path = gpg_dir / gpg_key
-    if gpg_path.exists():
-        key_data = gpg_path.read_text()
-        gpg = gnupg.GPG()
-        import_result = gpg.import_keys(
-            key_data, passphrase=ask_pass("GPG Password: ", False, 6)
-        )
-        log.info(import_result.results)
+def import_gpg(gpg_path: Path) -> None:
+    key_data = gpg_path.read_text()
+    gpg = gnupg.GPG()
+    import_result = gpg.import_keys(
+        key_data, passphrase=ask_pass("GPG Password: ", False, 6)
+    )
+    log.info(import_result.results)
 
 
 def init_gocrypt(enc_dir: Path) -> None:
-    if not enc_dir.exists():
-        enc_dir.mkdir(parents=True, exist_ok=True)
-        log.info(f"gocryptfs directory {enc_dir} created.")
-    if not Path(enc_dir / "gocryptfs.conf").exists():
-        while True:
-            pw1 = getpass.getpass("Enter new gocryptfs password: ")
-            pw2 = getpass.getpass("Confirm password: ")
-            if pw1 == pw2 and pw1:
-                break
-            log.warning("Passwords do not match or empty. Try again.\n")
-        cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
-        run(cmd, check=True, input_text=pw1)
-        log.info(f"gocryptfs initialized at {enc_dir}.")
+    enc_dir.mkdir(parents=True, exist_ok=True)
+    while True:
+        pw1 = getpass.getpass("Enter new gocryptfs password: ")
+        pw2 = getpass.getpass("Confirm password: ")
+        if pw1 == pw2 and pw1:
+            break
+        log.warning("Passwords do not match or empty. Try again.\n")
+    cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
+    run(cmd, check=True, input_text=pw1)
+    log.info(f"gocryptfs initialized at {enc_dir}.")
 
 
 ############################
@@ -236,19 +232,25 @@ def ensure_github_known_hosts(kh=HOME / ".ssh" / "known_hosts") -> None:
             log.warning("Failed to scan github.com for known_hosts")
 
 
-def clone_repos(git_user: str, git_repos: list, git_dir: Path) -> None:
-    for name in git_repos:
-        repo_path = git_dir / name
-        if any(repo_path.iterdir()):
-            log.info(f"{repo_path} found, not cloning.")
+def clone_repos(git_user: str, git_repos: list, dest: Path, ssh: bool) -> None:
+    dest = Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    def url(repo: str) -> str:
+        if ssh:
+            return f"git@github.com:{git_user}/{repo}.git"
+        return f"https://github.com/{git_user}/{repo}.git"
+
+    for repo in git_repos:
+        repo_path = dest / repo
+        if repo_path.exists():
+            log.info(f"{repo_path} exists, skipping.")
             continue
-        repo_path.mkdir(parents=True, exist_ok=True)
-        if run(
-            ["git", "clone", f"git@github.com:{git_user}/{name}.git", str(repo_path)]
-        ):
-            log.info(f"Cloned {name} into {repo_path}")
+        result = run(["git", "clone", url(repo), str(repo_path)], check=False)
+        if result.returncode == 0:
+            log.info(f"Cloned {repo}")
         else:
-            log.warning(f"Failed to clone {name}.")
+            log.warning(f"Failed to clone {repo}")
 
 
 def configure_git() -> None:
@@ -348,6 +350,14 @@ def scrcpy_setup(port=5555) -> None:
 # Main
 ############################
 def main(HOME=Path.home()):
+    def scan():
+        if not ping():
+            iwctl_scan()
+            time.sleep(5)
+
+    run(
+        ["uv", "add", "openmeteo-requests"], cwd=f"/home/{user_name}/.local/bin/weather"
+    )
     run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
     run(["sudo", "firewall-cmd", "--set-default-zone=block"])
     fw_cmd = ["sudo", "firewall-cmd", "--permanent", "--zone=block"]
@@ -359,35 +369,38 @@ def main(HOME=Path.home()):
     run(["sudo", "resolvconf", "-u"])
     run(["sudo", "systemctl", "restart", "iwd"])
     run(["tuned-adm", "profile", "laptop-ac-powersave"])
-    time.sleep(3)
-    iwctl_scan()
-    if not ping:
-        iwctl_scan()
     enable_mariadb(user_name)
-    import_ssh(ssh_key)
-    import_gpg(gpg_key)
-    init_gocrypt(ENCRYPTED)
-    set_folder_icons(dirs_icons)
-    configure_git()
-    ensure_github_known_hosts()
-    clone_repos(git_user, repos, GIT_DIR)
+    if ssh_path.exists():
+        import_ssh(ssh_path)
+        configure_git()
+        ensure_github_known_hosts()
+        clone_repos(git_user, repos + private_repos, GIT_DIR, ssh=True)
+    else:
+        clone_repos(git_user, repos, GIT_DIR, ssh=False)
+    if gpg_path.exists():
+        import_gpg(gpg_path)
+    if not (ENCRYPTED / "gocryptfs.conf").exists():
+        init_gocrypt(ENCRYPTED)
+    if dirs_icons:
+        set_folder_icons(dirs_icons)
     for plugin in yazi_plugins:
         run(["ya", "pkg", "add", plugin])
     if any((dots_path).iterdir()):
         deploy_dotfiles(HOME, dots_path, dirs_to_link, ind_dirs, secret_dots)
-    run(
-        ["uv", "add", "openmeteo-requests"], cwd=f"/home/{user_name}/.local/bin/weather"
-    )
+        run(
+            ["uv", "add", "openmeteo-requests"],
+            cwd=f"/home/{user_name}/.local/bin/weather",
+        )
     scrcpy_setup()
-    for d in [(HOME / "archinstall")]:
-        if d.exists():
-            shutil.rmtree(d)
+    pass_and_input(pass_manager_pass, (HOME / "scripts"))
+    launch_apps()
     run(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
         interactive=True,
     )
-    pass_and_input(pass_manager_pass, (HOME))
-    launch_apps()
+    for d in [(HOME / "archinstall")]:
+        if d.exists():
+            shutil.rmtree(d)
     if yes_no("Reboot now?", default=False):
         run(["systemctl", "reboot"])
         log.info("Reboot cancelled.")

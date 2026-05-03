@@ -44,8 +44,7 @@ kernel = ["linux"]
 timezone = "US/Eastern"
 groups = ["adm", "games", "realtime", "storage", "video"]
 terminal = "kitty"
-git_name = "acctux"
-dots_git = "polka"
+dots_git_repo = "acctux/polka"
 ###########################################################
 # USB PASSED FILES CONF
 ###########################################################
@@ -784,8 +783,8 @@ def modify_fstab(mnt_point: Path) -> None:
 
 def modify_mkinit(mnt_point: Path, hooks: list[str], plymouth: bool):
     mkinitcpio_conf_path = f"{mnt_point}/etc/mkinitcpio.conf"
-    if plymouth:
-        hooks.insert(6, "plymouth")
+    if plymouth and "plymouth" not in hooks:
+        hooks.insert(hooks.index("kms") + 1, "plymouth")
     with open(mkinitcpio_conf_path, "r+") as mkinit:
         content = mkinit.read()
         content = re.sub(r"\nHOOKS=.*", f"\nHOOKS=({' '.join(hooks)})", content)
@@ -826,9 +825,9 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
     run_chroot(cmd, mnt_point)
 
 
-def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str) -> None:
-    tmp = mnt_point / "tmp" / dots_git
-    cmd = ["git", "clone", f"https://github.com/{git_name}/{dots_git}.git", f"{tmp}"]
+def clone_dots_to_skel(mnt_point: Path, git_repo: str) -> None:
+    tmp = mnt_point / "tmp" / git_repo
+    cmd = ["git", "clone", f"https://github.com/{git_repo}.git", f"{tmp}"]
     run_cmd(cmd, True)
     shutil.rmtree(tmp / ".git")
     for p in tmp.iterdir():
@@ -970,7 +969,7 @@ def perform_installation(
         write_files({"etc/xdg/reflector/reflector.conf": refl_opts_str}, mountpoint)
         set_firefox_extensions(mountpoint, firefox_browser, firefox_extensions)
         #############-User and Sudo-###############
-        clone_dots_to_skel(mountpoint, git_name, dots_git)
+        clone_dots_to_skel(mountpoint, dots_git_repo)
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)

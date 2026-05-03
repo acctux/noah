@@ -106,7 +106,7 @@ def yes_no(prompt: str, default: bool = True) -> bool:
         log.warning("Please enter 'y' or 'n'.")
 
 
-def ping(host: str) -> bool:
+def ping(host: str = "google.com") -> bool:
     cmd = ["ping", "-c", "1", host]
     return (
         subprocess.run(
