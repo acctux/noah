@@ -171,8 +171,6 @@ hardware_etc = {
             }
         });
     """),
-}
-logid_etc = {
     "etc/logid.cfg": dedent("""\
         devices: ({
             name: "MX Master 3S";
@@ -344,7 +342,7 @@ logid_etc = {
                 }
             );
         });
-    """)
+    """),
 }
 ly_etc = {
     "etc/ly/config.ini": dedent("""\

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-from archinstall.lib.args import (
-    ArchConfig,
-    ArchConfigHandler,
-    AuthenticationConfiguration,
-)
+from archinstall.lib.args import ArchConfig, ArchConfigHandler
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.disk.utils import disk_layouts
@@ -32,15 +28,7 @@ import shlex
 import shutil
 from textwrap import dedent
 from utils import get_logger, run_cmd, ask_pass
-from etc_conf import (
-    ly_etc,
-    logid_etc,
-    hardware_etc,
-    maria_etc,
-    net_etc,
-    user_dirs_etc,
-    sys_etc,
-)
+from etc_conf import ly_etc, hardware_etc, maria_etc, net_etc, user_dirs_etc, sys_etc
 
 
 ###########################################################
@@ -66,13 +54,13 @@ usb_cp_files = [ssh_key, gpg_key, pass_pass, my_pass]
 ###########################################################
 # Browser
 ###########################################################
+firefox_browser = "firedragon"
 firefox_extensions = [
     "return-youtube-dislikes",
     "leechblock-ng",
     "proton-pass",
     "firefox-color",
 ]
-firefox_browser = "firedragon"
 ###########################################################
 # MKINITCPIO HOOKS
 ###########################################################
@@ -92,27 +80,27 @@ mkinit_hooks = [
 # PACMAN CONF
 ###########################################################
 pacman_content = dedent("""\
-        [options]
-        HoldPkg = pacman glibc
-        Architecture = auto
-        Color
-        ILoveCandy
-        ParallelDownloads = 10
-        DownloadUser = alpm
-        SigLevel    = Required DatabaseOptional
-        LocalFileSigLevel = Optional
-        NoExtract = etc/xdg/autostart/firewall-applet.desktop
-        NoExtract = usr/share/icons/capitaine-cursors/*
+    [options]
+    HoldPkg = pacman glibc
+    Architecture = auto
+    Color
+    ILoveCandy
+    ParallelDownloads = 10
+    DownloadUser = alpm
+    SigLevel    = Required DatabaseOptional
+    LocalFileSigLevel = Optional
+    NoExtract = etc/xdg/autostart/firewall-applet.desktop
+    NoExtract = usr/share/icons/capitaine-cursors/*
 
-        [core]
-        Include = /etc/pacman.d/mirrorlist
+    [core]
+    Include = /etc/pacman.d/mirrorlist
 
-        [extra]
-        Include = /etc/pacman.d/mirrorlist
+    [extra]
+    Include = /etc/pacman.d/mirrorlist
 
-        [multilib]
-        Include = /etc/pacman.d/mirrorlist
-    """)
+    [multilib]
+    Include = /etc/pacman.d/mirrorlist
+""")
 reflector_options = [
     "--country US",
     "--protocol https",
@@ -250,7 +238,7 @@ network_pkgs = [
     "profile-sync-daemon",
     "protonmail-bridge-core",
     "wireguard-tools",
-    "wpa_supplicant",
+    "networkmanager",
 ]
 lang_pkgs = [
     "hunspell-en_us",
@@ -413,23 +401,23 @@ sys_services = [
 ]
 custom_services = ["loggy", "sysinfo"]
 disable_svcs = ["getty@tty1", "systemd-networkd-wait-online"]
+
+
 ###########################################################
 # USER SERVICES
 ###########################################################
-
-
-class UserSrv(BaseModel):
-    source: str = "/usr/lib/systemd/user"
-    services: list[str]
+class UsrSrv(BaseModel):
+    source: str
     target: str
+    services: list[str]
 
 
-usr_srv = UserSrv(
+usr_srv = UsrSrv(
     source="/usr/lib/systemd/user",
     target="default",
     services=["pipewire-pulse.service", "psd.service"],
 )
-usr_sockets = UserSrv(
+usr_sockets = UsrSrv(
     source="/usr/lib/systemd/user",
     target="sockets",
     services=[
@@ -439,7 +427,7 @@ usr_sockets = UserSrv(
         "mpd.socket",
     ],
 )
-usr_graphical = UserSrv(
+usr_graphical = UsrSrv(
     source="/usr/lib/systemd/user",
     target="graphical-session",
     services=[
@@ -450,7 +438,7 @@ usr_graphical = UserSrv(
         "waybar.service",
     ],
 )
-cust_graphic = UserSrv(
+cust_graphic = UsrSrv(
     source=f"/home/{user_name}/.config/systemd/user",
     target="graphical-session",
     services=[
@@ -465,7 +453,7 @@ cust_graphic = UserSrv(
         "awww-daemon.service",
     ],
 )
-cust_timer = UserSrv(
+cust_timer = UsrSrv(
     source=f"/home/{user_name}/.config/systemd/user",
     target="timers",
     services=[
@@ -511,8 +499,6 @@ apps_to_hide = [
 ###########################################################
 # CONSTANTS
 ###########################################################
-user_home = f"home/{user_name}"
-HOME = Path.home()
 mountpoint = Path("/mnt/arch")
 log = get_logger("Noah")
 
@@ -543,34 +529,30 @@ def run_chroot(
 
 def src_pass_file(usb_key_dir: str, pass_file: str):
     key_path = Path("/root") / usb_key_dir / pass_file
-    if key_path.exists():
-        try:
-            pw = key_path.read_text().strip()
-            log.info(f"{key_path} loaded ")
-            return pw
-        except Exception as e:
-            log.error(f"{e}")
-    log.warning(f"{key_path} not found or unreadable.")
+    try:
+        pw = key_path.read_text().strip()
+        log.info(f"{key_path} loaded")
+        return pw
+    except Exception as e:
+        log.warning(f"{key_path} not found or unreadable: {e}")
 
 
-def copy_file(file: Path, dest: Path) -> None:
-    if not file.is_file():
-        log.error(f"{file} does not exist")
+def copy_file(src: Path, dest: Path) -> None:
+    if not src.is_file():
+        log.error(f"{src} does not exist")
         return
-    if dest.is_dir():
-        dest = dest / file.name
+    dest = dest / src.name if dest.is_dir() else dest
     dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(file, dest)
-    log.info(f"Copied file: {file} to {dest}")
+    shutil.copy2(src, dest)
+    log.info(f"Copied file: {src} -> {dest}")
 
 
-def copy_dir(dir: Path, dest: Path) -> None:
-    src = Path("/root") / dir
+def copy_dir(src: Path, dest: Path) -> None:
     if not src.is_dir():
         log.error(f"{src} does not exist")
         return
     shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
-    log.info(f"Copied directory: {src} to {dest}")
+    log.info(f"Copied directory: {src} -> {dest}")
 
 
 def write_files(files: dict[str, str], mnt_point: Path | None) -> None:
@@ -582,37 +564,9 @@ def write_files(files: dict[str, str], mnt_point: Path | None) -> None:
         log.info(f"Wrote {path_obj}")
 
 
-def yes_no(prompt: str, default: bool = True) -> bool:
-    while True:
-        suffix = "(Y/n)" if default else "(y/N)"
-        response = input(f"{prompt} {suffix}: ").strip().lower()
-        if response == "":
-            return default
-        if response in ("y", "yes"):
-            return True
-        if response in ("n", "no"):
-            return False
-        log.warning("Please enter 'y' or 'n'.")
-
-
 ###################################
-# UTILS
+# USB Files
 ###################################
-def check_missing(
-    key_dir: str | None = None,
-    key_files: list[str] | None = None,
-    wireguard_dir: str | None = None,
-) -> list[str]:
-    missing_files = []
-    if key_files:
-        for key in key_files:
-            if not (HOME / f"{key_dir}/{key}").exists():
-                missing_files.append(key)
-    if wireguard_dir and not (HOME / wireguard_dir).is_dir():
-        missing_files.append(wireguard_dir)
-    return missing_files
-
-
 def get_device(min_gb=20, usb_fs_type="ext4") -> str:
     data = json.loads(
         subprocess.check_output(
@@ -654,71 +608,74 @@ def get_device(min_gb=20, usb_fs_type="ext4") -> str:
     return selected_path
 
 
-def usb_cp_keys(usb_mount: Path, key_dir: str, key_files: list[str]):
-    (HOME / key_dir).mkdir(parents=True, exist_ok=True)
-    for key in key_files:
-        copy_file(usb_mount / key_dir / key, HOME / key_dir / key)
-
-
-def umount_usb(usb_mount: Path):
-    cmd = ["umount", str(usb_mount)]
-    run_cmd(cmd, check=True)
-    log.info(f"Unmounted USB from {usb_mount}.")
-
-
 def mnt_cp_keys(
     key_dir: str | None = None,
     key_files: list[str] | None = None,
     wireguard_dir: str | None = None,
-    usb_mnt=Path("/mnt/usb"),
+    usb_mnt: Path = Path("/mnt/usb"),
+    home: Path = Path.home(),
 ):
-    if usb_mnt.is_mount():
-        umount_usb(usb_mnt)
-    if (key_dir and key_files) or wireguard_dir:
-        missing = check_missing(key_dir, key_files, wireguard_dir)
-        if missing:
-            if yes_no(f"Mount USB to copy {', '.join(missing)}"):
-                selected_path = get_device()
-                usb_mnt.mkdir(parents=True, exist_ok=True)
-                cmd = ["mount", "-o", "ro", str(selected_path), str(usb_mnt)]
-                run_cmd(cmd, check=True)
-                time.sleep(2)
-                if key_dir and key_files:
-                    usb_cp_keys(usb_mnt, key_dir, key_files)
-                if wireguard_dir:
-                    if not (HOME / wireguard_dir).exists():
-                        copy_dir(usb_mnt / wireguard_dir, HOME / wireguard_dir)
-                time.sleep(2)
-                umount_usb(usb_mnt)
-    else:
+    def yes_no(prompt: str) -> bool:
+        while True:
+            r = input(f"{prompt} (Y/n): ").strip().lower()
+            if r in ("y", ""):
+                return True
+            if r == "n":
+                return False
+            log.warning("Please enter 'y' or 'n'.")
+
+    missing = []
+    if key_dir and key_files:
+        missing += [k for k in key_files if not (home / key_dir / k).exists()]
+    if wireguard_dir and not (home / wireguard_dir).is_dir():
+        missing.append(wireguard_dir)
+    if not missing:
         log.info("All required files present.")
+        return
+    if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
+        run_cmd(["umount", str(usb_mnt)], check=True)
+    if not yes_no(f"Mount USB to copy {', '.join(missing)}"):
+        return
+    selected = get_device()
+    usb_mnt.mkdir(parents=True, exist_ok=True)
+    run_cmd(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
+    time.sleep(2)
+    if key_dir and key_files:
+        (home / key_dir).mkdir(parents=True, exist_ok=True)
+        for k in key_files:
+            copy_file(usb_mnt / key_dir / k, home / key_dir / k)
+    if wireguard_dir:
+        copy_dir(usb_mnt / wireguard_dir, home / wireguard_dir)
+    time.sleep(2)
+    if yes_no("Files copied, unmount?"):
+        run_cmd(["umount", str(usb_mnt)], check=True)
 
 
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(units: list[UserSrv], mnt_point: Path, user_name: str):
+def enable_user_serv(units: list[UsrSrv], mnt_point: Path, username: str):
     user_commands: list[str] = []
-    base_dir = Path(f"/home/{user_name}/.config/systemd/user")
+    base_dir = Path(f"/home/{username}/.config/systemd/user")
     for unit in units:
         for service in unit.services:
             target_dir = base_dir / f"{unit.target}.target.wants"
             user_commands.append(f"mkdir -p {target_dir}")
-            src = Path(unit.source) / service
-            dst = target_dir / service
-            user_commands.append(f"ln -sf {src} {dst}")
-    run_chroot([f"chown -R {user_name}:{user_name} /home/{user_name}/"], mnt_point)
-    run_chroot(user_commands, mnt_point, user_name)
+            user_commands.append(
+                f"ln -sf {unit.source}/{service} {target_dir / service}"
+            )
+    run_chroot([f"chown -R {username}:{username} /home/{username}/"], mnt_point)
+    run_chroot(user_commands, mnt_point, username)
 
 
 def user_service(
     mnt_point: Path,
-    user_name: str,
+    username: str,
     user_script="user_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
 ):
-    dir_path = f"home/{user_name}/.config/systemd/user"
-    run_script = f"/home/{user_name}/{script_dir}/{user_script}"
+    dir_path = f"home/{username}/.config/systemd/user"
+    run_script = f"/home/{username}/{script_dir}/{user_script}"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
     write_files(
         {
@@ -738,33 +695,33 @@ def user_service(
         },
         mnt_point,
     )
-    unit = UserSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
-    enable_user_serv([unit], mnt_point, user_name)
+    unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
+    enable_user_serv([unit], mnt_point, username)
 
 
 ###################################
 # PACMAN
 ###################################
 def chaotic_repo(mnt_point: Path):
+    def append_repo(path: Path):
+        with path.open("a") as f:
+            f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+
     key_serv = "keyserver.ubuntu.com"
     chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-    cmds_setup = [
+    cmds = [
         ["pacman-key", "--init"],
         ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", key_serv],
         ["pacman-key", "--lsign-key", "3056513887B78AEB"],
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
-    for cmd in cmds_setup:
+    for cmd in cmds:
         run_cmd(cmd, check=True)
-    pacman_conf = Path("/etc/pacman.conf")
-    with pacman_conf.open("a") as f:
-        f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+    append_repo(Path("/etc/pacman.conf"))
     run_cmd(["pacman", "-Sy"], check=True)
-    run_chroot([" ".join(cmd) for cmd in cmds_setup], mnt_point)
-    pacman_conf = mnt_point / "etc/pacman.conf"
-    with pacman_conf.open("a") as f:
-        f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+    run_chroot([" ".join(cmd) for cmd in cmds], mnt_point)
+    append_repo(mnt_point / "etc/pacman.conf")
     run_chroot(["pacman -Sy"], mnt_point)
 
 
@@ -882,20 +839,20 @@ def clone_dots_to_skel(mnt_point: Path, git_name: str, dots_git: str) -> None:
 
 
 def copy_keys(
-    mnt_point: Path, usb_key_dir: str, user_name: str, to_cp: dict[str, list[str]]
+    mnt_point: Path, usb_key_dir: str, username: str, to_cp: dict[str, list[str]]
 ) -> None:
     chown_cmds = []
     for folder, files_list in to_cp.items():
-        sys_dir = Path("home") / user_name / folder
+        sys_dir = f"home/{username}/{folder}"
         mnt_dir = mnt_point / sys_dir
         mnt_dir.mkdir(parents=True, exist_ok=True)
-        chown_cmds.append(f"chown {user_name}:{user_name} /{sys_dir}")
         mnt_dir.chmod(0o700)
+        chown_cmds.append(f"chown {username}:{username} /{sys_dir}")
         for f in files_list:
             dest = mnt_dir / f
             src = Path(f"/root/{usb_key_dir}/{f}")
             copy_file(src, dest)
-            chown_cmds.append(f"chown {user_name}:{user_name} /{sys_dir}/{f}")
+            chown_cmds.append(f"chown {username}:{username} /{sys_dir}/{f}")
             dest.chmod(0o600)
     if chown_cmds:
         run_chroot(chown_cmds, mnt_point)
@@ -903,19 +860,18 @@ def copy_keys(
 
 def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> None:
     file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
-    new_exts = [
-        f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
-        for ext in ext_names
-    ]
-    data = {"policies": {"Extensions": {"Install": []}}}
     if file_path.exists():
+        new_exts = [
+            f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
+            for ext in ext_names
+        ]
         data = json.loads(file_path.read_text())
-    install = data["policies"]["Extensions"]["Install"]
-    for ext in new_exts:
-        if ext not in install:
-            install.append(ext)
-    file_path.write_text(json.dumps(data, indent=2))
-    log.info("Firefox extensions updated successfully.")
+        install = data["policies"]["Extensions"]["Install"]
+        for ext in new_exts:
+            if ext not in install:
+                install.append(ext)
+        file_path.write_text(json.dumps(data, indent=2))
+        log.info("Firefox extensions updated successfully.")
 
 
 ###################################
@@ -935,6 +891,7 @@ def perform_installation(
     arch_config_handler: ArchConfigHandler,
 ) -> None:
     script_d = Path(__file__).resolve().parent
+    user_home = f"home/{user_name}"
     start_time = time.monotonic()
     info("Starting installation...")
     config = arch_config_handler.config
@@ -952,9 +909,8 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-        installation.minimal_installation(
-            hostname=hostname, locale_config=LocaleConfiguration("us", "en_US", "UTF-8")
-        )
+        locale = LocaleConfiguration("us", "en_US", "UTF-8")
+        installation.minimal_installation(hostname=hostname, locale_config=locale)
         ###############-Install reflector-###############
         mirror_list = "etc/pacman.d/mirrorlist"
         copy_file(Path(f"/{mirror_list}"), mountpoint / mirror_list)
@@ -988,13 +944,13 @@ def perform_installation(
             + gaming_pkgs
             + chaotic_pkgs
         )
-        #############-Etc Management-###############
-        modify_mkinit(mountpoint, mkinit_hooks, plymouth=True)
-        plymouth_setup(mountpoint)
         #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
         installation.enable_service(sys_services + custom_services)
         run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
+        #############-Plymouth-###############
+        modify_mkinit(mountpoint, mkinit_hooks, plymouth=True)
+        plymouth_setup(mountpoint)
         #############-Etc Management-###############
         write_files(
             {
@@ -1002,7 +958,6 @@ def perform_installation(
                 **net_etc,
                 **maria_etc,
                 **hardware_etc,
-                **logid_etc,
                 **ly_etc,
                 **sys_etc,
                 "etc/tmpfiles.d/mpd.conf": dedent(f"""\
@@ -1018,9 +973,8 @@ def perform_installation(
         set_firefox_extensions(mountpoint, firefox_browser, firefox_extensions)
         #############-User and Sudo-###############
         clone_dots_to_skel(mountpoint, git_name, dots_git)
-        if config.auth_config:
-            if config.auth_config.users:
-                installation.create_users(config.auth_config.users)
+        user = User(username=user_name, password=Password(pw), sudo=True, groups=groups)
+        installation.create_users([user])
         configure_sudo(user_name, mountpoint, pless=True)
         run_chroot(
             [
@@ -1071,11 +1025,6 @@ def perform_installation(
 
 def main(pw: str) -> None:
     arch_config_handler = ArchConfigHandler()
-    arch_config_handler.config.auth_config = AuthenticationConfiguration(
-        users=[
-            User(username=user_name, password=Password(pw), sudo=True, groups=groups)
-        ]
-    )
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
