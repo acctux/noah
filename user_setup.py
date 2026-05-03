@@ -459,26 +459,26 @@ def main(HOME=Path.home()):
     if not cache_file.exists():
         # run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
         # run_firewall(firewall_services, firewall_ports)
-        run(["sudo", "rm", "/etc/resolv.conf"])
-        run(["sudo", "resolvconf", "-u"])
-        run(["sudo", "systemctl", "restart", "iwd"])
-        run(["tuned-adm", "profile", "laptop-ac-powersave"])
-        time.sleep(3)
-        iwctl_scan()
-        if not ping:
-            iwctl_scan()
-        enable_mariadb(user_name)
-        import_ssh(ssh_key)
-        import_gpg(gpg_key)
-        if not enc_path.exists() or not any(enc_path.iterdir()):
-            init_gocrypt(enc_path)
-        set_folder_icons(dirs_icons)
-        configure_git()
-        ensure_github_known_hosts()
-        for target in git_repos:
-            clone_repos(git_user, target)
-        for plugin in yazi_plugins:
-            run_cmd(["ya", "pkg", "add", plugin])
+        # run(["sudo", "rm", "/etc/resolv.conf"])
+        # run(["sudo", "resolvconf", "-u"])
+        # run(["sudo", "systemctl", "restart", "iwd"])
+        # run(["tuned-adm", "profile", "laptop-ac-powersave"])
+        # time.sleep(3)
+        # iwctl_scan()
+        # if not ping:
+        #     iwctl_scan()
+        # enable_mariadb(user_name)
+        # import_ssh(ssh_key)
+        # import_gpg(gpg_key)
+        # if not enc_path.exists() or not any(enc_path.iterdir()):
+        #     init_gocrypt(enc_path)
+        # set_folder_icons(dirs_icons)
+        # configure_git()
+        # ensure_github_known_hosts()
+        # for target in git_repos:
+        #     clone_repos(git_user, target)
+        # for plugin in yazi_plugins:
+        #     run_cmd(["ya", "pkg", "add", plugin])
         if any((DOTS_P).iterdir()):
             deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
         uv_add()
