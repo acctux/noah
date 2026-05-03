@@ -353,7 +353,6 @@ gaming_pkgs = [
     "mgba-qt",
     "steam",
     "umu-launcher",
-    "vkd3d",
     "wine-mono",
     "wine-staging",
     "winetricks",
@@ -823,12 +822,11 @@ def install_icon_theme(
 
 
 def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
-    user_dir = mnt_point / "home" / username / ".local" / "share" / "applications"
-    files_dict = {}
+    user_dir = "home/username/.local/share/applications"
     for app in applications:
         app = f"{app}.desktop"
-        files_dict[str(user_dir / app)] = "[Desktop Entry]\nHide=true\n"
-    write_files(files_dict, mnt_point)
+        files_dict = {f"{user_dir}/{app}": "[Desktop Entry]\nHide=true\n"}
+        write_files(files_dict, mnt_point)
     cmd = [f"chown -R {username}:{username} /home/{username}/.local/share/applications"]
     run_chroot(cmd, mnt_point)
 

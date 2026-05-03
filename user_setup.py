@@ -2,7 +2,6 @@
 import getpass
 import os
 from pathlib import Path
-import sys
 import time
 import gnupg
 import re
@@ -78,14 +77,12 @@ def cleanup(HOME: Path) -> None:
             shutil.rmtree(d)
 
 
-def run_interactive(cmd: list[str], check=True) -> int:
-    log.info(f"Running (interactive): {' '.join(cmd)}")
-    returncode = subprocess.Popen(
-        cmd, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr, text=True
-    ).wait()
-    if check and returncode != 0:
-        raise subprocess.CalledProcessError(returncode, cmd)
-    return returncode
+def run(cmd, *, interactive=False, check=True, input_text=None):
+    if interactive:
+        return subprocess.Popen(cmd).wait()
+    return subprocess.run(
+        cmd, input=input_text, check=check, text=True, capture_output=True
+    )
 
 
 def iwctl_scan() -> None:
@@ -93,13 +90,6 @@ def iwctl_scan() -> None:
     if result and result.returncode != 0:
         return
     time.sleep(10)
-
-
-def run_commands(cmds: list):
-    for cmd in cmds:
-        result = run_cmd(cmd, True)
-        if result and result.returncode != 0:
-            log.error(f"Failed: {cmd}")
 
 
 def run_firewall(firewall_services: list, firewall_ports: list):
@@ -264,6 +254,13 @@ def enable_mariadb(user_name) -> None:
             break
         print("Passwords do not match, try again.")
     commands = [
+        [
+            "sudo",
+            "mariadb-install-db",
+            "--user=mysql",
+            "--basedir=/usr",
+            "--datadir=/var/lib/mysql",
+        ],
         ["sudo", "systemctl", "start", "mariadb"],
         [
             "sudo",
@@ -436,7 +433,7 @@ def scrcpy_setup(port=5555, timeout=3) -> None:
                 text=True,
                 timeout=5,
             ).stdout.splitlines()
-            if "wlan0" in line and "src" in line
+            if "wlan" in line and "src" in line
         ),
         None,
     )
@@ -461,7 +458,8 @@ def main(HOME=Path.home()):
     cache_file = HOME / ".cache" / "noah_success.txt"
     enc_path = HOME / "Desktop" / enc_dir
     if not cache_file.exists():
-        run_interactive(["chsh", "-s", "/usr/bin/zsh"])
+        uv_add()
+        run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
         run_firewall(firewall_services, firewall_ports)
         cmds = [
             ["sudo", "rm", "/etc/resolv.conf"],
@@ -469,7 +467,7 @@ def main(HOME=Path.home()):
             ["sudo", "systemctl", "restart", "iwd"],
             ["tuned-adm", "profile", "laptop-ac-powersave"],
         ]
-        run_commands(cmds)
+        run(cmds)
         time.sleep(3)
         iwctl_scan()
         if not ping:
@@ -488,7 +486,6 @@ def main(HOME=Path.home()):
             run_cmd(["ya", "pkg", "add", plugin])
         if any((DOTS_P).iterdir()):
             deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
-        uv_add()
         scrcpy_setup()
         setup_service(Path(__file__).resolve().parent.name)
         for target in git_repos:
@@ -504,8 +501,9 @@ def main(HOME=Path.home()):
     else:
         pass_and_input(pass_manager_pass, (HOME))
         launch_apps()
-        run_interactive(
-            ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"]
+        run(
+            ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
+            interactive=True,
         )
 
 
