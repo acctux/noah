@@ -31,11 +31,10 @@ enc_dir = "Encrypted"
 HOME = Path.home()
 CONFIG_DIR = HOME / ".config"
 SHARE_DIR = HOME / ".local" / "share"
-git_path = HOME / "Lit" / "polka"
-DOTS_P = HOME / "Lit" / "polka"
-BASE = HOME / "Lit" / "Docs" / "base"
-dots_dir = "polka"
-repos = [docs, "noah", dots_dir]
+git_path = HOME / "Lit"
+dots_path = git_path / "polka"
+BASE = git_path / "Docs" / "base"
+repos = ["Docs", "noah", "polka"]
 dirs_to_link = ["local/bin"]
 ind_dirs = [
     ((BASE / "fonts"), (SHARE_DIR / "fonts")),
@@ -53,7 +52,7 @@ dirs_icons = [
     (git_dir, "folder-github"),
     (f"{git_dir}/noah", "folder-root"),
     (f"{git_dir}/{docs}", "folder-bookmark"),
-    (f"{git_dir}/{dots_dir}", "folder-html"),
+    (f"{git_dir}/polka", "folder-html"),
 ]
 ###########################################################
 # YAZI
@@ -460,8 +459,8 @@ def main(HOME=Path.home()):
         clone_repos(git_user, repos, git_path)
         # for plugin in yazi_plugins:
         #     run_cmd(["ya", "pkg", "add", plugin])
-        if any((DOTS_P).iterdir()):
-            deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
+        if any((dots_path).iterdir()):
+            deploy_dotfiles(HOME, dots_path, dirs_to_link, ind_dirs)
         uv_add()
         scrcpy_setup()
         setup_service(Path(__file__).resolve().parent.name)
