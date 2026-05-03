@@ -95,20 +95,7 @@ def iwctl_scan() -> None:
     time.sleep(10)
 
 
-def run_commands(
-    cmds=[
-        ["sudo", "rm", "/etc/resolv.conf"],
-        ["sudo", "resolvconf", "-u"],
-        ["sudo", "systemctl", "restart", "iwd"],
-        [
-            "mariadb-install-db",
-            "--user=mysql",
-            "--basedir=/usr",
-            "--datadir=/var/lib/mysql",
-        ],
-        ["tuned-adm", "profile", "laptop-ac-powersave"],
-    ],
-):
+def run_commands(cmds: list):
     for cmd in cmds:
         result = run_cmd(cmd, True)
         if result and result.returncode != 0:
@@ -348,16 +335,14 @@ def clone_repos(git_user: str, git_repo: UserGitRepo) -> None:
 
 def configure_git() -> None:
     result = subprocess.run(["ssh-add", "-l"], capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError("Failed to run ssh-add -l")
     lines = result.stdout.strip().splitlines()
     if not lines:
-        raise ValueError("No SSH keys found")
+        log.warning("No SSH keys found")
     parts = lines[0].split()
     if len(parts) < 3:
-        raise ValueError("Unexpected ssh-add output format")
+        log.warning("Unexpected ssh-add output format")
     my_email = parts[2]
-    my_name = input("Enter full name for git: ").strip()
+    my_name = input("Enter your full real name (git): ").strip()
     if not my_name:
         raise ValueError("Name cannot be empty")
     run_cmd(["git", "config", "--global", "user.email", my_email])
@@ -478,7 +463,13 @@ def main(HOME=Path.home()):
     if not cache_file.exists():
         run_interactive(["chsh", "-s", "/usr/bin/zsh"])
         run_firewall(firewall_services, firewall_ports)
-        run_commands()
+        cmds = [
+            ["sudo", "rm", "/etc/resolv.conf"],
+            ["sudo", "resolvconf", "-u"],
+            ["sudo", "systemctl", "restart", "iwd"],
+            ["tuned-adm", "profile", "laptop-ac-powersave"],
+        ]
+        run_commands(cmds)
         time.sleep(3)
         iwctl_scan()
         if not ping:
@@ -495,7 +486,7 @@ def main(HOME=Path.home()):
             clone_repos(git_user, target)
         for plugin in yazi_plugins:
             run_cmd(["ya", "pkg", "add", plugin])
-        if any((HOME / dots_dir).iterdir()):
+        if any((DOTS_P).iterdir()):
             deploy_dotfiles(HOME, DOTS_P, dirs_to_link, ind_dirs)
         uv_add()
         scrcpy_setup()

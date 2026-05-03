@@ -32,7 +32,7 @@ import shlex
 import shutil
 from textwrap import dedent
 from utils import get_logger, run_cmd, ask_pass
-from etc_conf import ly_etc, hardware_etc, maria_etc, net_etc, user_dirs_etc, sys_etc
+from etc_conf import ly_etc, hardware_etc, net_etc, user_dirs_etc, sys_etc
 
 
 ###########################################################
@@ -204,7 +204,6 @@ basic_pkgs = [
     "authenticator",
     "baobab",
     "bustle",
-    "featherpad",
     "file-roller",
     "gocryptfs",
     "khal",
@@ -828,7 +827,7 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
     files_dict = {}
     for app in applications:
         app = f"{app}.desktop"
-        files_dict[str(user_dir / app)] = "[Desktop Entry]\nNoDisplay=true\n"
+        files_dict[str(user_dir / app)] = "[Desktop Entry]\nHide=true\n"
     write_files(files_dict, mnt_point)
     cmd = [f"chown -R {username}:{username} /home/{username}/.local/share/applications"]
     run_chroot(cmd, mnt_point)
@@ -963,7 +962,6 @@ def perform_installation(
             {
                 **user_dirs_etc,
                 **net_etc,
-                **maria_etc,
                 **hardware_etc,
                 **ly_etc,
                 **sys_etc,
@@ -1007,7 +1005,6 @@ def perform_installation(
         )
         #############-Apps/Icons-#############
         hide_apps(mountpoint, user_name, apps_to_hide)
-        log.info("Installing icon theme.")
         install_icon_theme(mountpoint)
         #############-Fstab-###############
         installation.genfstab()

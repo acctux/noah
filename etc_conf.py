@@ -77,12 +77,6 @@ net_etc = {
         };
     """),
 }
-maria_etc = {
-    "etc/my.cnf.d/server.cnf": dedent("""\
-        [mariadb]
-        bind-address = localhost
-    """),
-}
 user_dirs_etc = {
     "etc/xdg/user-dirs.defaults": dedent("""\
         DOCUMENTS=Desktop/Documents
