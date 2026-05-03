@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-from archinstall.lib.args import ArchConfig, ArchConfigHandler
+from archinstall.lib.args import (
+    ArchConfig,
+    ArchConfigHandler,
+    AuthenticationConfiguration,
+)
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.disk.utils import disk_layouts
@@ -529,12 +533,14 @@ def run_chroot(
 
 def src_pass_file(usb_key_dir: str, pass_file: str):
     key_path = Path("/root") / usb_key_dir / pass_file
-    try:
-        pw = key_path.read_text().strip()
-        log.info(f"{key_path} loaded")
-        return pw
-    except Exception as e:
-        log.warning(f"{key_path} not found or unreadable: {e}")
+    if key_path.exists():
+        try:
+            pw = key_path.read_text().strip()
+            log.info(f"{key_path} loaded ")
+            return pw
+        except Exception as e:
+            log.error(f"{e}")
+    log.warning(f"{key_path} not found or unreadable.")
 
 
 def copy_file(src: Path, dest: Path) -> None:
@@ -909,8 +915,9 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-        locale = LocaleConfiguration("us", "en_US", "UTF-8")
-        installation.minimal_installation(hostname=hostname, locale_config=locale)
+        installation.minimal_installation(
+            hostname=hostname, locale_config=LocaleConfiguration("us", "en_US", "UTF-8")
+        )
         ###############-Install reflector-###############
         mirror_list = "etc/pacman.d/mirrorlist"
         copy_file(Path(f"/{mirror_list}"), mountpoint / mirror_list)
@@ -973,8 +980,9 @@ def perform_installation(
         set_firefox_extensions(mountpoint, firefox_browser, firefox_extensions)
         #############-User and Sudo-###############
         clone_dots_to_skel(mountpoint, git_name, dots_git)
-        user = User(username=user_name, password=Password(pw), sudo=True, groups=groups)
-        installation.create_users([user])
+        if config.auth_config:
+            if config.auth_config.users:
+                installation.create_users(config.auth_config.users)
         configure_sudo(user_name, mountpoint, pless=True)
         run_chroot(
             [
@@ -1025,6 +1033,8 @@ def perform_installation(
 
 def main(pw: str) -> None:
     arch_config_handler = ArchConfigHandler()
+    user = [User(username=user_name, password=Password(pw), sudo=True, groups=groups)]
+    arch_config_handler.config.auth_config = AuthenticationConfiguration(users=user)
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
