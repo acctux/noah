@@ -53,4 +53,4 @@ clone_repo() {
 setup_environment
 clone_repo
 echo "Initial setup complete. Run './archinstall/sys_setup.py'"
-exec python /root/archinstall/sys_setup.py
+exec python /root/archinstall/sys_setup.py </dev/tty

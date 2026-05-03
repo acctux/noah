@@ -163,7 +163,7 @@ def import_gpg(gpg_key: str, gpg_dir=HOME / ".gnupg") -> None:
         import_result = gpg.import_keys(
             key_data, passphrase=ask_pass("GPG Password: ", False, 6)
         )
-        print(import_result.results)
+        log.info(import_result.results)
 
 
 def init_gocrypt(enc_dir: Path) -> None:
