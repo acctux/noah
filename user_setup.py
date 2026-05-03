@@ -14,15 +14,15 @@ log = get_logger("Noah")
 # CONF
 ###########################################################
 user_name = "nick"
-gpg_key = "my_sec_gpg.asc"
-pass_manager_pass = "pass.txt"
 git_user = "acctux"
+android = True
 ###########################################################
 # GIT/DOT FILE
 ############################################################
 HOME = Path.home()
 ssh_path = HOME / ".ssh" / "id_ed25519"
 gpg_path = HOME / ".gnupg" / "my_sec_gpg.asc"
+masterpass_path = HOME / "scripts" / "pass.txt"
 DESKTOP = HOME / "Desktop"
 ENCRYPTED = DESKTOP / "Encrypted"
 GIT_DIR = HOME / "Lit"
@@ -233,14 +233,12 @@ def ensure_github_known_hosts(kh=HOME / ".ssh" / "known_hosts") -> None:
 
 
 def clone_repos(git_user: str, git_repos: list, dest: Path, ssh: bool) -> None:
-    dest = Path(dest)
-    dest.mkdir(parents=True, exist_ok=True)
-
     def url(repo: str) -> str:
         if ssh:
             return f"git@github.com:{git_user}/{repo}.git"
         return f"https://github.com/{git_user}/{repo}.git"
 
+    dest.mkdir(parents=True, exist_ok=True)
     for repo in git_repos:
         repo_path = dest / repo
         if repo_path.exists():
@@ -286,8 +284,8 @@ def set_folder_icons(
 ############################
 # Launch Apps
 ############################
-def pass_and_input(password_file: str, pass_dir: Path):
-    password = (pass_dir / password_file).read_text().strip()
+def pass_and_input(pass_path: Path):
+    password = pass_path.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
     log.info("Password copied to clipboard.")
@@ -338,12 +336,12 @@ def scrcpy_setup(port=5555) -> None:
         )
     )
     if not ip:
-        print("Could not determine device IP.")
+        log.warning("Could not determine device IP.")
         return
     target = f"{ip}:{port}"
     log.info(f"Trying {target}")
     msg = run(["adb", "connect", target])
-    print((msg.stdout + msg.stderr).lower())
+    log.info((msg.stdout + msg.stderr).lower())
 
 
 ############################
@@ -391,8 +389,9 @@ def main(HOME=Path.home()):
             ["uv", "add", "openmeteo-requests"],
             cwd=f"/home/{user_name}/.local/bin/weather",
         )
-    scrcpy_setup()
-    pass_and_input(pass_manager_pass, (HOME / "scripts"))
+    if android:
+        scrcpy_setup()
+    pass_and_input(masterpass_path)
     launch_apps()
     run(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
