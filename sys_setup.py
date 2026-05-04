@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from archinstall.lib.hardware import _sys_info
+from archinstall.lib.hardware import _sys_info, GfxDriver
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.args import (
     ArchConfig,
@@ -110,7 +110,7 @@ class NoahConfig:
     pkgs: dict[str, tuple[str, ...]] = field(
         default_factory=lambda: {
             "base": (
-                # pipewire
+                # PIPEWIRE
                 "pipewire",
                 "pipewire-alsa",
                 "pipewire-jack",
@@ -118,7 +118,7 @@ class NoahConfig:
                 "gst-plugin-pipewire",
                 "libpulse",
                 "wireplumber",
-                #
+                # HARDWARE
                 "ananicy-cpp",
                 "bluetui",
                 "bluez-tools",
@@ -130,13 +130,11 @@ class NoahConfig:
                 "dmidecode",
                 "dosfstools",
                 "exfatprogs",
-                "jolt",
                 "kanshi",
                 "kitty",
                 "less",
                 "mcfly",
                 "ntfs-3g",
-                "nvtop",
                 "realtime-privileges",
                 "smartmontools",
                 "tuned",
@@ -159,7 +157,6 @@ class NoahConfig:
                 "trash-cli",
                 # Network
                 "bind",
-                "deluge-gtk",
                 "firewalld",
                 "impala",
                 "iw",
@@ -226,44 +223,6 @@ class NoahConfig:
                 "git-delta",
                 "taskwarrior-tui",
                 "man-pages",
-            ),
-            "language": (
-                "hunspell-en_us",
-                "hyphen-en",
-                "tesseract-data-eng",
-            ),
-            "chaotic_repo": (
-                "cachyos-ananicy-rules-git",
-                "floorp",
-                "octopi",
-                "paru",
-                "systemd-oomd-defaults",
-                "ocrmypdf",
-            ),
-            "extra": (
-                "bat-extras",
-                "eza",
-                "fd",
-                "fzf",
-                "github-cli",
-                "lazygit",
-                "ripgrep-all",
-                "sd",
-                "ugrep",
-                "zoxide",
-                "anki",
-                "authenticator",
-                "baobab",
-                "bustle",
-                "file-roller",
-                "gocryptfs",
-                "partitionmanager",
-                "qalculate-qt",
-                "unrar",  # File roller
-                "evince",
-                "gimp",
-                "guvcview",
-                "yt-dlp",  # for mpv youtube playback
                 "rofimoji",
                 "noto-fonts-emoji",
                 # coding
@@ -292,9 +251,50 @@ class NoahConfig:
                 "tree-sitter-cli",
                 "tree-sitter-python",
                 "tree-sitter-rust",
+                "bat-extras",
+                "eza",
+                "fd",
+                "fzf",
+                "github-cli",
+                "lazygit",
+                "ripgrep-all",
+                "sd",
+                "file-roller",
+                "unrar",  # File roller
+                "gocryptfs",
+                "zathura-pdf-mupdf",
+            ),
+            "language": (
+                "hunspell-en_us",
+                "hyphen-en",
+                "tesseract-data-eng",
+            ),
+            "chaotic_repo": (
+                "cachyos-ananicy-rules-git",
+                "floorp",
+                "octopi",
+                "paru",
+                "systemd-oomd-defaults",
+                "ocrmypdf",
+            ),
+            "extra": (
+                "deluge-gtk",
+                "nvtop",
+                "jolt",
+                "ugrep",
+                "zoxide",
+                "anki",
+                "authenticator",
+                "baobab",
+                "bustle",
+                "partitionmanager",
+                "qalculate-qt",
+                "evince",
+                "gimp",
+                "guvcview",
+                "yt-dlp",  # for mpv youtube playback
                 "libreoffice-fresh",
                 "coin-or-mp",  # LibreOffice Calc Solver
-                "zathura-pdf-mupdf",
                 "gnucash",
                 "kdeconnect",
                 "gvfs-mtp",
@@ -307,19 +307,6 @@ class NoahConfig:
                 "jdk-openjdk",
                 "mariadb",
                 "python-pymysql",
-            ),
-            "extra_chaos": (
-                "logiops",
-                "neovim-symlinks",
-                "ayugram-desktop-git",
-                "qt6-imageformats",  # AyuGram missing dependency
-                "betterbird-bin",
-                "nchat-git",
-                "proton-cachyos-slr",
-                "rpcs3-git",
-                "eden-git",
-            ),
-            "gaming": (
                 "gnome-chess",
                 "gnuchess",
                 "lib32-mangohud",
@@ -332,6 +319,17 @@ class NoahConfig:
                 "wine-staging",
                 "winetricks",
             ),
+            "extra_chaos": (
+                "logiops",
+                "neovim-symlinks",
+                "ayugram-desktop-git",
+                "qt6-imageformats",  # AyuGram missing dependency
+                "betterbird-bin",
+                "nchat-git",
+                "proton-cachyos-slr",
+                "rpcs3-git",
+                "eden-git",
+            ),
         }
     )
     aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
@@ -340,7 +338,6 @@ class NoahConfig:
         "bluetooth",
         "firewalld",
         "iwd",
-        "ly@tty1",
         "named",
         "swayosd-libinput-backend",
         "systemd-networkd",
@@ -355,14 +352,8 @@ class NoahConfig:
         "paccache.timer",
         "reflector.timer",
     )
-    custom_services: tuple[str, ...] = (
-        "loggy",
-        "sysinfo",
-    )
-    disable_svcs: tuple[str, ...] = (
-        "getty@tty1",
-        "systemd-networkd-wait-online",
-    )
+    custom_services: tuple[str, ...] = ("loggy", "sysinfo")
+    disable_svcs: tuple[str, ...] = ("systemd-networkd-wait-online",)
     usr_srv: tuple[UsrSrv, ...] = (
         UsrSrv(
             source="/usr/lib/systemd/user",
@@ -910,10 +901,11 @@ def copy_dir(src: Path, dest: Path) -> None:
 def write_files(files: dict[str, str], mnt_point: Path | None) -> None:
     for path, content in files.items():
         flush_content = "\n".join(line.lstrip() for line in content.splitlines())
-        path_obj = (mnt_point or Path("/")) / path.lstrip("/")
-        path_obj.parent.mkdir(parents=True, exist_ok=True)
-        path_obj.write_text(flush_content + "\n")
-        log.info(f"Wrote {path_obj}")
+        print(flush_content + "\n")
+        # path_obj = (mnt_point or Path("/")) / path.lstrip("/")
+        # path_obj.parent.mkdir(parents=True, exist_ok=True)
+        # path_obj.write_text(flush_content + "\n")
+        # log.info(f"Wrote {path_obj}")
 
 
 ###################################
@@ -1005,19 +997,20 @@ def mnt_cp_keys(
         time.sleep(1)
 
 
-def gfx_drivers() -> list[str]:
-    gpu = run(["lspci"], check=True).stdout.lower()
-    pkgs = ["mesa"]
-    if "nvidia" in gpu:
-        pkgs += [
-            "lib32-nvidia-utils",
-            "libva-nvidia-driver",
-            "libva-utils",
-            "libxnvctrl",
-            "nvidia-prime",
-            "opencl-nvidia",
-        ]
-    return pkgs
+def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
+    gfx_drivers = []
+    for device, _ in graphics_devices.items():
+        device = device.lower()
+        print(device)
+        if "nvidia" in device or "geforce" in device:
+            gfx_drivers.append(GfxDriver.NvidiaOpenKernel)
+        elif "amd" in device or "ati" in device:
+            gfx_drivers.append(GfxDriver.AmdOpenSource)
+        elif "intel" in device:
+            gfx_drivers.append(GfxDriver.IntelOpenSource)
+        else:
+            gfx_drivers.append(GfxDriver.VMOpenSource)
+    return gfx_drivers
 
 
 ###################################
@@ -1245,12 +1238,46 @@ def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> No
         log.info("Firefox extensions updated successfully.")
 
 
+def generate_pacman_conf(
+    mnt_point: Path | None,
+    parallel_downloads: int = 10,
+    multilib: bool = True,
+    no_extracts: list = [
+        "etc/xdg/autostart/firewall-applet.desktop",
+        "usr/share/icons/capitaine-cursors/*",
+    ],
+):
+    no_extract_lines = "\n".join([f"NoExtract = {item}" for item in no_extracts])
+    pacman_content = dedent(f"""
+        [options]
+        HoldPkg = pacman glibc
+        Architecture = auto
+        Color
+        ILoveCandy
+        ParallelDownloads = {parallel_downloads}
+        DownloadUser = alpm
+        SigLevel    = Required DatabaseOptional
+        LocalFileSigLevel = Optional
+        {no_extract_lines}
+
+        [core]
+        Include = /etc/pacman.d/mirrorlist
+
+        [extra]
+        Include = /etc/pacman.d/mirrorlist
+
+        {"[multilib]\nInclude = /etc/pacman.d/mirrorlist\n" if multilib else ""}
+    """)
+    write_files({"etc/pacman.conf": pacman_content}, mnt_point=mnt_point)
+
+
 ###################################
 # Archinstall
 ###################################
 def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu = GlobalMenu(arch_config_handler.config)
     global_menu.disable_all()
+    global_menu.set_enabled("archinstall_language", True)
     global_menu.set_enabled("disk_config", True)
     global_menu.set_enabled("__config__", True)
     result: ArchConfig | None = tui.run(global_menu)
@@ -1266,30 +1293,6 @@ def perform_installation(
     user_home = f"home/{cf.user_name}"
     start_time = time.monotonic()
     info("Starting installation...")
-    run(["reflector", *(part for opt in cf.reflector_options for part in opt.split())])
-    pacman_content: str = dedent("""\
-        [options]
-        HoldPkg = pacman glibc
-        Architecture = auto
-        Color
-        ILoveCandy
-        ParallelDownloads = 10
-        DownloadUser = alpm
-        SigLevel    = Required DatabaseOptional
-        LocalFileSigLevel = Optional
-        NoExtract = etc/xdg/autostart/firewall-applet.desktop
-        NoExtract = usr/share/icons/capitaine-cursors/*
-
-        [core]
-        Include = /etc/pacman.d/mirrorlist
-
-        [extra]
-        Include = /etc/pacman.d/mirrorlist
-
-        [multilib]
-        Include = /etc/pacman.d/mirrorlist
-    """)
-    write_files({"etc/pacman.conf": pacman_content}, mnt_point=None)
     config = arch_config_handler.config
     if not config.disk_config:
         error("No disk configuration provided")
@@ -1305,6 +1308,12 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
+        cmd = [
+            "reflector",
+            *(part for opt in cf.reflector_options for part in opt.split()),
+        ]
+        run(cmd)
+        generate_pacman_conf(mnt_point=None)
         installation.minimal_installation(
             hostname=cf.hostname,
             locale_config=LocaleConfiguration("us", "en_US", "UTF-8"),
@@ -1318,15 +1327,21 @@ def perform_installation(
         installation.copy_iso_network_config()
         installation.set_timezone(cf.timezone)
         #############-Pkg Management-###############
-        write_files({"etc/pacman.conf": pacman_content}, mnt_point=mountpoint)
-        print(_sys_info)
-        pkgs = gfx_drivers()
-        installation.add_additional_packages(pkgs)
+        generate_pacman_conf(mnt_point=mountpoint)
+        vm = False
+        for driver in get_gfx_drivers(_sys_info.graphics_devices):
+            if driver == GfxDriver.VMOpenSource:
+                vm = True
+            profile_handler.install_gfx_driver(installation, driver)
         chaotic_repo(mountpoint)
-        pkgs = cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"]
-        installation.add_additional_packages(list(pkgs))
-        pkgs = cf.pkgs["extra"] + cf.pkgs["extra_chaos"] + cf.pkgs["gaming"]
-        installation.add_additional_packages(list(pkgs))
+        installation.add_additional_packages(
+            list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
+        )
+        if not vm:
+            installation.add_additional_packages(
+                list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"] + cf.pkgs["gaming"])
+            )
+
         #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
         profile_handler.install_greeter(installation, GreeterType.Ly)
@@ -1336,12 +1351,7 @@ def perform_installation(
         modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
         plymouth_setup(mountpoint)
         #############-Etc Management-###############
-        write_files(
-            {
-                **cf.etc_files_to_write,
-            },
-            mountpoint,
-        )
+        write_files({**cf.etc_files_to_write}, mountpoint)
         copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
         refl_opts_str = "\n".join(cf.reflector_options)
         write_files({"etc/xdg/reflector/reflector.conf": refl_opts_str}, mountpoint)
@@ -1417,18 +1427,9 @@ def main(pw: str, cf: NoahConfig) -> None:
 
 
 if __name__ == "__main__":
-    # cf = NoahConfig()
-    print("Battery Status:", _sys_info.has_battery)
-    vendor_id = _sys_info.cpu_info.get("vendor_id", None)
-    if vendor_id:
-        print(f"vendor_id: {vendor_id}")
-    else:
-        print("vendor_id not found")
-    print("\nGraphics Devices:")
-    for device, details in _sys_info.graphics_devices.items():
-        print(f"{device}: {details}")
-    # mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
-    # if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
-    #     log.info("No password file found. Please enter Password")
-    #     pw = ask_pass(cf.user_name)
-    # main(pw, cf)
+    cf = NoahConfig()
+    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
+    if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
+        log.info("No password file found. Please enter Password")
+        pw = ask_pass(cf.user_name)
+    main(pw, cf)
