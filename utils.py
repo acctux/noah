@@ -59,9 +59,16 @@ def ask_pass(prompt="Password: ", confirm=True, min_len=6, retries=3) -> str:
     raise ValueError("Too many failed attempts.")
 
 
-def run_cmd(
-    cmd: list[str], check: bool = False, input_text: str = "", shell: bool = False
+def run(
+    cmd: list[str],
+    check: bool = False,
+    input_text: str = "",
+    shell: bool = False,
+    cwd=None,
+    interactive=False,
 ):
+    if interactive:
+        return subprocess.Popen(cmd).wait()
     log = get_logger("Run CMD")
     try:
         log.info(f"Running: {' '.join(cmd)}")
@@ -72,6 +79,7 @@ def run_cmd(
             capture_output=True,
             input=input_text,
             shell=shell,
+            cwd=cwd,
         )
         if result.stdout:
             log.info(f"stdout: {result.stdout.strip()}")

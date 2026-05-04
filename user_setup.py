@@ -7,7 +7,7 @@ import gnupg
 import shutil
 import subprocess
 import pyperclip
-from utils import log, ping, ask_pass, yes_no
+from utils import log, ping, ask_pass, yes_no, run
 
 ###########################################################
 # CONF
@@ -63,14 +63,6 @@ yazi_plugins = [
 ]
 firewall_services = ["kdeconnect", "ssh", "wireguard"]
 firewall_ports = ["6881-6889/tcp", "6881-6889/udp"]
-
-
-def run(cmd, *, interactive=False, check=True, input_text=None, cwd=None):
-    if interactive:
-        return subprocess.Popen(cmd).wait()
-    return subprocess.run(
-        cmd, input=input_text, check=check, text=True, capture_output=True, cwd=cwd
-    )
 
 
 def iwctl_scan() -> bool:

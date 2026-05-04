@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from archinstall.lib.hardware import _sys_info
+from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.args import (
     ArchConfig,
     ArchConfigHandler,
@@ -32,7 +34,8 @@ import shlex
 import shutil
 from dataclasses import dataclass, field
 from textwrap import dedent
-from utils import log, run_cmd, ask_pass, yes_no
+from utils import log, run, ask_pass, yes_no
+from archinstall.lib.profile.profiles_handler import profile_handler
 
 
 class UsrSrv(BaseModel):
@@ -604,6 +607,7 @@ class NoahConfig:
                 });
             """),
             "etc/logid.cfg": dedent("""\
+                // Top=0xc4  Gesture=0xc3 Back=0x53 Forward=0x56
                 devices: ({
                     name: "MX Master 3S";
                     smartshift: {
@@ -617,7 +621,6 @@ class NoahConfig:
                     };
                     dpi: 5200;
                     buttons: (
-                        // Forward button
                         {
                             cid: 0x56;
                             action: {
@@ -666,7 +669,6 @@ class NoahConfig:
                                 );
                             };
                         },
-                        // Back button
                         {
                             cid: 0x53;
                             action: {
@@ -715,7 +717,6 @@ class NoahConfig:
                                 );
                             };
                         },
-                        // Gesture button (hold and move)
                         {
                             cid: 0xc3;
                             action: {
@@ -764,7 +765,6 @@ class NoahConfig:
                                 );
                             };
                         },
-                        // Top button
                         {
                             cid: 0xc4;
                             action: {
@@ -978,7 +978,7 @@ def mnt_cp_keys(
     home: Path = Path.home(),
 ):
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
-        run_cmd(["umount", str(usb_mnt)], check=True)
+        run(["umount", str(usb_mnt)], check=True)
     missing = []
     if key_dir and key_files:
         missing += [k for k in key_files if not (home / key_dir / k).exists()]
@@ -991,7 +991,7 @@ def mnt_cp_keys(
         return
     selected = get_device()
     usb_mnt.mkdir(parents=True, exist_ok=True)
-    run_cmd(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
+    run(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
     time.sleep(2)
     if key_dir and key_files:
         (home / key_dir).mkdir(parents=True, exist_ok=True)
@@ -1001,17 +1001,12 @@ def mnt_cp_keys(
         copy_dir(usb_mnt / wireguard_dir, home / wireguard_dir)
     time.sleep(1)
     if yes_no("Files copied, unmount?"):
-        run_cmd(["umount", str(usb_mnt)], check=True)
+        run(["umount", str(usb_mnt)], check=True)
         time.sleep(1)
 
 
 def gfx_drivers() -> list[str]:
-    try:
-        with open("/proc/cpuinfo") as f:
-            cpu = f.read().lower()
-    except FileNotFoundError:
-        cpu = ""
-    gpu = run_cmd(["lspci"], check=True).stdout.lower()
+    gpu = run(["lspci"], check=True).stdout.lower()
     pkgs = ["mesa"]
     if "nvidia" in gpu:
         pkgs += [
@@ -1019,22 +1014,8 @@ def gfx_drivers() -> list[str]:
             "libva-nvidia-driver",
             "libva-utils",
             "libxnvctrl",
-            "nvidia-open",
             "nvidia-prime",
             "opencl-nvidia",
-        ]
-    if "amd" in cpu or "amd" in gpu or "ati" in gpu:
-        pkgs += [
-            "xf86-video-amdgpu",
-            "xf86-video-ati",
-            "vulkan-radeon",
-        ]
-    if "intel" in cpu or "intel" in gpu:
-        pkgs += [
-            "vulkan-intel",
-            "libva-intel-driver",
-            "intel-media-driver",
-            "xf86-video-intel",
         ]
     return pkgs
 
@@ -1057,9 +1038,9 @@ def chaotic_repo(mnt_point: Path):
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
     for cmd in cmds:
-        run_cmd(cmd, check=True)
+        run(cmd, check=True)
     append_repo(Path("/etc/pacman.conf"))
-    run_cmd(["pacman", "-Sy"], check=True)
+    run(["pacman", "-Sy"], check=True)
     run_chroot([" ".join(cmd) for cmd in cmds], mnt_point)
     append_repo(mnt_point / "etc/pacman.conf")
     run_chroot(["pacman -Sy"], mnt_point)
@@ -1221,7 +1202,7 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
 def clone_dots_to_skel(mnt_point: Path, git_repo: str) -> None:
     tmp = mnt_point / "tmp" / git_repo
     cmd = ["git", "clone", f"https://github.com/{git_repo}.git", f"{tmp}"]
-    run_cmd(cmd, True)
+    run(cmd, True)
     shutil.rmtree(tmp / ".git")
     for p in tmp.iterdir():
         p.rename(p.parent / ("." + p.name))
@@ -1315,6 +1296,7 @@ def perform_installation(
         installation.set_timezone(cf.timezone)
         #############-Pkg Management-###############
         write_files({"etc/pacman.conf": pacman_content}, mnt_point=mountpoint)
+        print(_sys_info)
         pkgs = gfx_drivers()
         installation.add_additional_packages(pkgs)
         chaotic_repo(mountpoint)
@@ -1324,6 +1306,7 @@ def perform_installation(
         installation.add_additional_packages(list(pkgs))
         #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
+        profile_handler.install_greeter(installation, GreeterType.Ly)
         installation.enable_service(list(cf.sys_services + cf.custom_services))
         run_chroot([f"systemctl disable {' '.join(cf.disable_svcs)}"], mountpoint)
         #############-Plymouth-###############
@@ -1386,15 +1369,10 @@ def perform_installation(
 
 def main(pw: str, cf: NoahConfig) -> None:
     arch_config_handler = ArchConfigHandler()
-    user = [
-        User(
-            username=cf.user_name,
-            password=Password(pw),
-            sudo=True,
-            groups=list(cf.groups),
-        )
-    ]
-    arch_config_handler.config.auth_config = AuthenticationConfiguration(users=user)
+    user = User(
+        username=cf.user_name, password=Password(pw), sudo=True, groups=list(cf.groups)
+    )
+    arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
@@ -1412,9 +1390,7 @@ def main(pw: str, cf: NoahConfig) -> None:
         if not delayed_warning("Starting device modifications in "):
             return main(pw, cf)
         fs_handler.perform_filesystem_operations()
-    run_cmd(
-        ["reflector", *(part for opt in cf.reflector_options for part in opt.split())]
-    )
+    run(["reflector", *(part for opt in cf.reflector_options for part in opt.split())])
     pacman_content: str = dedent("""\
         [options]
         HoldPkg = pacman glibc
@@ -1443,6 +1419,7 @@ def main(pw: str, cf: NoahConfig) -> None:
 
 if __name__ == "__main__":
     cf = NoahConfig()
+    print(_sys_info)
     mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
     if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
         log.info("No password file found. Please enter Password")
