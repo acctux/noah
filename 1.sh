@@ -28,7 +28,7 @@ setup_environment() {
   echo "All $max_tries attempts failed. Exiting."
   exit 1
 }
-for i in {0..255}; do echo -e "\033[48;5;${i}m ${i} "; done
+for i in {0..15}; do echo -e "\033[48;5;${i}m ${i} "; done
 setup_environment
 echo "Initial setup complete. Launching Archinstall"
 exec python /root/archinstall/sys_setup.py </dev/tty
