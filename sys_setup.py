@@ -21,7 +21,6 @@ from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
-from archinstall.lib.models.locale import LocaleConfiguration
 from archinstall.lib.models.users import Password
 from pydantic import BaseModel
 from pathlib import Path
@@ -1363,10 +1362,7 @@ def perform_installation(
         ]
         run_dmc(cmd)
         generate_pacman_conf(mnt_point=None)
-        installation.minimal_installation(
-            hostname=cf.hostname,
-            locale_config=LocaleConfiguration("us", "en_US", "UTF-8"),
-        )
+        installation.minimal_installation(hostname=cf.hostname)
         ###############-Install reflector-###############
         mirror_list = "etc/pacman.d/mirrorlist"
         copy_file(Path(f"/{mirror_list}"), mountpoint / mirror_list)
@@ -1377,19 +1373,20 @@ def perform_installation(
         installation.set_timezone(cf.timezone)
         #############-Pkg Management-###############
         generate_pacman_conf(mnt_point=mountpoint)
+        chaotic_repo(mountpoint)
+        installation.add_additional_packages(
+            list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
+        )
+
         vm = False
         for driver in get_gfx_drivers(_sys_info.graphics_devices):
             profile_handler.install_gfx_driver(installation, driver)
             if driver == GfxDriver.VMOpenSource:
                 vm = True
-        chaotic_repo(mountpoint)
-        installation.add_additional_packages(
-            list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
-        )
         if not vm:
-            installation.add_additional_packages(
-                list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"] + cf.pkgs["gaming"])
-            )
+            pkgs = list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"])
+            installation.add_additional_packages(pkgs)
+
         #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
         profile_handler.install_greeter(installation, GreeterType.Ly)
@@ -1448,7 +1445,14 @@ def perform_installation(
                         pass
 
 
-def main(pw: str, cf: NoahConfig) -> None:
+def main() -> None:
+    cf = NoahConfig()
+
+    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
+    if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
+        log.info("No password file found. Please enter Password")
+        pw = ask_pass(cf.user_name)
+
     arch_config_handler = ArchConfigHandler()
     user = User(
         username=cf.user_name, password=Password(pw), sudo=True, groups=list(cf.groups)
@@ -1465,20 +1469,15 @@ def main(pw: str, cf: NoahConfig) -> None:
             debug("Installation aborted")
             aborted = True
         if aborted:
-            return main(pw, cf)
+            return main()
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         if not delayed_warning("Starting device modifications in "):
-            return main(pw, cf)
+            return main()
         fs_handler.perform_filesystem_operations()
     generate_pacman_conf(None)
     perform_installation(arch_config_handler, cf)
 
 
 if __name__ == "__main__":
-    cf = NoahConfig()
-    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
-    if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
-        log.info("No password file found. Please enter Password")
-        pw = ask_pass(cf.user_name)
-    main(pw, cf)
+    main()
