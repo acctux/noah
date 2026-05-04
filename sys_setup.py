@@ -49,24 +49,32 @@ class UsrSrv(BaseModel):
 class Config:
     user_name: str = "nick"
     hostname: str = "yulia"
-    kernel: list[str] = [
-        "linux",
-    ]
     timezone: str = "US/Eastern"
-    groups: list[str] = ["adm", "games", "realtime", "storage", "video"]
+    kernel: tuple[str, ...] = ("linux",)
+    groups: tuple[str, ...] = (
+        "adm",
+        "games",
+        "realtime",
+        "storage",
+        "video",
+    )
     terminal: str = "kitty"
     dots_git_repo: str = "acctux/polka"
     usb_key_dir: str = "keys"
     wireguard_dir: str = "wireguard"
     my_pass: str = "pass.py"
-    usb_cp_files: list[str] = ["id_ed25519", "my_sec_gpg.asc", "pass.txt"]
+    usb_cp_files: tuple[str, ...] = (
+        "id_ed25519",
+        "my_sec_gpg.asc",
+        "pass.txt",
+    )
     to_cp: dict[str, list[str]] = {
         ".ssh": ["id_ed25519"],
         ".gnupg": ["my_sec_gpg.asc"],
         "scripts": ["pass.txt"],
     }
     firefox_browser: str = "floorp"
-    firefox_extensions: list[str] = [
+    firefox_extensions: tuple[str, ...] = (
         "return-youtube-dislikes",
         "leechblock-ng",
         "proton-pass",
@@ -74,8 +82,8 @@ class Config:
         "darkreader",
         "flagfox",
         "ublock-origin",
-    ]
-    mkinit_hooks: list[str] = [
+    )
+    mkinit_hooks: tuple[str, ...] = (
         "base",
         "systemd",
         "autodetect",
@@ -86,17 +94,17 @@ class Config:
         "block",
         "filesystems",
         "fsck",
-    ]
-    reflector_options: list[str] = [
+    )
+    reflector_options: tuple[str, ...] = (
         "--country US",
         "--protocol https",
         "--latest 15",
         "--sort rate",
         "--number 3",
         "--save /etc/pacman.d/mirrorlist",
-    ]
-    pkgs: dict[str, list[str]] = {
-        "base": [
+    )
+    pkgs: dict[str, tuple[str, ...]] = {
+        "base": (
             # pipewire
             "pipewire",
             "pipewire-alsa",
@@ -213,21 +221,21 @@ class Config:
             "git-delta",
             "taskwarrior-tui",
             "man-pages",
-        ],
-        "language": [
+        ),
+        "language": (
             "hunspell-en_us",
             "hyphen-en",
             "tesseract-data-eng",
-        ],
-        "chaotic_repo": [
+        ),
+        "chaotic_repo": (
             "cachyos-ananicy-rules-git",
             "floorp",
             "octopi",
             "paru",
             "systemd-oomd-defaults",
             "ocrmypdf",
-        ],
-        "extra": [
+        ),
+        "extra": (
             "bat-extras",
             "eza",
             "fd",
@@ -294,8 +302,8 @@ class Config:
             "jdk-openjdk",
             "mariadb",
             "python-pymysql",
-        ],
-        "extra_chaos": [
+        ),
+        "extra_chaos": (
             "logiops",
             "neovim-symlinks",
             "ayugram-desktop-git",
@@ -305,8 +313,8 @@ class Config:
             "proton-cachyos-slr",
             "rpcs3-git",
             "eden-git",
-        ],
-        "gaming": [
+        ),
+        "gaming": (
             "gnome-chess",
             "gnuchess",
             "lib32-mangohud",
@@ -318,12 +326,10 @@ class Config:
             "wine-mono",
             "wine-staging",
             "winetricks",
-        ],
+        ),
     }
-    aur_pkgs: list[str] = [
-        "wvkbd-deskintl",
-    ]
-    sys_services: list[str] = [
+    aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
+    sys_services: tuple[str, ...] = (
         "ananicy-cpp",
         "bluetooth",
         "firewalld",
@@ -342,16 +348,16 @@ class Config:
         "man-db.timer",
         "paccache.timer",
         "reflector.timer",
-    ]
-    custom_services: list[str] = [
+    )
+    custom_services: tuple[str, ...] = (
         "loggy",
         "sysinfo",
-    ]
-    disable_svcs: list[str] = [
+    )
+    disable_svcs: tuple[str, ...] = (
         "getty@tty1",
         "systemd-networkd-wait-online",
-    ]
-    usr_srv: list[UsrSrv] = [
+    )
+    usr_srv: tuple[UsrSrv, ...] = (
         UsrSrv(
             source="/usr/lib/systemd/user",
             target="default",
@@ -403,8 +409,8 @@ class Config:
                 "wall.timer",
             ],
         ),
-    ]
-    apps_to_hide: list[str] = [
+    )
+    apps_to_hide: tuple[str, ...] = (
         "avahi-discover",
         "bssh",
         "btop",
@@ -433,7 +439,7 @@ class Config:
         "uuctl",
         "xgps",
         "xgpsspeed",
-    ]
+    )
 
 
 ###########################################################
@@ -870,7 +876,7 @@ def perform_installation(
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    with Installer(mountpoint, disk_config, kernels=cf.kernel) as installation:
+    with Installer(mountpoint, disk_config, kernels=list(cf.kernel)) as installation:
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -898,15 +904,15 @@ def perform_installation(
         installation.add_additional_packages(pkgs)
         chaotic_repo(mountpoint)
         pkgs = cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"]
-        installation.add_additional_packages(pkgs)
+        installation.add_additional_packages(list(pkgs))
         pkgs = cf.pkgs["extra"] + cf.pkgs["extra_chaos"] + cf.pkgs["gaming"]
-        installation.add_additional_packages(pkgs)
+        installation.add_additional_packages(list(pkgs))
         #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
-        installation.enable_service(cf.sys_services + cf.custom_services)
+        installation.enable_service(list(cf.sys_services + cf.custom_services))
         run_chroot([f"systemctl disable {' '.join(cf.disable_svcs)}"], mountpoint)
         #############-Plymouth-###############
-        modify_mkinit(mountpoint, cf.mkinit_hooks, plymouth=True)
+        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
         plymouth_setup(mountpoint)
         #############-Etc Management-###############
         write_files(
@@ -926,7 +932,9 @@ def perform_installation(
         copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
         refl_opts_str = "\n".join(cf.reflector_options)
         write_files({"etc/xdg/reflector/reflector.conf": refl_opts_str}, mountpoint)
-        set_firefox_extensions(mountpoint, cf.firefox_browser, cf.firefox_extensions)
+        set_firefox_extensions(
+            mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
+        )
         #############-User and Sudo-###############
         clone_dots_to_skel(mountpoint, cf.dots_git_repo)
         if config.auth_config:
@@ -943,9 +951,9 @@ def perform_installation(
         copy_keys(mountpoint, cf.usb_key_dir, cf.user_name, cf.to_cp)
         #############-User Services-#############
         user_service(mountpoint, cf.user_name, cf.terminal)
-        enable_user_serv(cf.usr_srv, mountpoint, cf.user_name)
+        enable_user_serv(list(cf.usr_srv), mountpoint, cf.user_name)
         #############-Apps/Icons-#############
-        hide_apps(mountpoint, cf.user_name, cf.apps_to_hide)
+        hide_apps(mountpoint, cf.user_name, list(cf.apps_to_hide))
         install_icon_theme(mountpoint)
         #############-Fstab-###############
         installation.genfstab()
@@ -972,7 +980,12 @@ def perform_installation(
 def main(pw: str, cf: Config) -> None:
     arch_config_handler = ArchConfigHandler()
     user = [
-        User(username=cf.user_name, password=Password(pw), sudo=True, groups=cf.groups)
+        User(
+            username=cf.user_name,
+            password=Password(pw),
+            sudo=True,
+            groups=list(cf.groups),
+        )
     ]
     arch_config_handler.config.auth_config = AuthenticationConfiguration(users=user)
     show_menu(arch_config_handler)
@@ -1023,7 +1036,7 @@ def main(pw: str, cf: Config) -> None:
 
 if __name__ == "__main__":
     cf = Config()
-    mnt_cp_keys(cf.usb_key_dir, cf.usb_cp_files, cf.wireguard_dir)
+    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
     if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
         log.info("No password file found. Please enter Password")
         pw = ask_pass(cf.user_name)
