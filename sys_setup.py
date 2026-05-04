@@ -52,13 +52,7 @@ class NoahConfig:
     hostname: str = "yulia"
     timezone: str = "US/Eastern"
     kernel: tuple[str, ...] = ("linux",)
-    groups: tuple[str, ...] = (
-        "adm",
-        "games",
-        "realtime",
-        "storage",
-        "video",
-    )
+    groups: tuple[str, ...] = ("adm", "games", "realtime", "storage", "video")
     terminal: str = "kitty"
     dots_git_repo: str = "acctux/polka"
     usb_key_dir: str = "keys"
@@ -69,6 +63,12 @@ class NoahConfig:
         "my_sec_gpg.asc",
         "pass.txt",
         my_pass,
+    )
+    parallel_downloads: int = 10
+    multilib: bool = True
+    no_extracts: tuple[str, ...] = (
+        "etc/xdg/autostart/firewall-applet.desktop",
+        "usr/share/icons/capitaine-cursors/*",
     )
     to_cp: dict[str, tuple[str, ...]] = field(
         default_factory=lambda: {
@@ -225,7 +225,6 @@ class NoahConfig:
                 "rofimoji",
                 "noto-fonts-emoji",
                 # coding
-                "rust",
                 # Language Servers
                 "bash-language-server",
                 "lua-language-server",
@@ -238,8 +237,6 @@ class NoahConfig:
                 # Formatters
                 "ruff",
                 "shfmt",
-                "stylua",
-                "yamlfmt",
                 # Lint
                 "shellcheck",
                 "biome",
@@ -249,7 +246,6 @@ class NoahConfig:
                 "tree-sitter-bash",
                 "tree-sitter-cli",
                 "tree-sitter-python",
-                "tree-sitter-rust",
                 "bat-extras",
                 "eza",
                 "fd",
@@ -277,6 +273,10 @@ class NoahConfig:
                 "ocrmypdf",
             ),
             "extra": (
+                "rust",
+                "stylua",
+                "yamlfmt",
+                "tree-sitter-rust",
                 "deluge-gtk",
                 "nvtop",
                 "jolt",
