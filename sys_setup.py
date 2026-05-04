@@ -125,18 +125,9 @@ class NoahConfig:
     pkgs: dict[str, tuple[str, ...]] = field(
         default_factory=lambda: {
             "base": (
-                # PIPEWIRE
-                "pipewire",
-                "pipewire-alsa",
-                "pipewire-jack",
-                "pipewire-pulse",
-                "gst-plugin-pipewire",
-                "libpulse",
-                "wireplumber",
                 # HARDWARE
                 "ananicy-cpp",
                 "bluetui",
-                "bluez-tools",
                 "bluez-utils",  # for loggy
                 "brightnessctl",
                 "btop",
@@ -152,7 +143,6 @@ class NoahConfig:
                 "ntfs-3g",
                 "realtime-privileges",
                 "smartmontools",
-                "tuned",
                 "udisks2-btrfs",
                 "usb_modeswitch",
                 "powertop",
@@ -171,7 +161,6 @@ class NoahConfig:
                 "trash-cli",
                 # Network
                 "bind",
-                "firewalld",
                 "impala",
                 "iw",
                 "openresolv",
@@ -222,7 +211,6 @@ class NoahConfig:
                 "python-systemd",  # loggy
                 "python-wand",  # wallpaper script
                 "otf-firamono-nerd",
-                "ttf-liberation",
                 "inotify-tools",  # nvim
                 "npm",
                 "neovim-lspconfig",
@@ -238,7 +226,6 @@ class NoahConfig:
                 "taskwarrior-tui",
                 "man-pages",
                 "rofimoji",
-                "noto-fonts-emoji",
                 # coding
                 # Language Servers
                 "bash-language-server",
