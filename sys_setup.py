@@ -141,7 +141,6 @@ class NoahConfig:
                 "less",
                 "mcfly",
                 "ntfs-3g",
-                "realtime-privileges",
                 "smartmontools",
                 "udisks2-btrfs",
                 "usb_modeswitch",
@@ -1385,7 +1384,7 @@ def perform_installation(
             profile_handler.install_gfx_driver(installation, driver)
 
         profile_handler.install_greeter(installation, GreeterType.Ly)
-
+        installation.add_additional_packages("realtime-privileges")
         clone_dots_to_skel(mountpoint, cf.dots_git_repo)
         if config.auth_config:
             if config.auth_config.users:
