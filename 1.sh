@@ -6,6 +6,7 @@ DEPENDENCIES=("git" "pacman-contrib")
 setup_environment() {
   local tries=0
   local max_tries=5
+  rm -rf "$CLONE_DIR"
   while ((tries < max_tries)); do
     if ! pacman-key --init; then
       echo "pacman-key --init failed."
