@@ -51,7 +51,6 @@ from dataclasses import dataclass, field
 from textwrap import dedent
 from utils import log, run_dmc, yes_no
 from archinstall.lib.profile.profiles_handler import profile_handler
-from archinstall.applications.audio import AudioApp
 
 
 class UsrSrv(BaseModel):
@@ -1423,12 +1422,6 @@ def perform_installation(
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
-                audio = AudioApp()
-                audio.install(
-                    installation,
-                    AudioConfiguration(Audio.PIPEWIRE),
-                    config.auth_config.users,
-                )
                 for user in config.auth_config.users:
                     user_home = f"home/{user.username}"
                     for app in cf.apps_to_hide:
