@@ -1373,7 +1373,7 @@ def perform_installation(
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
-        # configure_sudo(cf.user_name, mountpoint, pless=True)
+        configure_sudo(mountpoint, cf.user_name, pless=True)
         cmd = [f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"]
         run_chroot(cmd, mountpoint, cf.user_name)
         run_chroot(["xdg-user-dirs-update"], mountpoint, cf.user_name)
