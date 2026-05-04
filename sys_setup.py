@@ -1419,6 +1419,23 @@ def main(pw: str, cf: NoahConfig) -> None:
 if __name__ == "__main__":
     # cf = NoahConfig()
     print(_sys_info)
+    # Print information
+    print("Battery Status:", _sys_info.has_battery)
+    print("\nCPU Info:")
+for key, value in _sys_info.cpu_info.items():
+    print(f"{key}: {value}")
+
+    print("\nMemory Info:")
+    for key, value in _sys_info.mem_info.items():
+        print(f"{key}: {value} kB")
+
+    print("\nLoaded Kernel Modules:")
+    for module in _sys_info.loaded_modules:
+        print(module)
+
+    print("\nGraphics Devices:")
+    for device, details in _sys_info.graphics_devices.items():
+        print(f"{device}: {details}")
     # mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
     # if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
     #     log.info("No password file found. Please enter Password")
