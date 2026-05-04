@@ -1384,27 +1384,8 @@ def perform_installation(
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
 
-        if config.packages and config.packages[0] != "":
-            installation.add_additional_packages(config.packages)
-
-        sys_dots(mountpoint, script_d)
         profile_handler.install_greeter(installation, GreeterType.Ly)
-        installation.enable_service(arch_config_handler.config.services)
-        installation.disable_service(list(cf.disable_svcs))
-        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
-        for filepath, content in cf.etc_files_to_write.items():
-            full_path = mountpoint / filepath
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            with full_path.open("w") as file:
-                file.write(content)
-                log.info(f"Content: {content}\nWritten to: {full_path}")
-        copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
-        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
-            "\n".join(cf.reflector_options)
-        )
-        set_firefox_extensions(
-            mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
-        )
+
         clone_dots_to_skel(mountpoint, cf.dots_git_repo)
         if config.auth_config:
             if config.auth_config.users:
@@ -1429,6 +1410,26 @@ def perform_installation(
                     enable_user_serv(mountpoint, list(cf.usr_srv), user.username)
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
+
+        if config.packages and config.packages[0] != "":
+            installation.add_additional_packages(config.packages)
+        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
+        for filepath, content in cf.etc_files_to_write.items():
+            full_path = mountpoint / filepath
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            with full_path.open("w") as file:
+                file.write(content)
+                log.info(f"Content: {content}\nWritten to: {full_path}")
+        copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
+        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
+            "\n".join(cf.reflector_options)
+        )
+        set_firefox_extensions(
+            mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
+        )
+        sys_dots(mountpoint, script_d)
+        installation.enable_service(arch_config_handler.config.services)
+        installation.disable_service(list(cf.disable_svcs))
         install_icon_theme(mountpoint)
         if disk_config.has_default_btrfs_vols():
             btrfs_options = disk_config.btrfs_options
