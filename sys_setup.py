@@ -45,7 +45,7 @@ class UsrSrv(BaseModel):
 ###########################################################
 # ARCHINSTALL CONF
 ###########################################################
-@dataclass(frozen=True)
+@dataclass()
 class Config:
     user_name: str = "nick"
     hostname: str = "yulia"
