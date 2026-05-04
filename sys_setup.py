@@ -34,7 +34,7 @@ import shlex
 import shutil
 from dataclasses import dataclass, field
 from textwrap import dedent
-from utils import log, run, ask_pass, yes_no
+from utils import log, run_dmc, ask_pass, yes_no
 from archinstall.lib.profile.profiles_handler import profile_handler
 
 
@@ -439,34 +439,45 @@ class NoahConfig:
     )
     etc_files_to_write: dict[str, str] = field(
         default_factory=lambda: {
-            "etc/iwd/main.conf": dedent("""\
+            "etc/iwd/main.conf": dedent(
+                """\
                 [Network]
                 NameResolvingService=resolvconf
-            """),
-            "etc/systemd/system/iwd.service.d/override.conf": dedent("""\
+                """
+            ),
+            "etc/systemd/system/iwd.service.d/override.conf": dedent(
+                """\
                 [Service]
                 RuntimeDirectory=resolvconf
                 ReadWritePaths=/etc/resolv.conf
-            """),
-            "etc/systemd/system/wg-quick@.service.d/override.conf": dedent("""\
+                """
+            ),
+            "etc/systemd/system/wg-quick@.service.d/override.conf": dedent(
+                """\
                 [Unit]
                 After=
                 Wants=
-            """),
-            "etc/systemd/network/20-usb-tether.network": dedent("""\
+                """
+            ),
+            "etc/systemd/network/20-usb-tether.network": dedent(
+                """\
                 [Match]
                 Name=enp*
 
                 [Network]
                 DHCP=yes
                 IPv6AcceptRA=yes
-            """),
-            "etc/resolvconf.conf": dedent("""\
+                """
+            ),
+            "etc/resolvconf.conf": dedent(
+                """\
                 resolv_conf=/etc/resolv.conf
                 name_servers="::1 127.0.0.1"
-            """),
-            "etc/nsswitch.conf": dedent("""\
-            passwd: files systemd
+                """
+            ),
+            "etc/nsswitch.conf": dedent(
+                """\
+                passwd: files systemd
                 group: files [SUCCESS=merge] systemd
                 shadow: files systemd
                 gshadow: files systemd
@@ -478,8 +489,10 @@ class NoahConfig:
                 ethers: files
                 rpc: files
                 netgroup: files
-            """),
-            "etc/named.conf": dedent("""\
+                """
+            ),
+            "etc/named.conf": dedent(
+                """\
                 // vim:set ts=4 sw=4 et:
                 tls cloudflare {
                     remote-hostname "one.one.one.one";
@@ -513,8 +526,10 @@ class NoahConfig:
                     type master;
                     file "127.0.0.zone";
                 };
-            """),
-            "etc/xdg/user-dirs.defaults": dedent("""\
+                """
+            ),
+            "etc/xdg/user-dirs.defaults": dedent(
+                """\
                 DOCUMENTS=Desktop/Documents
                 DESKTOP=Desktop
                 MUSIC=Desktop/Music
@@ -523,14 +538,18 @@ class NoahConfig:
                 DOWNLOAD=Desktop/Downloads
                 TEMPLATES=Desktop/Templates
                 PUBLICSHARE=Desktop/Public
-            """),
+                """
+            ),
             "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
-            "boot/loader/loader.conf": dedent("""\
+            "boot/loader/loader.conf": dedent(
+                """\
                 default @saved
                 timeout 1
                 editor no
-            """),
-            "etc/pacman.d/hooks/95-systemd-boot.hook": dedent("""\
+                """
+            ),
+            "etc/pacman.d/hooks/95-systemd-boot.hook": dedent(
+                """\
                 [Trigger]
                 Type = Package
                 Operation = Upgrade
@@ -540,43 +559,63 @@ class NoahConfig:
                 Description = Gracefully upgrading systemd-boot...
                 When = PostTransaction
                 Exec = /usr/bin/systemctl restart systemd-boot-update.service
-            """),
-            "etc/systemd/journald.conf.d/00-journal-size.conf": dedent("""\
+                """
+            ),
+            "etc/systemd/journald.conf.d/00-journal-size.conf": dedent(
+                """\
                 [Journal]
                 SystemMaxUse=50M
-            """),
-            "etc/systemd/zram-generator.conf": dedent("""\
+                """
+            ),
+            "etc/systemd/zram-generator.conf": dedent(
+                """\
                 [zram0]
                 zram-size = min(ram / 3, 8192)
                 compression-algorithm = zstd
-            """),
-            "etc/sysctl.d/99-zram.conf": dedent("""\
+                """
+            ),
+            "etc/sysctl.d/99-zram.conf": dedent(
+                """\
                 vm.swappiness = 180
                 vm.watermark_boost_factor = 0
                 vm.watermark_scale_factor = 125
                 vm.page-cluster = 0
-            """),
-            "etc/fuse.conf": dedent("""\
+                """
+            ),
+            "etc/fuse.conf": dedent(
+                """\
                 user_allow_other
-            """),
-            "etc/sysctl.d/99-watchdog.conf": dedent("""\
+                """
+            ),
+            "etc/sysctl.d/99-watchdog.conf": dedent(
+                """\
                 kernel.nmi_watchdog = 0
-            """),
-            "etc/sysctl.d/99-steam.conf": dedent("""\
+                """
+            ),
+            "etc/sysctl.d/99-steam.conf": dedent(
+                """\
                 vm.max_map_count = 2147483642
-            """),
-            "etc/sysctl.d/99-net.conf": dedent("""\
+                """
+            ),
+            "etc/sysctl.d/99-net.conf": dedent(
+                """\
                 net.core.rmem_max = 8388608
                 net.core.wmem_max = 8388608
-            """),
-            "etc/udisks2/mount_options.conf": dedent("""\
+                """
+            ),
+            "etc/udisks2/mount_options.conf": dedent(
+                """\
                 [defaults]
                 defaults=noatime
-            """),
-            "etc/udev/rules.d/99-thunderbolt.rules": dedent("""\
+                """
+            ),
+            "etc/udev/rules.d/99-thunderbolt.rules": dedent(
+                """\
                 ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{authorized}=="0", ATTR{authorized}="1"
-            """),
-            "etc/polkit-1/rules.d/49-rules.rules": dedent("""\
+                """
+            ),
+            "etc/polkit-1/rules.d/49-rules.rules": dedent(
+                """\
                 polkit.addRule(function(action, subject) {
                     if (
                         subject.isInGroup("storage") &&
@@ -596,8 +635,10 @@ class NoahConfig:
                         return polkit.Result.YES;
                     }
                 });
-            """),
-            "etc/logid.cfg": dedent("""\
+                """
+            ),
+            "etc/logid.cfg": dedent(
+                """\
                 // Top=0xc4  Gesture=0xc3 Back=0x53 Forward=0x56
                 devices: ({
                     name: "MX Master 3S";
@@ -765,8 +806,10 @@ class NoahConfig:
                         }
                     );
                 });
-            """),
-            "etc/ly/config.ini": dedent("""\
+                """
+            ),
+            "etc/ly/config.ini": dedent(
+                """\
                 allow_empty_password = true
                 animation = matrix
                 animation_timeout_sec = 0
@@ -829,11 +872,14 @@ class NoahConfig:
                 xauth_cmd = /usr/bin/xauth
                 xinitrc = ~/.xinitrc
                 xsessions = /usr/share/xsessions
-            """),
-            "etc/tmpfiles.d/mpd.conf": dedent(f"""\
+                """
+            ),
+            "etc/tmpfiles.d/mpd.conf": dedent(
+                f"""\
                 d /home/{NoahConfig.user_name}/.cache/mpd 0755 {NoahConfig.user_name} mpd -
                 d /home/{NoahConfig.user_name}/.cache/mpd/playlists 0755 {NoahConfig.user_name} mpd -
-            """),
+                """
+            ),
         }
     )
 
@@ -901,11 +947,10 @@ def copy_dir(src: Path, dest: Path) -> None:
 def write_files(files: dict[str, str], mnt_point: Path | None) -> None:
     for path, content in files.items():
         flush_content = "\n".join(line.lstrip() for line in content.splitlines())
-        print(flush_content + "\n")
-        # path_obj = (mnt_point or Path("/")) / path.lstrip("/")
-        # path_obj.parent.mkdir(parents=True, exist_ok=True)
-        # path_obj.write_text(flush_content + "\n")
-        # log.info(f"Wrote {path_obj}")
+        path_obj = (mnt_point or Path("/")) / path.lstrip("/")
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+        path_obj.write_text(flush_content + "\n")
+        log.info(f"Wrote {path_obj}")
 
 
 ###################################
@@ -970,7 +1015,7 @@ def mnt_cp_keys(
     home: Path = Path.home(),
 ):
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
-        run(["umount", str(usb_mnt)], check=True)
+        run_dmc(["umount", str(usb_mnt)], check=True)
     missing = []
     if key_dir and key_files:
         missing += [k for k in key_files if not (home / key_dir / k).exists()]
@@ -983,7 +1028,7 @@ def mnt_cp_keys(
         return
     selected = get_device()
     usb_mnt.mkdir(parents=True, exist_ok=True)
-    run(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
+    run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
     time.sleep(2)
     if key_dir and key_files:
         (home / key_dir).mkdir(parents=True, exist_ok=True)
@@ -993,7 +1038,7 @@ def mnt_cp_keys(
         copy_dir(usb_mnt / wireguard_dir, home / wireguard_dir)
     time.sleep(1)
     if yes_no("Files copied, unmount?"):
-        run(["umount", str(usb_mnt)], check=True)
+        run_dmc(["umount", str(usb_mnt)], check=True)
         time.sleep(1)
 
 
@@ -1031,9 +1076,9 @@ def chaotic_repo(mnt_point: Path):
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
     for cmd in cmds:
-        run(cmd, check=True)
+        run_dmc(cmd, check=True)
     append_repo(Path("/etc/pacman.conf"))
-    run(["pacman", "-Sy"], check=True)
+    run_dmc(["pacman", "-Sy"], check=True)
     run_chroot([" ".join(cmd) for cmd in cmds], mnt_point)
     append_repo(mnt_point / "etc/pacman.conf")
     run_chroot(["pacman -Sy"], mnt_point)
@@ -1195,7 +1240,7 @@ def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
 def clone_dots_to_skel(mnt_point: Path, git_repo: str) -> None:
     tmp = mnt_point / "tmp" / git_repo
     cmd = ["git", "clone", f"https://github.com/{git_repo}.git", f"{tmp}"]
-    run(cmd, True)
+    run_dmc(cmd, True)
     shutil.rmtree(tmp / ".git")
     for p in tmp.iterdir():
         p.rename(p.parent / ("." + p.name))
@@ -1247,7 +1292,9 @@ def generate_pacman_conf(
         "usr/share/icons/capitaine-cursors/*",
     ],
 ):
-    no_extract_lines = "\n".join([f"NoExtract = {item}" for item in no_extracts])
+    no_extract_lines = "\n        ".join(
+        [f"NoExtract = {item}" for item in no_extracts]
+    )
     pacman_content = dedent(f"""
         [options]
         HoldPkg = pacman glibc
@@ -1266,7 +1313,7 @@ def generate_pacman_conf(
         [extra]
         Include = /etc/pacman.d/mirrorlist
 
-        {"[multilib]\nInclude = /etc/pacman.d/mirrorlist\n" if multilib else ""}
+        {"[multilib]\n        Include = /etc/pacman.d/mirrorlist" if multilib else ""}
     """)
     write_files({"etc/pacman.conf": pacman_content}, mnt_point=mnt_point)
 
@@ -1277,6 +1324,7 @@ def generate_pacman_conf(
 def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu = GlobalMenu(arch_config_handler.config)
     global_menu.disable_all()
+    global_menu.set_enabled("locale_config", True)
     global_menu.set_enabled("locale_config", True)
     global_menu.set_enabled("disk_config", True)
     global_menu.set_enabled("__config__", True)
@@ -1299,6 +1347,7 @@ def perform_installation(
         return
     disk_config = config.disk_config
     with Installer(mountpoint, disk_config, kernels=list(cf.kernel)) as installation:
+        installation._hooks = list(cf.mkinit_hooks)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -1312,7 +1361,7 @@ def perform_installation(
             "reflector",
             *(part for opt in cf.reflector_options for part in opt.split()),
         ]
-        run(cmd)
+        run_dmc(cmd)
         generate_pacman_conf(mnt_point=None)
         installation.minimal_installation(
             hostname=cf.hostname,
@@ -1330,9 +1379,9 @@ def perform_installation(
         generate_pacman_conf(mnt_point=mountpoint)
         vm = False
         for driver in get_gfx_drivers(_sys_info.graphics_devices):
+            profile_handler.install_gfx_driver(installation, driver)
             if driver == GfxDriver.VMOpenSource:
                 vm = True
-            profile_handler.install_gfx_driver(installation, driver)
         chaotic_repo(mountpoint)
         installation.add_additional_packages(
             list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
@@ -1341,14 +1390,13 @@ def perform_installation(
             installation.add_additional_packages(
                 list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"] + cf.pkgs["gaming"])
             )
-
         #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
         profile_handler.install_greeter(installation, GreeterType.Ly)
         installation.enable_service(list(cf.sys_services + cf.custom_services))
-        run_chroot([f"systemctl disable {' '.join(cf.disable_svcs)}"], mountpoint)
+        installation.disable_service(list(cf.disable_svcs))
         #############-Plymouth-###############
-        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
+        # modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
         plymouth_setup(mountpoint)
         #############-Etc Management-###############
         write_files({**cf.etc_files_to_write}, mountpoint)
@@ -1381,7 +1429,8 @@ def perform_installation(
         #############-Fstab-###############
         installation.genfstab()
         modify_fstab(mountpoint)
-        #############-Menu-###############
+        ############-Menu-###############
+        print(installation._hooks)
         debug(f"Disk states after installing:\n{disk_layouts()}")
         if not arch_config_handler.args.silent:
             elapsed_time = time.monotonic() - start_time
@@ -1402,34 +1451,35 @@ def perform_installation(
 
 def main(pw: str, cf: NoahConfig) -> None:
     arch_config_handler = ArchConfigHandler()
-    user = User(
-        username=cf.user_name, password=Password(pw), sudo=True, groups=list(cf.groups)
-    )
-    arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
-    show_menu(arch_config_handler)
-    config = ConfigurationOutput(arch_config_handler.config)
-    config.write_debug()
-    config.save()
-    if not arch_config_handler.args.silent:
-        aborted = False
-        res: bool = tui.run(config.confirm_config)
-        if not res:
-            debug("Installation aborted")
-            aborted = True
-        if aborted:
-            return main(pw, cf)
-    if arch_config_handler.config.disk_config:
-        fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-        if not delayed_warning("Starting device modifications in "):
-            return main(pw, cf)
-        fs_handler.perform_filesystem_operations()
+    # user = User(
+    #     username=cf.user_name, password=Password(pw), sudo=True, groups=list(cf.groups)
+    # )
+    # arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
+    # show_menu(arch_config_handler)
+    # config = ConfigurationOutput(arch_config_handler.config)
+    # config.write_debug()
+    # config.save()
+    # if not arch_config_handler.args.silent:
+    #     aborted = False
+    #     res: bool = tui.run(config.confirm_config)
+    #     if not res:
+    #         debug("Installation aborted")
+    #         aborted = True
+    #     if aborted:
+    #         return main(pw, cf)
+    # if arch_config_handler.config.disk_config:
+    #     fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+    #     if not delayed_warning("Starting device modifications in "):
+    #         return main(pw, cf)
+    #     fs_handler.perform_filesystem_operations()
     perform_installation(arch_config_handler, cf)
 
 
 if __name__ == "__main__":
-    cf = NoahConfig()
-    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
-    if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
-        log.info("No password file found. Please enter Password")
-        pw = ask_pass(cf.user_name)
-    main(pw, cf)
+    generate_pacman_conf(None)
+    # cf = NoahConfig()
+    # mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
+    # if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
+    #     log.info("No password file found. Please enter Password")
+    #     pw = ask_pass(cf.user_name)
+    # main(pw, cf)

@@ -59,7 +59,7 @@ def ask_pass(prompt="Password: ", confirm=True, min_len=6, retries=3) -> str:
     raise ValueError("Too many failed attempts.")
 
 
-def run(
+def run_dmc(
     cmd: list[str],
     check: bool = False,
     input_text: str = "",

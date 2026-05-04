@@ -7,7 +7,7 @@ import gnupg
 import shutil
 import subprocess
 import pyperclip
-from utils import log, ping, ask_pass, yes_no, run
+from utils import log, ping, ask_pass, yes_no, run_dmc
 
 ###########################################################
 # CONF
@@ -66,7 +66,7 @@ firewall_ports = ["6881-6889/tcp", "6881-6889/udp"]
 
 
 def iwctl_scan() -> bool:
-    result = run(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
+    result = run_dmc(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
     time.sleep(10)
     if result.returncode == 0:
         return True
@@ -130,7 +130,7 @@ def deploy_dotfiles(
             dst.parent.mkdir(parents=True, exist_ok=True)
             if link_path(src, dst):
                 linked += 1
-    run(["hyprctl", "reload"])
+    run_dmc(["hyprctl", "reload"])
     log.info(f"Linked: {linked}")
 
 
@@ -141,9 +141,9 @@ def import_ssh(key_path: Path) -> None:
     socket = f"/run/user/{os.getuid()}/gcr/ssh"
     os.environ["SSH_AUTH_SOCK"] = socket
     if not Path(socket).exists():
-        run(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
-        run(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-    if run(["ssh-add", str(key_path)], check=True):
+        run_dmc(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
+        run_dmc(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
+    if run_dmc(["ssh-add", str(key_path)], check=True):
         log.info(f"SSH key {key_path} added or already present.")
     else:
         log.error(f"Failed to add SSH key {key_path}.")
@@ -167,7 +167,7 @@ def init_gocrypt(enc_dir: Path) -> None:
             break
         log.warning("Passwords do not match or empty. Try again.\n")
     cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
-    run(cmd, check=True, input_text=pw1)
+    run_dmc(cmd, check=True, input_text=pw1)
     log.info(f"gocryptfs initialized at {enc_dir}.")
 
 
@@ -203,7 +203,7 @@ def enable_mariadb(user_name) -> None:
         ],
     ]
     for cmd in commands:
-        result = run(cmd)
+        result = run_dmc(cmd)
         if result and result.returncode != 0:
             log.error(f"Command failed: {cmd}")
 
@@ -217,7 +217,7 @@ def ensure_github_known_hosts(kh=HOME / ".ssh" / "known_hosts") -> None:
         kh.touch()
     content = kh.read_text(errors="ignore")
     if "github.com" not in content:
-        scan = run(["ssh-keyscan", "-H", "github.com"])
+        scan = run_dmc(["ssh-keyscan", "-H", "github.com"])
         if scan and scan.stdout:
             kh.write_text(content + scan.stdout)
             log.info("Added github.com to known_hosts")
@@ -237,7 +237,7 @@ def clone_repos(git_user: str, git_repos: list, dest: Path, ssh: bool) -> None:
         if repo_path.exists():
             log.info(f"{repo_path} exists, skipping.")
             continue
-        result = run(["git", "clone", url(repo), str(repo_path)], check=False)
+        result = run_dmc(["git", "clone", url(repo), str(repo_path)], check=False)
         if result.returncode == 0:
             log.info(f"Cloned {repo}")
         else:
@@ -245,7 +245,7 @@ def clone_repos(git_user: str, git_repos: list, dest: Path, ssh: bool) -> None:
 
 
 def configure_git() -> None:
-    result = run(["ssh-add", "-l"])
+    result = run_dmc(["ssh-add", "-l"])
     lines = result.stdout.strip().splitlines()
     if not lines:
         log.warning("No SSH keys found")
@@ -253,8 +253,8 @@ def configure_git() -> None:
     parts = lines[0].split()
     my_email = parts[2]
     my_name = input("Enter your full real name (git): ").strip()
-    run(["git", "config", "--global", "user.email", my_email])
-    run(["git", "config", "--global", "user.name", my_name])
+    run_dmc(["git", "config", "--global", "user.email", my_email])
+    run_dmc(["git", "config", "--global", "user.name", my_name])
     log.info(f"Configured git with email={my_email} and name={my_name}")
 
 
@@ -271,7 +271,7 @@ def set_folder_icons(
         if Path(icon).exists():
             icon_uri = f"file://{icon}"
             cmd = ["gio", "set", str(folder), "metadata::custom-icon", icon_uri]
-            run(cmd)
+            run_dmc(cmd)
 
 
 ############################
@@ -306,7 +306,7 @@ def scrcpy_setup(port=5555) -> None:
     ip = next(
         (
             line.split("src")[-1].strip()
-            for line in run(["adb", "shell", "ip", "route"]).stdout.splitlines()
+            for line in run_dmc(["adb", "shell", "ip", "route"]).stdout.splitlines()
             if "wlan" in line and "src" in line
         )
     )
@@ -315,7 +315,7 @@ def scrcpy_setup(port=5555) -> None:
         return
     target = f"{ip}:{port}"
     log.info(f"Trying {target}")
-    msg = run(["adb", "connect", target])
+    msg = run_dmc(["adb", "connect", target])
     log.info((msg.stdout + msg.stderr).lower())
 
 
@@ -324,23 +324,23 @@ def scrcpy_setup(port=5555) -> None:
 ############################
 def main(HOME=Path.home()):
     if shutil.which("zsh"):
-        run(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
     if shutil.which("firewalld"):
-        run(["sudo", "firewall-cmd", "--set-default-zone=block"])
+        run_dmc(["sudo", "firewall-cmd", "--set-default-zone=block"])
         fw_cmd = ["sudo", "firewall-cmd", "--permanent", "--zone=block"]
         for service in firewall_services:
-            run(fw_cmd + [f"--add-service={service}"])
+            run_dmc(fw_cmd + [f"--add-service={service}"])
         for port in firewall_ports:
-            run(fw_cmd + [f"--add-port={port}"])
+            run_dmc(fw_cmd + [f"--add-port={port}"])
     if shutil.which("iwd") and not ping():
-        run(["sudo", "rm", "/etc/resolv.conf"])
-        run(["sudo", "resolvconf", "-u"])
-        run(["sudo", "systemctl", "restart", "iwd"])
+        run_dmc(["sudo", "rm", "/etc/resolv.conf"])
+        run_dmc(["sudo", "resolvconf", "-u"])
+        run_dmc(["sudo", "systemctl", "restart", "iwd"])
         time.sleep(5)
         iwctl_scan()
         time.sleep(5)
     if shutil.which("tuned"):
-        run(["tuned-adm", "profile", "laptop-ac-powersave"])
+        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
     if shutil.which("mariadb"):
         enable_mariadb(user_name)
     if ssh_path.exists():
@@ -358,10 +358,10 @@ def main(HOME=Path.home()):
     if dirs_icons:
         set_folder_icons(dirs_icons)
     for plugin in yazi_plugins:
-        run(["ya", "pkg", "add", plugin])
+        run_dmc(["ya", "pkg", "add", plugin])
     if any((dots_path).iterdir()):
         deploy_dotfiles(HOME, dots_path, dirs_to_link, ind_dirs, secret_dots)
-        run(
+        run_dmc(
             ["uv", "add", "openmeteo-requests"],
             cwd=f"/home/{user_name}/.local/bin/weather",
         )
@@ -370,7 +370,7 @@ def main(HOME=Path.home()):
     if masterpass_path.is_file():
         pass_and_input(masterpass_path)
         launch_apps()
-    run(
+    run_dmc(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
         interactive=True,
     )
@@ -378,7 +378,7 @@ def main(HOME=Path.home()):
         if d.exists():
             shutil.rmtree(d)
     if yes_no("Reboot now?", default=False):
-        run(["systemctl", "reboot"])
+        run_dmc(["systemctl", "reboot"])
         log.info("Reboot cancelled.")
         return
 
