@@ -1174,7 +1174,7 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(units: list[UsrSrv], mnt_point: Path, username: str) -> None:
+def enable_user_serv(mnt_point: Path, units: list[UsrSrv], username: str) -> None:
     user_commands: list[str] = []
     base_dir = Path(f"/home/{username}/.config/systemd/user")
     for unit in units:
@@ -1197,7 +1197,7 @@ def user_service(
 ) -> None:
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
-    dir_path = Path(f"/home/{username}/.config/systemd/user")
+    dir_path = f"home/{username}/.config/systemd/user"
     run_script = f"/home/{username}/{script_dir}/{user_script}"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
     content = dedent(
@@ -1216,8 +1216,8 @@ def user_service(
         """
     )
     (mnt_point / dir_path).write_text(content)
-    unit = UsrSrv(source=str(dir_path), target="graphical-session", services=[name])
-    enable_user_serv([unit], mnt_point, username)
+    unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
+    enable_user_serv(mnt_point, [unit], username)
 
 
 ###################################
@@ -1382,7 +1382,7 @@ def perform_installation(
         installation.chown(cf.user_name, str(mountpoint / user_home / script_d.name))
         copy_keys(mountpoint, cf.usb_key_dir, cf.user_name, cf.to_cp)
         user_service(mountpoint, cf.user_name, cf.terminal)
-        enable_user_serv(list(cf.usr_srv), mountpoint, cf.user_name)
+        enable_user_serv(mountpoint, list(cf.usr_srv), cf.user_name)
         dir_p = f"home/{cf.user_name}/.local/share/applications"
         for app in cf.apps_to_hide:
             file_p = f"{dir_p}/{app}.desktop"
