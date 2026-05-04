@@ -1051,24 +1051,9 @@ def chaotic_repo(mnt_point: Path):
     run_chroot(["pacman -Sy"], mnt_point)
 
 
-def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
-    gfx_drivers = []
-    for device, _ in graphics_devices.items():
-        device = device.lower()
-        if "nvidia" in device or "geforce" in device:
-            gfx_drivers.append(GfxDriver.NvidiaOpenKernel)
-        elif "amd" in device or "ati" in device:
-            gfx_drivers.append(GfxDriver.AmdOpenSource)
-        elif "intel" in device:
-            gfx_drivers.append(GfxDriver.IntelOpenSource)
-        else:
-            gfx_drivers.append(GfxDriver.VMOpenSource)
-    return gfx_drivers
-
-
 def generate_pacman_conf(
     mnt_point: Path | None,
-    no_extracts: list = [],
+    no_extracts: list,
     parallel_downloads: int = 10,
     multilib: bool = True,
 ):
@@ -1172,6 +1157,20 @@ def modify_mkinit(mnt_point: Path, hooks: list[str], plymouth: bool):
         mkinit.write(content)
 
 
+def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
+    driver_map = {
+        "nvidia": GfxDriver.NvidiaOpenKernel,
+        "geforce": GfxDriver.NvidiaOpenKernel,
+        "amd": GfxDriver.AmdOpenSource,
+        "ati": GfxDriver.AmdOpenSource,
+        "intel": GfxDriver.IntelOpenSource,
+    }
+    return [
+        driver_map.get(device.lower().split()[0], GfxDriver.VMOpenSource)
+        for device in graphics_devices
+    ]
+
+
 ###################################
 # USR_SVC
 ###################################
@@ -1241,15 +1240,6 @@ def install_icon_theme(
             svg.write_text(text.replace(old, new))
     if (icon_path / "WhiteSur-light").exists():
         shutil.rmtree(icon_path / "WhiteSur-light")
-
-
-def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
-    dir_p = f"home/{username}/.local/share/applications"
-    for app in applications:
-        file_p = f"{dir_p}/{app}.desktop"
-        (mnt_point / file_p).write_text("[Desktop Entry]\nHide=true\n")
-    cmd = [f"chown -R {username}:{username} /{dir_p}"]
-    run_chroot(cmd, mnt_point)
 
 
 def clone_dots_to_skel(mnt_point: Path, git_repo: str) -> None:
@@ -1327,6 +1317,7 @@ def perform_installation(
         return
     disk_config = config.disk_config
     mountpoint = Path("/mnt/arch")
+    locale_config = config.locale_config
     with Installer(mountpoint, disk_config, [], list(cf.kernel)) as installation:
         installation._hooks = list(cf.mkinit_hooks)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -1339,14 +1330,17 @@ def perform_installation(
             ):
                 installation.generate_key_files()
         generate_pacman_conf(mnt_point=None, no_extracts=list(cf.no_extracts))
-        installation.minimal_installation(hostname=cf.hostname)
-        mirror_list = "/etc/pacman.d/mirrorlist"
-        copy_file(Path(mirror_list), mountpoint / mirror_list)
+        installation.minimal_installation(
+            hostname=cf.hostname, locale_config=locale_config
+        )
+        copy_file(
+            Path("/etc/pacman.d/mirrorlist"), mountpoint / "/etc/pacman.d/mirrorlist"
+        )
         installation.setup_swap()
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config()
         installation.set_timezone(cf.timezone)
-        generate_pacman_conf(mnt_point=mountpoint)
+        generate_pacman_conf(mountpoint, list(cf.no_extracts))
         chaotic_repo(mountpoint)
         installation.add_additional_packages(
             list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
@@ -1354,9 +1348,9 @@ def perform_installation(
         gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
-        if not any(driver == GfxDriver.VMOpenSource for driver in gfx_drivers):
-            xtra_pkgs = list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"])
-            installation.add_additional_packages(xtra_pkgs)
+        if GfxDriver.VMOpenSource not in gfx_drivers:
+            pkgs = list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"])
+            installation.add_additional_packages(pkgs)
         sys_dots(mountpoint, script_d)
         profile_handler.install_greeter(installation, GreeterType.Ly)
         installation.enable_service(list(cf.sys_services + cf.custom_services))
@@ -1389,7 +1383,12 @@ def perform_installation(
         copy_keys(mountpoint, cf.usb_key_dir, cf.user_name, cf.to_cp)
         user_service(mountpoint, cf.user_name, cf.terminal)
         enable_user_serv(list(cf.usr_srv), mountpoint, cf.user_name)
-        hide_apps(mountpoint, cf.user_name, list(cf.apps_to_hide))
+        dir_p = f"home/{cf.user_name}/.local/share/applications"
+        for app in cf.apps_to_hide:
+            file_p = f"{dir_p}/{app}.desktop"
+            (mountpoint / file_p).write_text("[Desktop Entry]\nHide=true\n")
+        cmd = [f"chown -R {cf.user_name}:{cf.user_name} /{dir_p}"]
+        run_chroot(cmd, mountpoint)
         install_icon_theme(mountpoint)
         installation.genfstab()
         modify_fstab(mountpoint)
