@@ -32,7 +32,7 @@ import shlex
 import shutil
 from dataclasses import dataclass, field
 from textwrap import dedent
-from utils import get_logger, run_cmd, ask_pass, yes_no
+from utils import log, run_cmd, ask_pass, yes_no
 from etc_conf import ly_etc, hardware_etc, net_etc, user_dirs_etc, sys_etc
 
 
@@ -450,7 +450,6 @@ class NoahConfig:
 # CONSTANTS
 ###########################################################
 mountpoint = Path("/mnt/arch")
-log = get_logger("Noah")
 
 
 #########################
@@ -547,10 +546,20 @@ def get_device(min_gb=20, usb_fs_type="ext4") -> str:
 
     recurse(data["blockdevices"])
     while True:
-        get_logger("").info(f"{'No.':<5} {'Name':<8} {'Size':<8} {'FS Type':>8}")
-        get_logger("").info("-" * 45)
+        print(
+            f"\033[91m{'No.':<5}\033[0m "
+            f"\033[92m{'Name':<8}\033[0m "
+            f"\033[93m{'Size':<8}\033[0m "
+            f"\033[96m{'FS Type':>8}\033[0m"
+        )
+        print("-" * 45)
         for i, (name, size, fstype) in enumerate(candidates, 1):
-            get_logger("").info(f"{i:<5} {name:<8} {size:<8} {fstype:>8}")
+            print(
+                f"\033[91m{i:<5}\033[0m "
+                f"\033[92m{name:<8}\033[0m "
+                f"\033[93m{size:<8}\033[0m "
+                f"\033[96m{fstype:>8}\033[0m"
+            )
         choice = input(f"Enter 1-{len(candidates)}: ").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(candidates)):
             log.error("Out of range.")
