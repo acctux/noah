@@ -87,7 +87,11 @@ def run_cmd(
 
 def yes_no(prompt: str, default: bool = True) -> bool:
     while True:
-        r = input(f"{prompt} {'(Y/n)' if default else '(y/N)'}: ").strip().lower()
+        r = (
+            input(f"\033[92m{prompt} {'(Y/n)' if default else '(y/N)'}: \033[0m")
+            .strip()
+            .lower()
+        )
         if r == "":
             return default
         if r in ("y"):

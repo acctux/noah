@@ -560,7 +560,7 @@ def get_device(min_gb=20, usb_fs_type="ext4") -> str:
                 f"\033[93m{size:<8}\033[0m "
                 f"\033[96m{fstype:>8}\033[0m"
             )
-        choice = input(f"\033[34mEnter 1-{len(candidates)}: \033[0m").strip()
+        choice = input(f"\033[92mEnter 1-{len(candidates)}: \033[0m").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(candidates)):
             log.error("Out of range.")
             continue
