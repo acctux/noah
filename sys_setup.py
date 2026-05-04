@@ -907,8 +907,9 @@ def run_chroot(
     chroot_path.unlink()
 
 
-def src_pass_file(usb_key_dir: str, pass_file: str):
+def src_pass_file(usb_key_dir: str, pass_file: str) -> str:
     key_path = Path("/root") / usb_key_dir / pass_file
+    pw = ""
     if key_path.exists():
         try:
             pw = key_path.read_text().strip()
@@ -917,6 +918,7 @@ def src_pass_file(usb_key_dir: str, pass_file: str):
         except Exception as e:
             log.error(f"{e}")
     log.warning(f"{key_path} not found.")
+    return pw
 
 
 def copy_file(src: Path, dest: Path) -> None:
@@ -996,7 +998,7 @@ def mnt_cp_keys(
     wireguard_dir: str | None = None,
     usb_mnt: Path = Path("/mnt/usb"),
     home: Path = Path.home(),
-):
+) -> None:
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         run_dmc(["umount", str(usb_mnt)], check=True)
     missing = []
@@ -1028,7 +1030,7 @@ def mnt_cp_keys(
 ###################################
 # PACMAN
 ###################################
-def chaotic_repo(mnt_point: Path):
+def chaotic_repo(mnt_point: Path) -> None:
     def append_repo(path: Path):
         with path.open("a") as f:
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
@@ -1056,7 +1058,7 @@ def generate_pacman_conf(
     no_extracts: list,
     parallel_downloads: int = 10,
     multilib: bool = True,
-):
+) -> None:
     pacman_p = "etc/pacman.conf"
     pac_mnt_p = Path("/") / pacman_p
     if mnt_point:
@@ -1090,7 +1092,7 @@ def generate_pacman_conf(
 ###################################
 # ETC/BOOT
 ###################################
-def configure_sudo(mnt_point: Path, user_name: str, pless=False):  #
+def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
     sudoers_content = dedent(
         f"""\
         {user_name} ALL=(ALL:ALL) {"NOPASSWD:ALL" if pless else "ALL"}
@@ -1107,7 +1109,7 @@ def configure_sudo(mnt_point: Path, user_name: str, pless=False):  #
     log.info(f"{'Removed' if pless else 'Created'} pass requirement for {user_name}")
 
 
-def sys_dots(mnt_point: Path, script_dir: Path):
+def sys_dots(mnt_point: Path, script_dir: Path) -> None:
     for dir_name in ["etc", "usr"]:
         source_dir = script_dir / dir_name
         target_dir = mnt_point / dir_name
@@ -1145,7 +1147,7 @@ def modify_fstab(mnt_point: Path) -> None:
     fstab_path.write_text(content)
 
 
-def modify_mkinit(mnt_point: Path, hooks: list[str], plymouth: bool):
+def modify_mkinit(mnt_point: Path, hooks: list[str], plymouth: bool) -> None:
     mkinitcpio_conf_path = f"{mnt_point}/etc/mkinitcpio.conf"
     if plymouth and "plymouth" not in hooks:
         hooks.insert(hooks.index("kms") + 1, "plymouth")
@@ -1294,8 +1296,9 @@ def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> No
 def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu = GlobalMenu(arch_config_handler.config)
     global_menu.disable_all()
+    global_menu.set_enabled("archinstall_language", True)
     global_menu.set_enabled("locale_config", True)
-    global_menu.set_enabled("locale_config", True)
+    global_menu.set_enabled("auth_config", True)
     global_menu.set_enabled("disk_config", True)
     global_menu.set_enabled("__config__", True)
     result: ArchConfig | None = tui.run(global_menu)
@@ -1355,7 +1358,7 @@ def perform_installation(
         profile_handler.install_greeter(installation, GreeterType.Ly)
         installation.enable_service(list(cf.sys_services + cf.custom_services))
         installation.disable_service(list(cf.disable_svcs))
-        # modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
+        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
         plymouth_setup(mountpoint)
         for filepath, content in cf.etc_files_to_write.items():
             full_path = mountpoint / filepath
@@ -1413,9 +1416,7 @@ def perform_installation(
 def main() -> None:
     cf = NoahConfig()
     mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
-    if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
-        log.info("No password file found. Please enter Password")
-        pw = ask_pass(cf.user_name)
+    pw = src_pass_file(cf.usb_key_dir, cf.my_pass)
     arch_config_handler = ArchConfigHandler()
     user = User(cf.user_name, Password(pw), True, list(cf.groups))
     arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
