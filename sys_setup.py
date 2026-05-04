@@ -350,15 +350,9 @@ class NoahConfig:
     aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
     sys_services: tuple[str, ...] = (
         "ananicy-cpp",
-        "bluetooth",
-        "firewalld",
-        "iwd",
         "named",
         "swayosd-libinput-backend",
-        "systemd-networkd",
         "systemd-oomd",
-        "systemd-timesyncd",
-        "tuned",
         "btrfs-scrub@-.timer",
         "btrfs-scrub@home.timer",
         "fstrim.timer",
@@ -367,8 +361,14 @@ class NoahConfig:
         "paccache.timer",
         "reflector.timer",
     )
-    custom_services: tuple[str, ...] = ("loggy", "sysinfo")
-    disable_svcs: tuple[str, ...] = ("systemd-networkd-wait-online",)
+    custom_services: tuple[str, ...] = (
+        "loggy",
+        "sysinfo",
+    )
+    disable_svcs: tuple[str, ...] = (
+        "systemd-resolved",
+        "systemd-networkd-wait-online",
+    )
     usr_srv: tuple[UsrSrv, ...] = (
         UsrSrv(
             source="/usr/lib/systemd/user",
@@ -1139,7 +1139,7 @@ def sys_dots(mnt_point: Path, script_dir: Path) -> None:
         log.info("Copied %s to %s", source_dir, target_dir)
 
 
-def plymouth_setup(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
+def sysd_plymouth_setup(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
     entries_dir = mnt_point / "boot" / "loader" / "entries"
     for entry in entries_dir.iterdir():
         lines = entry.read_text().splitlines()
@@ -1316,6 +1316,8 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu.set_enabled("archinstall_language", True)
     global_menu.set_enabled("locale_config", True)
     global_menu.set_enabled("timezone", True)
+    global_menu.set_enabled("ntp", True)
+    global_menu.set_enabled("kernels", True)
     global_menu.set_enabled("hostname", True)
     global_menu.set_enabled("auth_config", True)
     global_menu.set_enabled("app_config", True)
@@ -1342,7 +1344,12 @@ def perform_installation(
     disk_config = config.disk_config
     mountpoint = Path("/mnt/arch")
     locale = config.locale_config
-    with Installer(mountpoint, disk_config, [], list(cf.kernel)) as installation:
+    with Installer(
+        mountpoint,
+        disk_config,
+        ["base", "sudo", "linux-firmware", "mkinitcpio"],
+        kernels=config.kernels,
+    ) as installation:
         installation._hooks = list(cf.mkinit_hooks)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
@@ -1353,30 +1360,52 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-        generate_pacman_conf(mnt_point=None, no_extracts=list(cf.no_extracts))
-        copy_file(
-            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        )
+
+        cmd = [
+            "reflector",
+            *(part for opt in cf.reflector_options for part in opt.split()),
+        ]
+        run_dmc(cmd)
+        generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
+
         installation.minimal_installation(
             hostname=config.hostname, locale_config=locale
         )
+
+        generate_pacman_conf(mountpoint, list(cf.no_extracts))
+        copy_file(
+            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
+        )
+        chaotic_repo(mountpoint)
+
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
-        installation.add_bootloader(Bootloader.Systemd)
-        installation.copy_iso_network_config()
+
+        if (
+            config.bootloader_config
+            and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
+        ):
+            installation.add_bootloader(
+                config.bootloader_config.bootloader,
+                config.bootloader_config.uki,
+                config.bootloader_config.removable,
+            )
+            if config.bootloader_config.bootloader == Bootloader.Systemd:
+                sysd_plymouth_setup(mountpoint)
+
+        installation.copy_iso_network_config(enable_services=True)
         installation.set_timezone(config.timezone)
-        generate_pacman_conf(mountpoint, list(cf.no_extracts))
-        chaotic_repo(mountpoint)
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
+
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
+
         sys_dots(mountpoint, script_d)
         profile_handler.install_greeter(installation, GreeterType.Ly)
-        installation.enable_service(list(cf.sys_services + cf.custom_services))
+        installation.enable_service(arch_config_handler.config.services)
         installation.disable_service(list(cf.disable_svcs))
         modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
-        plymouth_setup(mountpoint)
         for filepath, content in cf.etc_files_to_write.items():
             full_path = mountpoint / filepath
             full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1384,8 +1413,9 @@ def perform_installation(
                 file.write(content)
                 log.info(f"Content: {content}\nWritten to: {full_path}")
         copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
-        refl_opts_str = "\n".join(cf.reflector_options)
-        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(refl_opts_str)
+        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
+            "\n".join(cf.reflector_options)
+        )
         set_firefox_extensions(
             mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
         )
@@ -1461,6 +1491,9 @@ def main() -> None:
     arch_config_handler.config.hostname = cf.hostname
     arch_config_handler.config.swap = ZramConfiguration(enabled=True)
     arch_config_handler.config.timezone = cf.timezone
+    arch_config_handler.config.ntp = True
+    arch_config_handler.config.kernels = list(cf.kernel)
+    arch_config_handler.config.services = list(cf.sys_services + cf.custom_services)
     arch_config_handler.config.app_config = ApplicationConfiguration(
         BluetoothConfiguration(True),
         AudioConfiguration(Audio.PIPEWIRE),
@@ -1491,9 +1524,6 @@ def main() -> None:
         if not delayed_warning("Starting device modifications in "):
             return main()
         fs_handler.perform_filesystem_operations()
-    cmd = ["reflector", *(part for opt in cf.reflector_options for part in opt.split())]
-    run_dmc(cmd)
-    generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
     perform_installation(arch_config_handler, ApplicationHandler(), cf, gfx_drivers)
 
 
