@@ -67,6 +67,7 @@ class Config:
         "id_ed25519",
         "my_sec_gpg.asc",
         "pass.txt",
+        my_pass,
     )
     to_cp: dict[str, tuple[str, ...]] = field(
         default_factory=lambda: {
