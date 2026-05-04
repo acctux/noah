@@ -30,474 +30,412 @@ import json
 import re
 import shlex
 import shutil
+from dataclasses import dataclass
 from textwrap import dedent
 from utils import get_logger, run_cmd, ask_pass, yes_no
 from etc_conf import ly_etc, hardware_etc, net_etc, user_dirs_etc, sys_etc
 
 
-###########################################################
-# ARCHINSTALL CONF
-###########################################################
-user_name = "nick"
-hostname = "yulia"
-kernel = ["linux"]
-timezone = "US/Eastern"
-groups = ["adm", "games", "realtime", "storage", "video"]
-terminal = "kitty"
-dots_git_repo = "acctux/polka"
-###########################################################
-# USB PASSED FILES CONF
-###########################################################
-usb_key_dir = "keys"
-ssh_key = "id_ed25519"
-gpg_key = "my_sec_gpg.asc"
-pass_pass = "pass.txt"
-my_pass = "pass.py"
-wireguard_dir = "wireguard"
-usb_cp_files = [ssh_key, gpg_key, pass_pass, my_pass]
-###########################################################
-# Browser
-###########################################################
-firefox_browser = "firedragon"
-firefox_extensions = [
-    "return-youtube-dislikes",
-    "leechblock-ng",
-    "proton-pass",
-    "firefox-color",
-]
-###########################################################
-# MKINITCPIO HOOKS
-###########################################################
-mkinit_hooks = [
-    "base",
-    "systemd",
-    "autodetect",
-    "microcode",
-    "modconf",
-    "kms",
-    "sd-vconsole",
-    "block",
-    "filesystems",
-    "fsck",
-]
-###########################################################
-# PACMAN CONF
-###########################################################
-pacman_content = dedent("""\
-    [options]
-    HoldPkg = pacman glibc
-    Architecture = auto
-    Color
-    ILoveCandy
-    ParallelDownloads = 10
-    DownloadUser = alpm
-    SigLevel    = Required DatabaseOptional
-    LocalFileSigLevel = Optional
-    NoExtract = etc/xdg/autostart/firewall-applet.desktop
-    NoExtract = usr/share/icons/capitaine-cursors/*
-
-    [core]
-    Include = /etc/pacman.d/mirrorlist
-
-    [extra]
-    Include = /etc/pacman.d/mirrorlist
-
-    [multilib]
-    Include = /etc/pacman.d/mirrorlist
-""")
-reflector_options = [
-    "--country US",
-    "--protocol https",
-    "--latest 15",
-    "--sort rate",
-    "--number 3",
-    "--save /etc/pacman.d/mirrorlist",
-]
-###########################################################
-# PKGS
-###########################################################
-amd_pkgs = [
-    "mesa",
-    "xf86-video-amdgpu",
-    "xf86-video-ati",
-    "vulkan-radeon",
-]
-nvidia_pkgs = [
-    "lib32-nvidia-utils",
-    "libva-nvidia-driver",
-    "libva-utils",
-    "libxnvctrl",
-    "nvidia-open",
-    "nvidia-prime",
-    "opencl-nvidia",
-]
-pipewire_pkgs = [
-    "pipewire",
-    "pipewire-alsa",
-    "pipewire-jack",
-    "pipewire-pulse",
-    "gst-plugin-pipewire",
-    "libpulse",
-    "wireplumber",
-]
-hardware_pkgs = [
-    "ananicy-cpp",
-    "bluetui",
-    "bluez-tools",
-    "bluez-utils",  # for loggy
-    "brightnessctl",
-    "dmidecode",
-    "dosfstools",
-    "exfatprogs",
-    "kanshi",
-    "ntfs-3g",
-    "realtime-privileges",
-    "smartmontools",
-    "tuned",
-    "udisks2-btrfs",
-    "usb_modeswitch",
-]
-monitor_pkgs = [
-    "btop",
-    "rocm-smi-lib",  # btop dependency for amd gpu
-    "jolt",
-    "nvtop",
-    "powertop",
-    "gnome-logs",
-    "systemctl-tui",
-]
-base_pkgs = [
-    "base-devel",
-    "logrotate",
-    "ly",
-    "plymouth",
-    "rebuild-detector",
-    "reflector",
-    "xdg-user-dirs",
-]
-cli_pkgs = [
-    "bat-extras",
-    "eza",
-    "cliphist",
-    "fd",
-    "fzf",
-    "git-delta",
-    "github-cli",
-    "kitty",
-    "lazygit",
-    "less",
-    "man-pages",
-    "mcfly",
-    "pkgfile",
-    "ripgrep-all",
-    "sd",
-    "starship",
-    "trash-cli",
-    "ugrep",
-    "zoxide",
-    "zsh-autocomplete",
-    "zsh-completions",
-    "zsh-syntax-highlighting",
-]
-basic_pkgs = [
-    "anki",
-    "authenticator",
-    "baobab",
-    "bustle",
-    "file-roller",
-    "gocryptfs",
-    "khal",
-    "partitionmanager",
-    "qalculate-qt",
-    "qrencode",  # qr codes
-    "qt5ct",
-    "qt6ct",
-    "taskwarrior-tui",
-    "unrar",  # File roller
-    "wl-clipboard",
-    "wl-clip-persist",
-    "yazi",
-    "zbar",  # qr codes
-]
-android_pkgs = [
-    "kdeconnect",
-    "gvfs-mtp",
-    "sshfs",
-    "scrcpy",
-]
-apple_pkgs = [
-    "gvfs-afc",
-    "gvfs-gphoto2",
-    "usbmuxd",
-]
-network_pkgs = [
-    "bind",
-    "deluge-gtk",
-    "firewalld",
-    "impala",
-    "iw",
-    "iwd",
-    "openresolv",
-    "profile-sync-daemon",
-    "protonmail-bridge-core",
-    "wireguard-tools",
-    "networkmanager",
-]
-lang_pkgs = [
-    "hunspell-en_us",
-    "hyphen-en",
-    "noto-fonts-emoji",
-    "otf-firamono-nerd",
-    "rofimoji",
-    "tesseract-data-eng",
-    "ttf-liberation",
-]
-media_pkgs = [
-    "cava",
-    "evince",
-    "gimp",
-    "guvcview",
-    "imv",
-    "mpd",
-    "mpd-mpris",
-    "mpv-mpris",
-    "pavucontrol",
-    "playerctl",
-    "rmpc",
-    "yt-dlp",  # for mpv youtube playback
-]
-hyprland_pkgs = [
-    "capitaine-cursors",
-    "fuzzel",
-    "gnome-keyring",
-    "hypridle",
-    "hyprland",
-    "hyprlock",
-    "hyprshot",
-    "hyprsunset",
-    "kvantum",
-    "kvantum-qt5",
-    "polkit-gnome",
-    "qt5-wayland",
-    "qt6-wayland",
-    "satty",
-    "seahorse",
-    "snixembed",
-    "swaync",
-    "swayosd",
-    "awww",
-    "uwsm",
-    "waybar",
-    "xdg-desktop-portal-gnome",
-    "xdg-desktop-portal-hyprland",
-]
-office_pkgs = [
-    "gnucash",
-    "libreoffice-fresh",
-    "coin-or-mp",  # LibreOffice Calc Solver
-    "zathura-pdf-mupdf",
-]
-coding_pkgs = [
-    "inotify-tools",  # nvim
-    "npm",
-    "neovim-lspconfig",
-    "rust",
-    "uv",
-    # Language Servers
-    "bash-language-server",
-    "lua-language-server",
-    "rust-analyzer",
-    "tombi",
-    "ty",
-    "vscode-css-languageserver",
-    "vscode-json-languageserver",
-    "yaml-language-server",
-    # Formatters
-    "ruff",
-    "shfmt",
-    "stylua",
-    "yamlfmt",
-    # Lint
-    "shellcheck",
-    "biome",
-    "luacheck",
-    "yamllint",
-    # Tree sitter
-    "tree-sitter-bash",
-    "tree-sitter-cli",
-    "tree-sitter-python",
-    "tree-sitter-rust",
-]
-mariadb_pkgs = [
-    "dbeaver",
-    "jdk-openjdk",
-    "mariadb",
-    "python-pymysql",
-]
-pydep_pkgs = [
-    "python-dbus-fast",  # loggy
-    "python-gnupg",  # noah
-    "python-imaplib2",  # emailcheck
-    "python-pandas",  # weather
-    "python-pydantic",  # noah
-    "python-pyperclip",  # noah
-    "python-systemd",  # loggy
-    "python-wand",  # wallpaper script
-]
-gaming_pkgs = [
-    "gnome-chess",
-    "gnuchess",
-    "lib32-mangohud",
-    "lutris",
-    "mangohud",
-    "mgba-qt",
-    "steam",
-    "umu-launcher",
-    "wine-mono",
-    "wine-staging",
-    "winetricks",
-]
-chaotic_pkgs = [
-    "ayugram-desktop-git",
-    "qt6-imageformats",  # AyuGram missing dependency
-    "betterbird-bin",
-    "cachyos-ananicy-rules-git",
-    "eden-git",
-    "firedragon",
-    "logiops",
-    "nchat-git",
-    "neovim-symlinks",
-    "ocrmypdf",
-    "octopi",
-    "paru",
-    "proton-cachyos-slr",
-    "rpcs3-git",
-    "systemd-oomd-defaults",
-]
-###########################################################
-# AUR PKGS
-###########################################################
-aur_pkgs = ["wvkbd-deskintl"]
-###########################################################
-# SYS SERVICES
-###########################################################
-sys_services = [
-    "ananicy-cpp",
-    "bluetooth",
-    "firewalld",
-    "iwd",
-    "ly@tty1",
-    "named",
-    "swayosd-libinput-backend",
-    "systemd-networkd",
-    "systemd-oomd",
-    "systemd-timesyncd",
-    "tuned",
-    "btrfs-scrub@-.timer",
-    "btrfs-scrub@home.timer",
-    "fstrim.timer",
-    "logrotate.timer",
-    "man-db.timer",
-    "paccache.timer",
-    "reflector.timer",
-]
-custom_services = ["loggy", "sysinfo"]
-disable_svcs = ["getty@tty1", "systemd-networkd-wait-online"]
-
-
-###########################################################
-# USER SERVICES
-###########################################################
 class UsrSrv(BaseModel):
     source: str
     target: str
     services: list[str]
 
 
-usr_srv = UsrSrv(
-    source="/usr/lib/systemd/user",
-    target="default",
-    services=["pipewire-pulse.service", "psd.service"],
-)
-usr_sockets = UsrSrv(
-    source="/usr/lib/systemd/user",
-    target="sockets",
-    services=[
-        "pipewire-pulse.socket",
-        "gnome-keyring-daemon.socket",
-        "gcr-ssh-agent.socket",
-        "mpd.socket",
-    ],
-)
-usr_graphical = UsrSrv(
-    source="/usr/lib/systemd/user",
-    target="graphical-session",
-    services=[
-        "cliphist.service",
-        "hypridle.service",
-        "hyprsunset.service",
-        "swaync.service",
-        "waybar.service",
-    ],
-)
-cust_graphic = UsrSrv(
-    source=f"/home/{user_name}/.config/systemd/user",
-    target="graphical-session",
-    services=[
-        "ayugram.service",
-        "clip-persist.service",
-        "kdeconnectd.service",
-        "kanshi.service",
-        "playerctld.service",
-        "polkit-gnome.service",
-        "snixembed.service",
-        "swayosd.service",
-        "awww-daemon.service",
-    ],
-)
-cust_timer = UsrSrv(
-    source=f"/home/{user_name}/.config/systemd/user",
-    target="timers",
-    services=[
-        "emailcheck.timer",
-        "task-reminder.timer",
-        "task-schedule.timer",
-        "wall.timer",
-    ],
-)
 ###########################################################
-# HIDE APPS
+# ARCHINSTALL CONF
 ###########################################################
-apps_to_hide = [
-    "avahi-discover",
-    "bssh",
-    "btop",
-    "bvnc",
-    "jshell-java-openjdk",
-    "jconsole-java-openjdk",
-    "libreoffice-base",
-    "libreoffice-draw",
-    "libreoffice-impress",
-    "libreoffice-math",
-    "khal",
-    "kvantummanager",
-    "nvtop",
-    "octopi-cachecleaner",
-    "octopi-notifier",
-    "octopi-repoeditor",
-    "org.gnome.baobab",
-    "org.kde.kdeconnect.nonplasma",
-    "qt5ct",
-    "qt6ct",
-    "qv4l2",
-    "qvidcap",
-    "scrcpy-console",
-    "taskwarrior-tui",
-    "tuned-gui",
-    "uuctl",
-    "xgps",
-    "xgpsspeed",
-]
+@dataclass(frozen=True)
+class Config:
+    user_name: str = "nick"
+    hostname: str = "yulia"
+    kernel: list[str] = [
+        "linux",
+    ]
+    timezone: str = "US/Eastern"
+    groups: list[str] = ["adm", "games", "realtime", "storage", "video"]
+    terminal: str = "kitty"
+    dots_git_repo: str = "acctux/polka"
+    usb_key_dir: str = "keys"
+    wireguard_dir: str = "wireguard"
+    my_pass: str = "pass.py"
+    usb_cp_files: list[str] = ["id_ed25519", "my_sec_gpg.asc", "pass.txt"]
+    to_cp: dict[str, list[str]] = {
+        ".ssh": ["id_ed25519"],
+        ".gnupg": ["my_sec_gpg.asc"],
+        "scripts": ["pass.txt"],
+    }
+    firefox_browser: str = "floorp"
+    firefox_extensions: list[str] = [
+        "return-youtube-dislikes",
+        "leechblock-ng",
+        "proton-pass",
+        "firefox-color",
+        "darkreader",
+        "flagfox",
+        "ublock-origin",
+    ]
+    mkinit_hooks: list[str] = [
+        "base",
+        "systemd",
+        "autodetect",
+        "microcode",
+        "modconf",
+        "kms",
+        "sd-vconsole",
+        "block",
+        "filesystems",
+        "fsck",
+    ]
+    reflector_options: list[str] = [
+        "--country US",
+        "--protocol https",
+        "--latest 15",
+        "--sort rate",
+        "--number 3",
+        "--save /etc/pacman.d/mirrorlist",
+    ]
+    pkgs: dict[str, list[str]] = {
+        "base": [
+            # pipewire
+            "pipewire",
+            "pipewire-alsa",
+            "pipewire-jack",
+            "pipewire-pulse",
+            "gst-plugin-pipewire",
+            "libpulse",
+            "wireplumber",
+            #
+            "ananicy-cpp",
+            "bluetui",
+            "bluez-tools",
+            "bluez-utils",  # for loggy
+            "brightnessctl",
+            "btop",
+            "cliphist",
+            "rocm-smi-lib",  # btop dependency for amd gpu
+            "dmidecode",
+            "dosfstools",
+            "exfatprogs",
+            "jolt",
+            "kanshi",
+            "kitty",
+            "less",
+            "mcfly",
+            "ntfs-3g",
+            "nvtop",
+            "realtime-privileges",
+            "smartmontools",
+            "tuned",
+            "udisks2-btrfs",
+            "usb_modeswitch",
+            "powertop",
+            "gnome-logs",
+            "systemctl-tui",
+            "base-devel",
+            "logrotate",
+            "ly",
+            "plymouth",
+            "rebuild-detector",
+            "reflector",
+            "xdg-user-dirs",
+            "zsh-autocomplete",
+            "zsh-completions",
+            "zsh-syntax-highlighting",
+            "starship",
+            "trash-cli",
+            # Network
+            "bind",
+            "deluge-gtk",
+            "firewalld",
+            "impala",
+            "iw",
+            "openresolv",
+            "profile-sync-daemon",
+            "protonmail-bridge-core",
+            "wireguard-tools",
+            "networkmanager",
+            # media
+            "cava",
+            "imv",
+            "mpd",
+            "mpd-mpris",
+            "mpv-mpris",
+            "pavucontrol",
+            "playerctl",
+            "rmpc",
+            # Hypr
+            "capitaine-cursors",
+            "fuzzel",
+            "gnome-keyring",
+            "hypridle",
+            "hyprland",
+            "hyprlock",
+            "hyprshot",
+            "hyprsunset",
+            "kvantum",
+            "kvantum-qt5",
+            "polkit-gnome",
+            "qt5-wayland",
+            "qt6-wayland",
+            "satty",
+            "seahorse",
+            "snixembed",
+            "swaync",
+            "swayosd",
+            "awww",
+            "uwsm",
+            "waybar",
+            "xdg-desktop-portal-gnome",
+            "xdg-desktop-portal-hyprland",
+            # Python
+            "python-dbus-fast",  # loggy
+            "python-gnupg",  # noah
+            "python-imaplib2",  # emailcheck
+            "python-pandas",  # weather
+            "python-pydantic",  # noah
+            "python-pyperclip",  # noah
+            "python-systemd",  # loggy
+            "python-wand",  # wallpaper script
+            "otf-firamono-nerd",
+            "ttf-liberation",
+            "inotify-tools",  # nvim
+            "npm",
+            "neovim-lspconfig",
+            "uv",
+            "qt5ct",
+            "qt6ct",
+            "wl-clipboard",
+            "wl-clip-persist",
+            "yazi",
+            "zbar",  # qr codes
+            "qrencode",  # qr codes
+            "git-delta",
+            "taskwarrior-tui",
+            "man-pages",
+        ],
+        "language": [
+            "hunspell-en_us",
+            "hyphen-en",
+            "tesseract-data-eng",
+        ],
+        "chaotic_repo": [
+            "cachyos-ananicy-rules-git",
+            "floorp",
+            "octopi",
+            "paru",
+            "systemd-oomd-defaults",
+            "ocrmypdf",
+        ],
+        "extra": [
+            "bat-extras",
+            "eza",
+            "fd",
+            "fzf",
+            "github-cli",
+            "lazygit",
+            "ripgrep-all",
+            "sd",
+            "ugrep",
+            "zoxide",
+            "anki",
+            "authenticator",
+            "baobab",
+            "bustle",
+            "file-roller",
+            "gocryptfs",
+            "partitionmanager",
+            "qalculate-qt",
+            "unrar",  # File roller
+            "evince",
+            "gimp",
+            "guvcview",
+            "yt-dlp",  # for mpv youtube playback
+            "rofimoji",
+            "noto-fonts-emoji",
+            # coding
+            "rust",
+            # Language Servers
+            "bash-language-server",
+            "lua-language-server",
+            "rust-analyzer",
+            "tombi",
+            "ty",
+            "vscode-css-languageserver",
+            "vscode-json-languageserver",
+            "yaml-language-server",
+            # Formatters
+            "ruff",
+            "shfmt",
+            "stylua",
+            "yamlfmt",
+            # Lint
+            "shellcheck",
+            "biome",
+            "luacheck",
+            "yamllint",
+            # Tree sitter
+            "tree-sitter-bash",
+            "tree-sitter-cli",
+            "tree-sitter-python",
+            "tree-sitter-rust",
+            "libreoffice-fresh",
+            "coin-or-mp",  # LibreOffice Calc Solver
+            "zathura-pdf-mupdf",
+            "gnucash",
+            "kdeconnect",
+            "gvfs-mtp",
+            "sshfs",
+            "scrcpy",
+            "gvfs-afc",
+            "gvfs-gphoto2",
+            "usbmuxd",
+            "dbeaver",
+            "jdk-openjdk",
+            "mariadb",
+            "python-pymysql",
+        ],
+        "extra_chaos": [
+            "logiops",
+            "neovim-symlinks",
+            "ayugram-desktop-git",
+            "qt6-imageformats",  # AyuGram missing dependency
+            "betterbird-bin",
+            "nchat-git",
+            "proton-cachyos-slr",
+            "rpcs3-git",
+            "eden-git",
+        ],
+        "gaming": [
+            "gnome-chess",
+            "gnuchess",
+            "lib32-mangohud",
+            "lutris",
+            "mangohud",
+            "mgba-qt",
+            "steam",
+            "umu-launcher",
+            "wine-mono",
+            "wine-staging",
+            "winetricks",
+        ],
+    }
+    aur_pkgs: list[str] = [
+        "wvkbd-deskintl",
+    ]
+    sys_services: list[str] = [
+        "ananicy-cpp",
+        "bluetooth",
+        "firewalld",
+        "iwd",
+        "ly@tty1",
+        "named",
+        "swayosd-libinput-backend",
+        "systemd-networkd",
+        "systemd-oomd",
+        "systemd-timesyncd",
+        "tuned",
+        "btrfs-scrub@-.timer",
+        "btrfs-scrub@home.timer",
+        "fstrim.timer",
+        "logrotate.timer",
+        "man-db.timer",
+        "paccache.timer",
+        "reflector.timer",
+    ]
+    custom_services: list[str] = [
+        "loggy",
+        "sysinfo",
+    ]
+    disable_svcs: list[str] = [
+        "getty@tty1",
+        "systemd-networkd-wait-online",
+    ]
+    usr_srv: list[UsrSrv] = [
+        UsrSrv(
+            source="/usr/lib/systemd/user",
+            target="default",
+            services=["pipewire-pulse.service", "psd.service"],
+        ),
+        UsrSrv(
+            source="/usr/lib/systemd/user",
+            target="sockets",
+            services=[
+                "pipewire-pulse.socket",
+                "gnome-keyring-daemon.socket",
+                "gcr-ssh-agent.socket",
+                "mpd.socket",
+            ],
+        ),
+        UsrSrv(
+            source="/usr/lib/systemd/user",
+            target="graphical-session",
+            services=[
+                "cliphist.service",
+                "hypridle.service",
+                "hyprsunset.service",
+                "swaync.service",
+                "waybar.service",
+            ],
+        ),
+        UsrSrv(
+            source=f"/home/{user_name}/.config/systemd/user",
+            target="graphical-session",
+            services=[
+                "ayugram.service",
+                "clip-persist.service",
+                "kdeconnectd.service",
+                "kanshi.service",
+                "playerctld.service",
+                "polkit-gnome.service",
+                "snixembed.service",
+                "swayosd.service",
+                "awww-daemon.service",
+            ],
+        ),
+        UsrSrv(
+            source=f"/home/{user_name}/.config/systemd/user",
+            target="timers",
+            services=[
+                "emailcheck.timer",
+                "task-reminder.timer",
+                "task-schedule.timer",
+                "wall.timer",
+            ],
+        ),
+    ]
+    apps_to_hide: list[str] = [
+        "avahi-discover",
+        "bssh",
+        "btop",
+        "bvnc",
+        "jshell-java-openjdk",
+        "jconsole-java-openjdk",
+        "libreoffice-base",
+        "libreoffice-draw",
+        "libreoffice-impress",
+        "libreoffice-math",
+        "khal",
+        "kvantummanager",
+        "nvtop",
+        "octopi-cachecleaner",
+        "octopi-notifier",
+        "octopi-repoeditor",
+        "org.gnome.baobab",
+        "org.kde.kdeconnect.nonplasma",
+        "qt5ct",
+        "qt6ct",
+        "qv4l2",
+        "qvidcap",
+        "scrcpy-console",
+        "taskwarrior-tui",
+        "tuned-gui",
+        "uuctl",
+        "xgps",
+        "xgpsspeed",
+    ]
+
+
 ###########################################################
 # CONSTANTS
 ###########################################################
@@ -646,55 +584,38 @@ def mnt_cp_keys(
         run_cmd(["umount", str(usb_mnt)], check=True)
 
 
-###################################
-# USR_SVC
-###################################
-def enable_user_serv(units: list[UsrSrv], mnt_point: Path, username: str):
-    user_commands: list[str] = []
-    base_dir = Path(f"/home/{username}/.config/systemd/user")
-    for unit in units:
-        for service in unit.services:
-            target_dir = base_dir / f"{unit.target}.target.wants"
-            user_commands.append(f"mkdir -p {target_dir}")
-            user_commands.append(
-                f"ln -sf {unit.source}/{service} {target_dir / service}"
-            )
-    run_chroot([f"chown -R {username}:{username} /home/{username}/"], mnt_point)
-    run_chroot(user_commands, mnt_point, username)
-
-
-def user_service(
-    mnt_point: Path,
-    username: str,
-    terminal: str,
-    user_script="user_setup.py",
-    script_dir: str = Path(__file__).resolve().parent.name,
-):
-    if terminal.strip().lower() == "alacritty":
-        terminal = "alacritty -e"
-    dir_path = f"home/{username}/.config/systemd/user"
-    run_script = f"/home/{username}/{script_dir}/{user_script}"
-    name = f"{user_script.rsplit('.', 1)[0]}.service"
-    write_files(
-        {
-            f"{dir_path}/{name}": dedent(f"""\
-                [Unit]
-                Description=Open {terminal} {run_script} on login
-                After=graphical-session.target
-
-                [Service]
-                Type=oneshot
-                ExecStart=/usr/bin/{terminal} python {run_script}
-                Restart=no
-
-                [Install]
-                WantedBy=graphical-session.target
-            """)
-        },
-        mnt_point,
-    )
-    unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
-    enable_user_serv([unit], mnt_point, username)
+def gfx_drivers() -> list[str]:
+    try:
+        with open("/proc/cpuinfo") as f:
+            cpu = f.read().lower()
+    except FileNotFoundError:
+        cpu = ""
+    gpu = run_cmd(["lspci"], check=True).stdout.lower()
+    pkgs = ["mesa"]
+    if "nvidia" in gpu:
+        pkgs += [
+            "lib32-nvidia-utils",
+            "libva-nvidia-driver",
+            "libva-utils",
+            "libxnvctrl",
+            "nvidia-open",
+            "nvidia-prime",
+            "opencl-nvidia",
+        ]
+    if "amd" in cpu or "amd" in gpu or "ati" in gpu:
+        pkgs += [
+            "xf86-video-amdgpu",
+            "xf86-video-ati",
+            "vulkan-radeon",
+        ]
+    if "intel" in cpu or "intel" in gpu:
+        pkgs += [
+            "vulkan-intel",
+            "libva-intel-driver",
+            "intel-media-driver",
+            "xf86-video-intel",
+        ]
+    return pkgs
 
 
 ###################################
@@ -794,6 +715,57 @@ def modify_mkinit(mnt_point: Path, hooks: list[str], plymouth: bool):
 
 
 ###################################
+# USR_SVC
+###################################
+def enable_user_serv(units: list[UsrSrv], mnt_point: Path, username: str):
+    user_commands: list[str] = []
+    base_dir = Path(f"/home/{username}/.config/systemd/user")
+    for unit in units:
+        for service in unit.services:
+            target_dir = base_dir / f"{unit.target}.target.wants"
+            user_commands.append(f"mkdir -p {target_dir}")
+            user_commands.append(
+                f"ln -sf {unit.source}/{service} {target_dir / service}"
+            )
+    run_chroot([f"chown -R {username}:{username} /home/{username}/"], mnt_point)
+    run_chroot(user_commands, mnt_point, username)
+
+
+def user_service(
+    mnt_point: Path,
+    username: str,
+    terminal: str,
+    user_script="user_setup.py",
+    script_dir: str = Path(__file__).resolve().parent.name,
+):
+    if terminal.strip().lower() == "alacritty":
+        terminal = "alacritty -e"
+    dir_path = f"home/{username}/.config/systemd/user"
+    run_script = f"/home/{username}/{script_dir}/{user_script}"
+    name = f"{user_script.rsplit('.', 1)[0]}.service"
+    write_files(
+        {
+            f"{dir_path}/{name}": dedent(f"""\
+                [Unit]
+                Description=Open {terminal} {run_script} on login
+                After=graphical-session.target
+
+                [Service]
+                Type=oneshot
+                ExecStart=/usr/bin/{terminal} python {run_script}
+                Restart=no
+
+                [Install]
+                WantedBy=graphical-session.target
+            """)
+        },
+        mnt_point,
+    )
+    unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
+    enable_user_serv([unit], mnt_point, username)
+
+
+###################################
 # User Space
 ###################################
 def install_icon_theme(
@@ -886,9 +858,11 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
 
 def perform_installation(
     arch_config_handler: ArchConfigHandler,
+    cf: Config,
+    pacman_content: str,
 ) -> None:
     script_d = Path(__file__).resolve().parent
-    user_home = f"home/{user_name}"
+    user_home = f"home/{cf.user_name}"
     start_time = time.monotonic()
     info("Starting installation...")
     config = arch_config_handler.config
@@ -896,7 +870,7 @@ def perform_installation(
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    with Installer(mountpoint, disk_config, kernels=kernel) as installation:
+    with Installer(mountpoint, disk_config, kernels=cf.kernel) as installation:
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -907,7 +881,8 @@ def perform_installation(
             ):
                 installation.generate_key_files()
         installation.minimal_installation(
-            hostname=hostname, locale_config=LocaleConfiguration("us", "en_US", "UTF-8")
+            hostname=cf.hostname,
+            locale_config=LocaleConfiguration("us", "en_US", "UTF-8"),
         )
         ###############-Install reflector-###############
         mirror_list = "etc/pacman.d/mirrorlist"
@@ -916,38 +891,22 @@ def perform_installation(
         installation.setup_swap()
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config()
-        installation.set_timezone(timezone)
+        installation.set_timezone(cf.timezone)
         #############-Pkg Management-###############
         write_files({"etc/pacman.conf": pacman_content}, mnt_point=mountpoint)
+        pkgs = gfx_drivers()
+        installation.add_additional_packages(pkgs)
         chaotic_repo(mountpoint)
-        installation.add_additional_packages(
-            amd_pkgs
-            + nvidia_pkgs
-            + pipewire_pkgs
-            + hardware_pkgs
-            + base_pkgs
-            + cli_pkgs
-            + basic_pkgs
-            + android_pkgs
-            + monitor_pkgs
-            + network_pkgs
-            + lang_pkgs
-            + media_pkgs
-            + hyprland_pkgs
-            + office_pkgs
-            + apple_pkgs
-            + coding_pkgs
-            + mariadb_pkgs
-            + pydep_pkgs
-            + gaming_pkgs
-            + chaotic_pkgs
-        )
+        pkgs = cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"]
+        installation.add_additional_packages(pkgs)
+        pkgs = cf.pkgs["extra"] + cf.pkgs["extra_chaos"] + cf.pkgs["gaming"]
+        installation.add_additional_packages(pkgs)
         #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
-        installation.enable_service(sys_services + custom_services)
-        run_chroot([f"systemctl disable {' '.join(disable_svcs)}"], mountpoint)
+        installation.enable_service(cf.sys_services + cf.custom_services)
+        run_chroot([f"systemctl disable {' '.join(cf.disable_svcs)}"], mountpoint)
         #############-Plymouth-###############
-        modify_mkinit(mountpoint, mkinit_hooks, plymouth=True)
+        modify_mkinit(mountpoint, cf.mkinit_hooks, plymouth=True)
         plymouth_setup(mountpoint)
         #############-Etc Management-###############
         write_files(
@@ -958,40 +917,35 @@ def perform_installation(
                 **ly_etc,
                 **sys_etc,
                 "etc/tmpfiles.d/mpd.conf": dedent(f"""\
-                    d /home/{user_name}/.cache/mpd 0755 {user_name} mpd -
-                    d /home/{user_name}/.cache/mpd/playlists 0755 {user_name} mpd -
+                    d /home/{cf.user_name}/.cache/mpd 0755 {cf.user_name} mpd -
+                    d /home/{cf.user_name}/.cache/mpd/playlists 0755 {cf.user_name} mpd -
                 """),
             },
             mountpoint,
         )
-        copy_dir(Path("/root") / wireguard_dir, mountpoint / "etc" / "wireguard")
-        refl_opts_str = "\n".join(reflector_options)
+        copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
+        refl_opts_str = "\n".join(cf.reflector_options)
         write_files({"etc/xdg/reflector/reflector.conf": refl_opts_str}, mountpoint)
-        set_firefox_extensions(mountpoint, firefox_browser, firefox_extensions)
+        set_firefox_extensions(mountpoint, cf.firefox_browser, cf.firefox_extensions)
         #############-User and Sudo-###############
-        clone_dots_to_skel(mountpoint, dots_git_repo)
+        clone_dots_to_skel(mountpoint, cf.dots_git_repo)
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
-        configure_sudo(user_name, mountpoint, pless=True)
-        cmd = [f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"]
-        run_chroot(cmd, mountpoint, user_name)
-        run_chroot(["xdg-user-dirs-update"], mountpoint, user_name)
-        configure_sudo(user_name, mountpoint)
+        configure_sudo(cf.user_name, mountpoint, pless=True)
+        cmd = [f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"]
+        run_chroot(cmd, mountpoint, cf.user_name)
+        run_chroot(["xdg-user-dirs-update"], mountpoint, cf.user_name)
+        configure_sudo(cf.user_name, mountpoint)
         #############-Copy Keys and Script Dir-#############
         copy_dir(script_d, (mountpoint / user_home / script_d.name))
-        installation.chown(user_name, str(mountpoint / user_home / script_d.name))
-        to_cp = {".ssh": [ssh_key], ".gnupg": [gpg_key], "scripts": [pass_pass]}
-        copy_keys(mountpoint, usb_key_dir, user_name, to_cp)
+        installation.chown(cf.user_name, str(mountpoint / user_home / script_d.name))
+        copy_keys(mountpoint, cf.usb_key_dir, cf.user_name, cf.to_cp)
         #############-User Services-#############
-        user_service(mountpoint, user_name, terminal)
-        enable_user_serv(
-            [usr_srv, usr_sockets, usr_graphical, cust_graphic, cust_timer],
-            mountpoint,
-            user_name,
-        )
+        user_service(mountpoint, cf.user_name, cf.terminal)
+        enable_user_serv(cf.usr_srv, mountpoint, cf.user_name)
         #############-Apps/Icons-#############
-        hide_apps(mountpoint, user_name, apps_to_hide)
+        hide_apps(mountpoint, cf.user_name, cf.apps_to_hide)
         install_icon_theme(mountpoint)
         #############-Fstab-###############
         installation.genfstab()
@@ -1015,9 +969,11 @@ def perform_installation(
                         pass
 
 
-def main(pw: str) -> None:
+def main(pw: str, cf: Config) -> None:
     arch_config_handler = ArchConfigHandler()
-    user = [User(username=user_name, password=Password(pw), sudo=True, groups=groups)]
+    user = [
+        User(username=cf.user_name, password=Password(pw), sudo=True, groups=cf.groups)
+    ]
     arch_config_handler.config.auth_config = AuthenticationConfiguration(users=user)
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
@@ -1030,20 +986,45 @@ def main(pw: str) -> None:
             debug("Installation aborted")
             aborted = True
         if aborted:
-            return main(pw)
+            return main(pw, cf)
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         if not delayed_warning("Starting device modifications in "):
-            return main(pw)
+            return main(pw, cf)
         fs_handler.perform_filesystem_operations()
-    run_cmd(["reflector", *(part for opt in reflector_options for part in opt.split())])
+    run_cmd(
+        ["reflector", *(part for opt in cf.reflector_options for part in opt.split())]
+    )
+    pacman_content: str = dedent("""\
+        [options]
+        HoldPkg = pacman glibc
+        Architecture = auto
+        Color
+        ILoveCandy
+        ParallelDownloads = 10
+        DownloadUser = alpm
+        SigLevel    = Required DatabaseOptional
+        LocalFileSigLevel = Optional
+        NoExtract = etc/xdg/autostart/firewall-applet.desktop
+        NoExtract = usr/share/icons/capitaine-cursors/*
+
+        [core]
+        Include = /etc/pacman.d/mirrorlist
+
+        [extra]
+        Include = /etc/pacman.d/mirrorlist
+
+        [multilib]
+        Include = /etc/pacman.d/mirrorlist
+    """)
     write_files({"etc/pacman.conf": pacman_content}, mnt_point=None)
-    perform_installation(arch_config_handler)
+    perform_installation(arch_config_handler, cf, pacman_content)
 
 
 if __name__ == "__main__":
-    mnt_cp_keys(usb_key_dir, usb_cp_files, wireguard_dir)
-    if not (pw := src_pass_file(usb_key_dir, my_pass)):
+    cf = Config()
+    mnt_cp_keys(cf.usb_key_dir, cf.usb_cp_files, cf.wireguard_dir)
+    if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
         log.info("No password file found. Please enter Password")
-        pw = ask_pass(user_name)
-    main(pw)
+        pw = ask_pass(cf.user_name)
+    main(pw, cf)

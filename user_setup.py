@@ -17,6 +17,7 @@ user_name = "nick"
 git_user = "acctux"
 android = True
 firewalld = True
+firefox_browser = "floorp"
 ###########################################################
 # GIT/DOT FILE
 ############################################################
@@ -297,7 +298,7 @@ def pass_and_input(pass_path: Path):
     os.environ.pop("CLIPBOARD_STATE", None)
 
 
-def launch_apps(apps=["firedragon", "protonmail-bridge", "betterbird", "steam"]):
+def launch_apps(apps=[firefox_browser, "protonmail-bridge", "betterbird", "steam"]):
     processes = []
     for app in apps:
         processes.append(subprocess.Popen(app))
