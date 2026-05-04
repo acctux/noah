@@ -1347,7 +1347,7 @@ def perform_installation(
         return
     disk_config = config.disk_config
     with Installer(mountpoint, disk_config, kernels=list(cf.kernel)) as installation:
-        installation._hooks = list(cf.mkinit_hooks)
+        # installation._hooks = list(cf.mkinit_hooks)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -1430,7 +1430,6 @@ def perform_installation(
         installation.genfstab()
         modify_fstab(mountpoint)
         ############-Menu-###############
-        print(installation._hooks)
         debug(f"Disk states after installing:\n{disk_layouts()}")
         if not arch_config_handler.args.silent:
             elapsed_time = time.monotonic() - start_time
@@ -1451,35 +1450,35 @@ def perform_installation(
 
 def main(pw: str, cf: NoahConfig) -> None:
     arch_config_handler = ArchConfigHandler()
-    # user = User(
-    #     username=cf.user_name, password=Password(pw), sudo=True, groups=list(cf.groups)
-    # )
-    # arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
-    # show_menu(arch_config_handler)
-    # config = ConfigurationOutput(arch_config_handler.config)
-    # config.write_debug()
-    # config.save()
-    # if not arch_config_handler.args.silent:
-    #     aborted = False
-    #     res: bool = tui.run(config.confirm_config)
-    #     if not res:
-    #         debug("Installation aborted")
-    #         aborted = True
-    #     if aborted:
-    #         return main(pw, cf)
-    # if arch_config_handler.config.disk_config:
-    #     fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-    #     if not delayed_warning("Starting device modifications in "):
-    #         return main(pw, cf)
-    #     fs_handler.perform_filesystem_operations()
+    user = User(
+        username=cf.user_name, password=Password(pw), sudo=True, groups=list(cf.groups)
+    )
+    arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
+    show_menu(arch_config_handler)
+    config = ConfigurationOutput(arch_config_handler.config)
+    config.write_debug()
+    config.save()
+    if not arch_config_handler.args.silent:
+        aborted = False
+        res: bool = tui.run(config.confirm_config)
+        if not res:
+            debug("Installation aborted")
+            aborted = True
+        if aborted:
+            return main(pw, cf)
+    if arch_config_handler.config.disk_config:
+        fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+        if not delayed_warning("Starting device modifications in "):
+            return main(pw, cf)
+        fs_handler.perform_filesystem_operations()
+    generate_pacman_conf(None)
     perform_installation(arch_config_handler, cf)
 
 
 if __name__ == "__main__":
-    generate_pacman_conf(None)
-    # cf = NoahConfig()
-    # mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
-    # if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
-    #     log.info("No password file found. Please enter Password")
-    #     pw = ask_pass(cf.user_name)
-    # main(pw, cf)
+    cf = NoahConfig()
+    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
+    if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
+        log.info("No password file found. Please enter Password")
+        pw = ask_pass(cf.user_name)
+    main(pw, cf)
