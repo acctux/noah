@@ -969,16 +969,16 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
     while True:
         print(
             f"\033[91m{'No.':<5}\033[0m "
-            f"\033[92m{'Name':<8}\033[0m "
-            f"\033[93m{'Size':<8}\033[0m "
+            f"\033[93m{'Name':<8}\033[0m "
+            f"\033[94m{'Size':<8}\033[0m "
             f"\033[96m{'FS Type':>8}\033[0m"
         )
         print("-" * 45)
         for i, (name, size, fstype) in enumerate(candidates, 1):
             print(
                 f"\033[91m{i:<5}\033[0m "
-                f"\033[92m{name:<8}\033[0m "
-                f"\033[93m{size:<8}\033[0m "
+                f"\033[93m{name:<8}\033[0m "
+                f"\033[94m{size:<8}\033[0m "
                 f"\033[96m{fstype:>8}\033[0m"
             )
         choice = input(f"\033[92mEnter 1-{len(candidates)}: \033[0m").strip()
