@@ -46,7 +46,7 @@ class UsrSrv(BaseModel):
 # ARCHINSTALL CONF
 ###########################################################
 @dataclass()
-class Config:
+class NoahConfig:
     user_name: str = "nick"
     hostname: str = "yulia"
     timezone: str = "US/Eastern"
@@ -869,7 +869,7 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
 
 def perform_installation(
     arch_config_handler: ArchConfigHandler,
-    cf: Config,
+    cf: NoahConfig,
     pacman_content: str,
 ) -> None:
     script_d = Path(__file__).resolve().parent
@@ -982,7 +982,7 @@ def perform_installation(
                         pass
 
 
-def main(pw: str, cf: Config) -> None:
+def main(pw: str, cf: NoahConfig) -> None:
     arch_config_handler = ArchConfigHandler()
     user = [
         User(
@@ -1040,7 +1040,7 @@ def main(pw: str, cf: Config) -> None:
 
 
 if __name__ == "__main__":
-    cf = Config()
+    cf = NoahConfig()
     mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
     if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
         log.info("No password file found. Please enter Password")

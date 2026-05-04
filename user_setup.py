@@ -7,9 +7,8 @@ import gnupg
 import shutil
 import subprocess
 import pyperclip
-from utils import get_logger, ping, ask_pass, UserGitRepo, yes_no
+from utils import log, ping, ask_pass, yes_no
 
-log = get_logger("Noah")
 ###########################################################
 # CONF
 ###########################################################
@@ -307,24 +306,6 @@ def launch_apps(apps=[firefox_browser, "protonmail-bridge", "betterbird", "steam
         log.info(f"{app} closed")
 
 
-def verify_install(git_repos: UserGitRepo):
-    base_path = HOME / git_repos.target_dir
-    for target in git_repos:
-        for repo in target:
-            repo_path = base_path / repo.capitalize()
-            if not repo_path.exists() or not any(repo_path.iterdir()):
-                log.error(f"Git repository {repo} is empty or missing: {repo_path}")
-            return False
-    if not Path("/usr/share/icons/WhiteSur-dark").exists():
-        log.error("Icon folder 'WhiteSur-dark' not found.")
-        return False
-    nvim_config = HOME / ".config/nvim"
-    if not nvim_config.exists() or not nvim_config.is_symlink():
-        log.error(f"{nvim_config} is not a symlink.")
-        return False
-    return True
-
-
 def scrcpy_setup(port=5555) -> None:
     answer = yes_no("Is your Android phone connected?")
     if not answer:
@@ -380,7 +361,8 @@ def main(HOME=Path.home()):
     if gpg_path and not gpg_path.exists():
         import_gpg(gpg_path)
     if ENCRYPTED and not (ENCRYPTED / "gocryptfs.conf").exists():
-        init_gocrypt(ENCRYPTED)
+        if shutil.which("gocryptfs"):
+            init_gocrypt(ENCRYPTED)
     if dirs_icons:
         set_folder_icons(dirs_icons)
     for plugin in yazi_plugins:

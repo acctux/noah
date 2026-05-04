@@ -1,4 +1,3 @@
-from pydantic import BaseModel
 import logging
 import subprocess
 from getpass import getpass
@@ -42,14 +41,6 @@ def get_logger(log_name: str | None = None, level=logging.INFO):
 
 
 log = get_logger("Noah")
-
-
-###########################################################
-# CLASSES
-###########################################################
-class UserGitRepo(BaseModel):
-    target_dir: str
-    repos: list[str]
 
 
 #########################
