@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+from archinstall.lib.models.application import (
+    ZramConfiguration,
+    PowerManagementConfiguration,
+    PowerManagement,
+    Firewall,
+    FirewallConfiguration,
+    FontsConfiguration,
+    FontPackage,
+)
+from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.hardware import _sys_info, GfxDriver
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.args import (
@@ -16,7 +26,13 @@ from archinstall.lib.general.general_menu import (
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, SysCommand
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.models import Bootloader
+from archinstall.lib.models import (
+    Bootloader,
+    Audio,
+    AudioConfiguration,
+    ApplicationConfiguration,
+    BluetoothConfiguration,
+)
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
@@ -33,8 +49,9 @@ import shlex
 import shutil
 from dataclasses import dataclass, field
 from textwrap import dedent
-from utils import log, run_dmc, ask_pass, yes_no
+from utils import log, run_dmc, yes_no
 from archinstall.lib.profile.profiles_handler import profile_handler
+from archinstall.applications.audio import AudioApp
 
 
 class UsrSrv(BaseModel):
@@ -144,7 +161,6 @@ class NoahConfig:
                 "systemctl-tui",
                 "base-devel",
                 "logrotate",
-                "ly",
                 "plymouth",
                 "rebuild-detector",
                 "reflector",
@@ -1296,11 +1312,14 @@ def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> No
 def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu = GlobalMenu(arch_config_handler.config)
     global_menu.disable_all()
-    global_menu.set_enabled("archinstall_language", True)
-    global_menu.set_enabled("hostname", True)
-    global_menu.set_enabled("locale_config", True)
-    global_menu.set_enabled("auth_config", True)
     global_menu.set_enabled("disk_config", True)
+    global_menu.set_enabled("archinstall_language", True)
+    global_menu.set_enabled("locale_config", True)
+    global_menu.set_enabled("timezone", True)
+    global_menu.set_enabled("hostname", True)
+    global_menu.set_enabled("auth_config", True)
+    global_menu.set_enabled("applications", True)
+    global_menu.set_enabled("packages", True)
     global_menu.set_enabled("__config__", True)
     result: ArchConfig | None = tui.run(global_menu)
     if result is None:
@@ -1309,10 +1328,11 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
 
 def perform_installation(
     arch_config_handler: ArchConfigHandler,
+    application_handler: ApplicationHandler,
     cf: NoahConfig,
+    gfx_drivers: list[GfxDriver],
 ) -> None:
     script_d = Path(__file__).resolve().parent
-    user_home = f"home/{cf.user_name}"
     start_time = time.monotonic()
     info("Starting installation...")
     config = arch_config_handler.config
@@ -1321,7 +1341,7 @@ def perform_installation(
         return
     disk_config = config.disk_config
     mountpoint = Path("/mnt/arch")
-    locale_config = config.locale_config
+    locale = config.locale_config
     with Installer(mountpoint, disk_config, [], list(cf.kernel)) as installation:
         installation._hooks = list(cf.mkinit_hooks)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -1334,27 +1354,23 @@ def perform_installation(
             ):
                 installation.generate_key_files()
         generate_pacman_conf(mnt_point=None, no_extracts=list(cf.no_extracts))
-        installation.minimal_installation(
-            hostname=config.hostname, locale_config=locale_config
-        )
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        installation.setup_swap()
+        installation.minimal_installation(
+            hostname=config.hostname, locale_config=locale
+        )
+        if config.swap and config.swap.enabled:
+            installation.setup_swap(algo=config.swap.algorithm)
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config()
-        installation.set_timezone(cf.timezone)
+        installation.set_timezone(config.timezone)
         generate_pacman_conf(mountpoint, list(cf.no_extracts))
         chaotic_repo(mountpoint)
-        installation.add_additional_packages(
-            list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
-        )
-        gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
-        if GfxDriver.VMOpenSource not in gfx_drivers:
-            pkgs = list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"])
-            installation.add_additional_packages(pkgs)
+        if config.packages and config.packages[0] != "":
+            installation.add_additional_packages(config.packages)
         sys_dots(mountpoint, script_d)
         profile_handler.install_greeter(installation, GreeterType.Ly)
         installation.enable_service(list(cf.sys_services + cf.custom_services))
@@ -1377,23 +1393,44 @@ def perform_installation(
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
-        configure_sudo(mountpoint, cf.user_name, pless=True)
-        cmd = [f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"]
-        run_chroot(cmd, mountpoint, cf.user_name)
-        run_chroot(["xdg-user-dirs-update"], mountpoint, cf.user_name)
-        configure_sudo(mountpoint, cf.user_name)
-        copy_dir(script_d, (mountpoint / user_home / script_d.name))
-        installation.chown(cf.user_name, str(mountpoint / user_home / script_d.name))
-        copy_keys(mountpoint, cf.usb_key_dir, cf.user_name, cf.to_cp)
-        user_service(mountpoint, cf.user_name, cf.terminal)
-        enable_user_serv(mountpoint, list(cf.usr_srv), cf.user_name)
-        dir_p = f"home/{cf.user_name}/.local/share/applications"
-        for app in cf.apps_to_hide:
-            file_p = f"{dir_p}/{app}.desktop"
-            (mountpoint / file_p).write_text("[Desktop Entry]\nHide=true\n")
-        cmd = [f"chown -R {cf.user_name}:{cf.user_name} /{dir_p}"]
-        run_chroot(cmd, mountpoint)
+                audio = AudioApp()
+                audio.install(
+                    installation,
+                    AudioConfiguration(Audio.PIPEWIRE),
+                    config.auth_config.users,
+                )
+                for user in config.auth_config.users:
+                    user_home = f"home/{user.username}"
+                    for app in cf.apps_to_hide:
+                        file_p = f"home/{user.username}/.local/share/applications/{app}.desktop"
+                        (mountpoint / file_p).write_text("[Desktop Entry]\nHide=true\n")
+                        installation.chown(user.username, str(mountpoint / user_home))
+                    configure_sudo(mountpoint, user.username, pless=True)
+                    cmd = [f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"]
+                    run_chroot(cmd, mountpoint, user.username)
+                    configure_sudo(mountpoint, user.username)
+                    run_chroot(["xdg-user-dirs-update"], mountpoint, user.username)
+                    copy_dir(script_d, (mountpoint / user_home / script_d.name))
+                    installation.chown(
+                        user.username, str(mountpoint / user_home / script_d.name)
+                    )
+                    copy_keys(mountpoint, cf.usb_key_dir, user.username, cf.to_cp)
+                    user_service(mountpoint, user.username, cf.terminal)
+                    enable_user_serv(mountpoint, list(cf.usr_srv), user.username)
+        if app_config := config.app_config:
+            application_handler.install_applications(installation, app_config)
         install_icon_theme(mountpoint)
+        if disk_config.has_default_btrfs_vols():
+            btrfs_options = disk_config.btrfs_options
+            snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
+            snapshot_type = snapshot_config.snapshot_type if snapshot_config else None
+            if snapshot_type:
+                bootloader = (
+                    config.bootloader_config.bootloader
+                    if config.bootloader_config
+                    else None
+                )
+                installation.setup_btrfs_snapshot(snapshot_type, bootloader)
         installation.genfstab()
         modify_fstab(mountpoint)
         debug(f"Disk states after installing:\n{disk_layouts()}")
@@ -1422,6 +1459,21 @@ def main() -> None:
     user = User(cf.user_name, Password(pw), True, list(cf.groups))
     arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
     arch_config_handler.config.hostname = cf.hostname
+    arch_config_handler.config.swap = ZramConfiguration(enabled=True)
+    arch_config_handler.config.timezone = cf.timezone
+    arch_config_handler.config.app_config = ApplicationConfiguration(
+        BluetoothConfiguration(True),
+        AudioConfiguration(Audio.PIPEWIRE),
+        PowerManagementConfiguration(PowerManagement.TUNED),
+        None,
+        FirewallConfiguration(Firewall.FWD),
+        FontsConfiguration([FontPackage.EMOJI, FontPackage.LIBERATION]),
+    )
+    gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
+    pkgs = list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
+    if GfxDriver.VMOpenSource not in gfx_drivers:
+        pkgs.extend(list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"]))
+    arch_config_handler.config.packages = pkgs
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
@@ -1442,7 +1494,7 @@ def main() -> None:
     cmd = ["reflector", *(part for opt in cf.reflector_options for part in opt.split())]
     run_dmc(cmd)
     generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
-    perform_installation(arch_config_handler, cf)
+    perform_installation(arch_config_handler, ApplicationHandler(), cf, gfx_drivers)
 
 
 if __name__ == "__main__":
