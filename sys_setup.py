@@ -1261,12 +1261,35 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
 def perform_installation(
     arch_config_handler: ArchConfigHandler,
     cf: NoahConfig,
-    pacman_content: str,
 ) -> None:
     script_d = Path(__file__).resolve().parent
     user_home = f"home/{cf.user_name}"
     start_time = time.monotonic()
     info("Starting installation...")
+    run(["reflector", *(part for opt in cf.reflector_options for part in opt.split())])
+    pacman_content: str = dedent("""\
+        [options]
+        HoldPkg = pacman glibc
+        Architecture = auto
+        Color
+        ILoveCandy
+        ParallelDownloads = 10
+        DownloadUser = alpm
+        SigLevel    = Required DatabaseOptional
+        LocalFileSigLevel = Optional
+        NoExtract = etc/xdg/autostart/firewall-applet.desktop
+        NoExtract = usr/share/icons/capitaine-cursors/*
+
+        [core]
+        Include = /etc/pacman.d/mirrorlist
+
+        [extra]
+        Include = /etc/pacman.d/mirrorlist
+
+        [multilib]
+        Include = /etc/pacman.d/mirrorlist
+    """)
+    write_files({"etc/pacman.conf": pacman_content}, mnt_point=None)
     config = arch_config_handler.config
     if not config.disk_config:
         error("No disk configuration provided")
@@ -1390,38 +1413,14 @@ def main(pw: str, cf: NoahConfig) -> None:
         if not delayed_warning("Starting device modifications in "):
             return main(pw, cf)
         fs_handler.perform_filesystem_operations()
-    run(["reflector", *(part for opt in cf.reflector_options for part in opt.split())])
-    pacman_content: str = dedent("""\
-        [options]
-        HoldPkg = pacman glibc
-        Architecture = auto
-        Color
-        ILoveCandy
-        ParallelDownloads = 10
-        DownloadUser = alpm
-        SigLevel    = Required DatabaseOptional
-        LocalFileSigLevel = Optional
-        NoExtract = etc/xdg/autostart/firewall-applet.desktop
-        NoExtract = usr/share/icons/capitaine-cursors/*
-
-        [core]
-        Include = /etc/pacman.d/mirrorlist
-
-        [extra]
-        Include = /etc/pacman.d/mirrorlist
-
-        [multilib]
-        Include = /etc/pacman.d/mirrorlist
-    """)
-    write_files({"etc/pacman.conf": pacman_content}, mnt_point=None)
-    perform_installation(arch_config_handler, cf, pacman_content)
+    perform_installation(arch_config_handler, cf)
 
 
 if __name__ == "__main__":
-    cf = NoahConfig()
+    # cf = NoahConfig()
     print(_sys_info)
-    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
-    if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
-        log.info("No password file found. Please enter Password")
-        pw = ask_pass(cf.user_name)
-    main(pw, cf)
+    # mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
+    # if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
+    #     log.info("No password file found. Please enter Password")
+    #     pw = ask_pass(cf.user_name)
+    # main(pw, cf)
