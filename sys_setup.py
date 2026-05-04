@@ -1418,11 +1418,12 @@ def main(pw: str, cf: NoahConfig) -> None:
 
 if __name__ == "__main__":
     # cf = NoahConfig()
-    print(_sys_info)
     print("Battery Status:", _sys_info.has_battery)
-    print("\nCPU Info:")
-    for key, value in _sys_info.cpu_info.items():
-        print(f"{key}: {value}")
+    vendor_id = _sys_info.cpu_info.get("vendor_id", None)
+    if vendor_id:
+        print(f"vendor_id: {vendor_id}")
+    else:
+        print("vendor_id not found")
     print("\nGraphics Devices:")
     for device, details in _sys_info.graphics_devices.items():
         print(f"{device}: {details}")
