@@ -576,6 +576,8 @@ def mnt_cp_keys(
     usb_mnt: Path = Path("/mnt/usb"),
     home: Path = Path.home(),
 ):
+    if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
+        run_cmd(["umount", str(usb_mnt)], check=True)
     missing = []
     if key_dir and key_files:
         missing += [k for k in key_files if not (home / key_dir / k).exists()]
@@ -584,8 +586,6 @@ def mnt_cp_keys(
     if not missing:
         log.info("All required files present.")
         return
-    if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
-        run_cmd(["umount", str(usb_mnt)], check=True)
     if not yes_no(f"Mount USB to copy {', '.join(missing)}"):
         return
     selected = get_device()
