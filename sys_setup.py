@@ -1334,7 +1334,7 @@ def perform_installation(
             hostname=cf.hostname, locale_config=locale_config
         )
         copy_file(
-            Path("/etc/pacman.d/mirrorlist"), mountpoint / "/etc/pacman.d/mirrorlist"
+            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
         installation.setup_swap()
         installation.add_bootloader(Bootloader.Systemd)
