@@ -1284,12 +1284,9 @@ def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> No
 
 def generate_pacman_conf(
     mnt_point: Path | None,
+    no_extracts: list = [],
     parallel_downloads: int = 10,
     multilib: bool = True,
-    no_extracts: list = [
-        "etc/xdg/autostart/firewall-applet.desktop",
-        "usr/share/icons/capitaine-cursors/*",
-    ],
 ):
     no_extract_lines = "\n        ".join(
         [f"NoExtract = {item}" for item in no_extracts]
@@ -1346,7 +1343,7 @@ def perform_installation(
         return
     disk_config = config.disk_config
     with Installer(mountpoint, disk_config, kernels=list(cf.kernel)) as installation:
-        # installation._hooks = list(cf.mkinit_hooks)
+        installation._hooks = list(cf.mkinit_hooks)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -1361,7 +1358,7 @@ def perform_installation(
             *(part for opt in cf.reflector_options for part in opt.split()),
         ]
         run_dmc(cmd)
-        generate_pacman_conf(mnt_point=None)
+        generate_pacman_conf(mnt_point=None, no_extracts=list(cf.no_extracts))
         installation.minimal_installation(hostname=cf.hostname)
         ###############-Install reflector-###############
         mirror_list = "etc/pacman.d/mirrorlist"
@@ -1377,7 +1374,6 @@ def perform_installation(
         installation.add_additional_packages(
             list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
         )
-
         vm = False
         for driver in get_gfx_drivers(_sys_info.graphics_devices):
             profile_handler.install_gfx_driver(installation, driver)
@@ -1386,7 +1382,6 @@ def perform_installation(
         if not vm:
             pkgs = list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"])
             installation.add_additional_packages(pkgs)
-
         #############-Sys Services-###############
         sys_dots(mountpoint, script_d)
         profile_handler.install_greeter(installation, GreeterType.Ly)
@@ -1447,12 +1442,10 @@ def perform_installation(
 
 def main() -> None:
     cf = NoahConfig()
-
     mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
     if not (pw := src_pass_file(cf.usb_key_dir, cf.my_pass)):
         log.info("No password file found. Please enter Password")
         pw = ask_pass(cf.user_name)
-
     arch_config_handler = ArchConfigHandler()
     user = User(
         username=cf.user_name, password=Password(pw), sudo=True, groups=list(cf.groups)
@@ -1475,7 +1468,7 @@ def main() -> None:
         if not delayed_warning("Starting device modifications in "):
             return main()
         fs_handler.perform_filesystem_operations()
-    generate_pacman_conf(None)
+    generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
     perform_installation(arch_config_handler, cf)
 
 
