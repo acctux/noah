@@ -1215,7 +1215,7 @@ def user_service(
         WantedBy=graphical-session.target
         """
     )
-    (mnt_point / dir_path).write_text(content)
+    (mnt_point / dir_path / name).write_text(content)
     unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
     enable_user_serv(mnt_point, [unit], username)
 
