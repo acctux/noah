@@ -840,8 +840,8 @@ class NoahConfig:
                 xsessions = /usr/share/xsessions
             """),
             "etc/tmpfiles.d/mpd.conf": dedent(f"""\
-                d /home/{cf.user_name}/.cache/mpd 0755 {cf.user_name} mpd -
-                d /home/{cf.user_name}/.cache/mpd/playlists 0755 {cf.user_name} mpd -
+                d /home/{NoahConfig.user_name}/.cache/mpd 0755 {NoahConfig.user_name} mpd -
+                d /home/{NoahConfig.user_name}/.cache/mpd/playlists 0755 {NoahConfig.user_name} mpd -
             """),
         }
     )
