@@ -30,7 +30,7 @@ import json
 import re
 import shlex
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from textwrap import dedent
 from utils import get_logger, run_cmd, ask_pass, yes_no
 from etc_conf import ly_etc, hardware_etc, net_etc, user_dirs_etc, sys_etc
@@ -68,13 +68,12 @@ class Config:
         "my_sec_gpg.asc",
         "pass.txt",
     )
-    to_cp: dict[str, tuple[str, ...]] = {
-        ".ssh": (
-            "id_ed25519",
-            "pass.txt",
-        ),
-        ".gnupg": ("my_sec_gpg.asc",),
-    }
+    to_cp: dict[str, tuple[str, ...]] = field(
+        default_factory=lambda: {
+            ".ssh": ("id_ed25519", "pass.txt"),
+            ".gnupg": ("my_sec_gpg.asc",),
+        }
+    )
     firefox_browser: str = "floorp"
     firefox_extensions: tuple[str, ...] = (
         "return-youtube-dislikes",
