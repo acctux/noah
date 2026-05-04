@@ -1277,7 +1277,7 @@ def generate_pacman_conf(
 def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu = GlobalMenu(arch_config_handler.config)
     global_menu.disable_all()
-    global_menu.set_enabled("locales", True)
+    global_menu.set_enabled("locale_config", True)
     global_menu.set_enabled("disk_config", True)
     global_menu.set_enabled("__config__", True)
     result: ArchConfig | None = tui.run(global_menu)
