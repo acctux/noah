@@ -51,21 +51,21 @@ class NoahConfig:
     user_name: str = "nick"
     hostname: str = "yulia"
     timezone: str = "US/Eastern"
-    kernel: tuple[str, ...] = ("linux",)
-    groups: tuple[str, ...] = ("adm", "games", "realtime", "storage", "video")
-    terminal: str = "kitty"
     dots_git_repo: str = "acctux/polka"
     usb_key_dir: str = "keys"
     wireguard_dir: str = "wireguard"
     my_pass: str = "pass.py"
+    parallel_downloads: int = 10
+    multilib: bool = True
+    kernel: tuple[str, ...] = ("linux",)
+    groups: tuple[str, ...] = ("adm", "games", "realtime", "storage", "video")
+    terminal: str = "kitty"
     usb_cp_files: tuple[str, ...] = (
         "id_ed25519",
         "my_sec_gpg.asc",
         "pass.txt",
         my_pass,
     )
-    parallel_downloads: int = 10
-    multilib: bool = True
     no_extracts: tuple[str, ...] = (
         "etc/xdg/autostart/firewall-applet.desktop",
         "usr/share/icons/capitaine-cursors/*",
@@ -883,12 +883,6 @@ class NoahConfig:
     )
 
 
-###########################################################
-# CONSTANTS
-###########################################################
-mountpoint = Path("/mnt/arch")
-
-
 #########################
 # UTILS
 #########################
@@ -922,7 +916,7 @@ def src_pass_file(usb_key_dir: str, pass_file: str):
             return pw
         except Exception as e:
             log.error(f"{e}")
-    log.warning(f"{key_path} not found or unreadable.")
+    log.warning(f"{key_path} not found.")
 
 
 def copy_file(src: Path, dest: Path) -> None:
@@ -943,26 +937,10 @@ def copy_dir(src: Path, dest: Path) -> None:
     log.info(f"Copied directory: {src} -> {dest}")
 
 
-def write_files(files: dict[str, str], mnt_point: Path | None) -> None:
-    for path, content in files.items():
-        flush_content = "\n".join(line.lstrip() for line in content.splitlines())
-        path_obj = (mnt_point or Path("/")) / path.lstrip("/")
-        path_obj.parent.mkdir(parents=True, exist_ok=True)
-        path_obj.write_text(flush_content + "\n")
-        log.info(f"Wrote {path_obj}")
-
-
 ###################################
 # USB Files
 ###################################
-def get_device(min_gb=20, usb_fs_type="ext4") -> str:
-    data = json.loads(
-        subprocess.check_output(
-            ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
-        )
-    )
-    candidates = []
-
+def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
     def recurse(devices):
         for dev in devices:
             if (
@@ -981,6 +959,12 @@ def get_device(min_gb=20, usb_fs_type="ext4") -> str:
             if "children" in dev:
                 recurse(dev["children"])
 
+    data = json.loads(
+        subprocess.check_output(
+            ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
+        )
+    )
+    candidates = []
     recurse(data["blockdevices"])
     while True:
         print(
@@ -1041,22 +1025,6 @@ def mnt_cp_keys(
         time.sleep(1)
 
 
-def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
-    gfx_drivers = []
-    for device, _ in graphics_devices.items():
-        device = device.lower()
-        print(device)
-        if "nvidia" in device or "geforce" in device:
-            gfx_drivers.append(GfxDriver.NvidiaOpenKernel)
-        elif "amd" in device or "ati" in device:
-            gfx_drivers.append(GfxDriver.AmdOpenSource)
-        elif "intel" in device:
-            gfx_drivers.append(GfxDriver.IntelOpenSource)
-        else:
-            gfx_drivers.append(GfxDriver.VMOpenSource)
-    return gfx_drivers
-
-
 ###################################
 # PACMAN
 ###################################
@@ -1083,11 +1051,63 @@ def chaotic_repo(mnt_point: Path):
     run_chroot(["pacman -Sy"], mnt_point)
 
 
+def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
+    gfx_drivers = []
+    for device, _ in graphics_devices.items():
+        device = device.lower()
+        if "nvidia" in device or "geforce" in device:
+            gfx_drivers.append(GfxDriver.NvidiaOpenKernel)
+        elif "amd" in device or "ati" in device:
+            gfx_drivers.append(GfxDriver.AmdOpenSource)
+        elif "intel" in device:
+            gfx_drivers.append(GfxDriver.IntelOpenSource)
+        else:
+            gfx_drivers.append(GfxDriver.VMOpenSource)
+    return gfx_drivers
+
+
+def generate_pacman_conf(
+    mnt_point: Path | None,
+    no_extracts: list = [],
+    parallel_downloads: int = 10,
+    multilib: bool = True,
+):
+    pacman_p = "etc/pacman.conf"
+    pac_mnt_p = Path("/") / pacman_p
+    if mnt_point:
+        pac_mnt_p = mnt_point / pacman_p
+    no_extract_lines = "\n        ".join(
+        [f"NoExtract = {item}" for item in no_extracts]
+    )
+    pacman_content = dedent(f"""
+        [options]
+        HoldPkg = pacman glibc
+        Architecture = auto
+        Color
+        ILoveCandy
+        ParallelDownloads = {parallel_downloads}
+        DownloadUser = alpm
+        SigLevel    = Required DatabaseOptional
+        LocalFileSigLevel = Optional
+        {no_extract_lines}
+
+        [core]
+        Include = /etc/pacman.d/mirrorlist
+
+        [extra]
+        Include = /etc/pacman.d/mirrorlist
+
+        {"[multilib]\n        Include = /etc/pacman.d/mirrorlist" if multilib else ""}
+    """)
+    pac_mnt_p.write_text(pacman_content)
+
+
 ###################################
 # ETC/BOOT
 ###################################
-def configure_sudo(user_name: str, mnt_point: Path, pless=False):
-    sudoers_content = dedent(f"""\
+def configure_sudo(mnt_point: Path, user_name: str, pless=False):  #
+    sudoers_content = dedent(
+        f"""\
         {user_name} ALL=(ALL:ALL) {"NOPASSWD:ALL" if pless else "ALL"}
         Defaults    insults
         Defaults    passwd_tries=10
@@ -1096,8 +1116,9 @@ def configure_sudo(user_name: str, mnt_point: Path, pless=False):
         Defaults    timestamp_timeout=20
         Defaults    timestamp_type=global
         Defaults    editor=/usr/sbin/nvim, !env_editor
-    """)
-    write_files({f"etc/sudoers.d/00_{user_name}": sudoers_content}, mnt_point)
+        """
+    )
+    (mnt_point / f"etc/sudoers.d/00_{user_name}").write_text(sudoers_content)
     log.info(f"{'Removed' if pless else 'Created'} pass requirement for {user_name}")
 
 
@@ -1134,8 +1155,6 @@ def plymouth_setup(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
 def modify_fstab(mnt_point: Path) -> None:
     fstab_path = mnt_point / "etc" / "fstab"
     content = fstab_path.read_text()
-    # ^(?!#) = ignore comments, .*? = match any characters up to the \option\
-    # \bfmask=\d+  → word boundary, then  digits
     content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
     content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
     fstab_path.write_text(content)
@@ -1156,7 +1175,7 @@ def modify_mkinit(mnt_point: Path, hooks: list[str], plymouth: bool):
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(units: list[UsrSrv], mnt_point: Path, username: str):
+def enable_user_serv(units: list[UsrSrv], mnt_point: Path, username: str) -> None:
     user_commands: list[str] = []
     base_dir = Path(f"/home/{username}/.config/systemd/user")
     for unit in units:
@@ -1176,31 +1195,29 @@ def user_service(
     terminal: str,
     user_script="user_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
-):
+) -> None:
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
-    dir_path = f"home/{username}/.config/systemd/user"
+    dir_path = Path(f"/home/{username}/.config/systemd/user")
     run_script = f"/home/{username}/{script_dir}/{user_script}"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
-    write_files(
-        {
-            f"{dir_path}/{name}": dedent(f"""\
-                [Unit]
-                Description=Open {terminal} {run_script} on login
-                After=graphical-session.target
+    content = dedent(
+        f"""\
+        [Unit]
+        Description=Open {terminal} {run_script} on login
+        After=graphical-session.target
 
-                [Service]
-                Type=oneshot
-                ExecStart=/usr/bin/{terminal} python {run_script}
-                Restart=no
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/bin/{terminal} python {run_script}
+        Restart=no
 
-                [Install]
-                WantedBy=graphical-session.target
-            """)
-        },
-        mnt_point,
+        [Install]
+        WantedBy=graphical-session.target
+        """
     )
-    unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
+    (mnt_point / dir_path).write_text(content)
+    unit = UsrSrv(source=str(dir_path), target="graphical-session", services=[name])
     enable_user_serv([unit], mnt_point, username)
 
 
@@ -1209,11 +1226,11 @@ def user_service(
 ###################################
 def install_icon_theme(
     mnt_point: Path,
-    git="vinceliuice/WhiteSur-icon-theme",
-    old="#ffffff",
-    new="#F4F5F6",
-    icon_dir="/usr/share/icons",
-):
+    git: str = "vinceliuice/WhiteSur-icon-theme",
+    old: str = "#ffffff",
+    new: str = "#F4F5F6",
+    icon_dir: str = "/usr/share/icons",
+) -> None:
     tmp = "/tmp/icons"
     cmd = [f"git clone https://github.com/{git}.git {tmp}", f"bash {tmp}/install.sh"]
     run_chroot(cmd, mnt_point)
@@ -1227,12 +1244,11 @@ def install_icon_theme(
 
 
 def hide_apps(mnt_point: Path, username: str, applications: list[str]) -> None:
-    user_dir = f"home/{username}/.local/share/applications"
+    dir_p = f"home/{username}/.local/share/applications"
     for app in applications:
-        app = f"{app}.desktop"
-        files_dict = {f"{user_dir}/{app}": "[Desktop Entry]\nHide=true\n"}
-        write_files(files_dict, mnt_point)
-    cmd = [f"chown -R {username}:{username} /home/{username}/.local/share/applications"]
+        file_p = f"{dir_p}/{app}.desktop"
+        (mnt_point / file_p).write_text("[Desktop Entry]\nHide=true\n")
+    cmd = [f"chown -R {username}:{username} /{dir_p}"]
     run_chroot(cmd, mnt_point)
 
 
@@ -1282,38 +1298,6 @@ def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> No
         log.info("Firefox extensions updated successfully.")
 
 
-def generate_pacman_conf(
-    mnt_point: Path | None,
-    no_extracts: list = [],
-    parallel_downloads: int = 10,
-    multilib: bool = True,
-):
-    no_extract_lines = "\n        ".join(
-        [f"NoExtract = {item}" for item in no_extracts]
-    )
-    pacman_content = dedent(f"""
-        [options]
-        HoldPkg = pacman glibc
-        Architecture = auto
-        Color
-        ILoveCandy
-        ParallelDownloads = {parallel_downloads}
-        DownloadUser = alpm
-        SigLevel    = Required DatabaseOptional
-        LocalFileSigLevel = Optional
-        {no_extract_lines}
-
-        [core]
-        Include = /etc/pacman.d/mirrorlist
-
-        [extra]
-        Include = /etc/pacman.d/mirrorlist
-
-        {"[multilib]\n        Include = /etc/pacman.d/mirrorlist" if multilib else ""}
-    """)
-    write_files({"etc/pacman.conf": pacman_content}, mnt_point=mnt_point)
-
-
 ###################################
 # Archinstall
 ###################################
@@ -1342,7 +1326,8 @@ def perform_installation(
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
-    with Installer(mountpoint, disk_config, kernels=list(cf.kernel)) as installation:
+    mountpoint = Path("/mnt/arch")
+    with Installer(mountpoint, disk_config, [], list(cf.kernel)) as installation:
         installation._hooks = list(cf.mkinit_hooks)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
@@ -1353,75 +1338,61 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-        cmd = [
-            "reflector",
-            *(part for opt in cf.reflector_options for part in opt.split()),
-        ]
-        run_dmc(cmd)
         generate_pacman_conf(mnt_point=None, no_extracts=list(cf.no_extracts))
         installation.minimal_installation(hostname=cf.hostname)
-        ###############-Install reflector-###############
-        mirror_list = "etc/pacman.d/mirrorlist"
-        copy_file(Path(f"/{mirror_list}"), mountpoint / mirror_list)
-        ####################-Systemd-####################
+        mirror_list = "/etc/pacman.d/mirrorlist"
+        copy_file(Path(mirror_list), mountpoint / mirror_list)
         installation.setup_swap()
         installation.add_bootloader(Bootloader.Systemd)
         installation.copy_iso_network_config()
         installation.set_timezone(cf.timezone)
-        #############-Pkg Management-###############
         generate_pacman_conf(mnt_point=mountpoint)
         chaotic_repo(mountpoint)
         installation.add_additional_packages(
             list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
         )
-        vm = False
-        for driver in get_gfx_drivers(_sys_info.graphics_devices):
+        gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
+        for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
-            if driver == GfxDriver.VMOpenSource:
-                vm = True
-        if not vm:
-            pkgs = list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"])
-            installation.add_additional_packages(pkgs)
-        #############-Sys Services-###############
+        if not any(driver == GfxDriver.VMOpenSource for driver in gfx_drivers):
+            xtra_pkgs = list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"])
+            installation.add_additional_packages(xtra_pkgs)
         sys_dots(mountpoint, script_d)
         profile_handler.install_greeter(installation, GreeterType.Ly)
         installation.enable_service(list(cf.sys_services + cf.custom_services))
         installation.disable_service(list(cf.disable_svcs))
-        #############-Plymouth-###############
         # modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
         plymouth_setup(mountpoint)
-        #############-Etc Management-###############
-        write_files({**cf.etc_files_to_write}, mountpoint)
+        for filepath, content in cf.etc_files_to_write.items():
+            full_path = mountpoint / filepath
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            with full_path.open("w") as file:
+                file.write(content)
+                log.info(f"Content: {content}\nWritten to: {full_path}")
         copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
         refl_opts_str = "\n".join(cf.reflector_options)
-        write_files({"etc/xdg/reflector/reflector.conf": refl_opts_str}, mountpoint)
+        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(refl_opts_str)
         set_firefox_extensions(
             mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
         )
-        #############-User and Sudo-###############
         clone_dots_to_skel(mountpoint, cf.dots_git_repo)
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
-        configure_sudo(cf.user_name, mountpoint, pless=True)
+        # configure_sudo(cf.user_name, mountpoint, pless=True)
         cmd = [f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"]
         run_chroot(cmd, mountpoint, cf.user_name)
         run_chroot(["xdg-user-dirs-update"], mountpoint, cf.user_name)
-        configure_sudo(cf.user_name, mountpoint)
-        #############-Copy Keys and Script Dir-#############
+        configure_sudo(mountpoint, cf.user_name)
         copy_dir(script_d, (mountpoint / user_home / script_d.name))
         installation.chown(cf.user_name, str(mountpoint / user_home / script_d.name))
         copy_keys(mountpoint, cf.usb_key_dir, cf.user_name, cf.to_cp)
-        #############-User Services-#############
         user_service(mountpoint, cf.user_name, cf.terminal)
         enable_user_serv(list(cf.usr_srv), mountpoint, cf.user_name)
-        #############-Apps/Icons-#############
         hide_apps(mountpoint, cf.user_name, list(cf.apps_to_hide))
         install_icon_theme(mountpoint)
-        #############-Fstab-###############
         installation.genfstab()
         modify_fstab(mountpoint)
-        ############-Menu-###############
         debug(f"Disk states after installing:\n{disk_layouts()}")
         if not arch_config_handler.args.silent:
             elapsed_time = time.monotonic() - start_time
@@ -1447,9 +1418,7 @@ def main() -> None:
         log.info("No password file found. Please enter Password")
         pw = ask_pass(cf.user_name)
     arch_config_handler = ArchConfigHandler()
-    user = User(
-        username=cf.user_name, password=Password(pw), sudo=True, groups=list(cf.groups)
-    )
+    user = User(cf.user_name, Password(pw), True, list(cf.groups))
     arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
@@ -1468,6 +1437,8 @@ def main() -> None:
         if not delayed_warning("Starting device modifications in "):
             return main()
         fs_handler.perform_filesystem_operations()
+    cmd = ["reflector", *(part for opt in cf.reflector_options for part in opt.split())]
+    run_dmc(cmd)
     generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
     perform_installation(arch_config_handler, cf)
 
