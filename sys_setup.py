@@ -1423,10 +1423,6 @@ if __name__ == "__main__":
     print("\nCPU Info:")
     for key, value in _sys_info.cpu_info.items():
         print(f"{key}: {value}")
-    print("\nMemory Info:")
-    for key, value in _sys_info.mem_info.items():
-        print(f"{key}: {value} kB")
-    print("\nLoaded Kernel Modules:")
     print("\nGraphics Devices:")
     for device, details in _sys_info.graphics_devices.items():
         print(f"{device}: {details}")
