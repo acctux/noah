@@ -1318,7 +1318,7 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu.set_enabled("timezone", True)
     global_menu.set_enabled("hostname", True)
     global_menu.set_enabled("auth_config", True)
-    global_menu.set_enabled("applications", True)
+    global_menu.set_enabled("app_config", True)
     global_menu.set_enabled("packages", True)
     global_menu.set_enabled("__config__", True)
     result: ArchConfig | None = tui.run(global_menu)
