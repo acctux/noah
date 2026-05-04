@@ -588,9 +588,10 @@ def mnt_cp_keys(
             copy_file(usb_mnt / key_dir / k, home / key_dir / k)
     if wireguard_dir:
         copy_dir(usb_mnt / wireguard_dir, home / wireguard_dir)
-    time.sleep(2)
+    time.sleep(1)
     if yes_no("Files copied, unmount?"):
         run_cmd(["umount", str(usb_mnt)], check=True)
+        time.sleep(1)
 
 
 def gfx_drivers() -> list[str]:
