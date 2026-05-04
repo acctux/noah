@@ -68,10 +68,12 @@ class Config:
         "my_sec_gpg.asc",
         "pass.txt",
     )
-    to_cp: dict[str, list[str]] = {
-        ".ssh": ["id_ed25519"],
-        ".gnupg": ["my_sec_gpg.asc"],
-        "scripts": ["pass.txt"],
+    to_cp: dict[str, tuple[str, ...]] = {
+        ".ssh": (
+            "id_ed25519",
+            "pass.txt",
+        ),
+        ".gnupg": ("my_sec_gpg.asc",),
     }
     firefox_browser: str = "floorp"
     firefox_extensions: tuple[str, ...] = (
@@ -814,21 +816,21 @@ def clone_dots_to_skel(mnt_point: Path, git_repo: str) -> None:
 
 
 def copy_keys(
-    mnt_point: Path, usb_key_dir: str, username: str, to_cp: dict[str, list[str]]
+    mnt_point: Path, usb_key_dir: str, username: str, to_cp: dict[str, tuple[str, ...]]
 ) -> None:
     chown_cmds = []
-    for folder, files_list in to_cp.items():
-        sys_dir = f"home/{username}/{folder}"
-        mnt_dir = mnt_point / sys_dir
+    for folder, files in to_cp.items():
+        sys_path = Path("home") / username / folder
+        mnt_dir = mnt_point / sys_path
         mnt_dir.mkdir(parents=True, exist_ok=True)
         mnt_dir.chmod(0o700)
-        chown_cmds.append(f"chown {username}:{username} /{sys_dir}")
-        for f in files_list:
-            dest = mnt_dir / f
-            src = Path(f"/root/{usb_key_dir}/{f}")
+        chown_cmds.append(f"chown {username}:{username} /{sys_path}")
+        for name in files:
+            src = Path("/root") / usb_key_dir / name
+            dest = mnt_dir / name
             copy_file(src, dest)
-            chown_cmds.append(f"chown {username}:{username} /{sys_dir}/{f}")
             dest.chmod(0o600)
+            chown_cmds.append(f"chown {username}:{username} /{sys_path / name}")
     if chown_cmds:
         run_chroot(chown_cmds, mnt_point)
 
