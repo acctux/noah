@@ -1297,6 +1297,7 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu = GlobalMenu(arch_config_handler.config)
     global_menu.disable_all()
     global_menu.set_enabled("archinstall_language", True)
+    global_menu.set_enabled("hostname", True)
     global_menu.set_enabled("locale_config", True)
     global_menu.set_enabled("auth_config", True)
     global_menu.set_enabled("disk_config", True)
@@ -1334,7 +1335,7 @@ def perform_installation(
                 installation.generate_key_files()
         generate_pacman_conf(mnt_point=None, no_extracts=list(cf.no_extracts))
         installation.minimal_installation(
-            hostname=cf.hostname, locale_config=locale_config
+            hostname=config.hostname, locale_config=locale_config
         )
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
@@ -1420,6 +1421,7 @@ def main() -> None:
     arch_config_handler = ArchConfigHandler()
     user = User(cf.user_name, Password(pw), True, list(cf.groups))
     arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
+    arch_config_handler.config.hostname = cf.hostname
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
