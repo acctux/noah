@@ -1415,6 +1415,7 @@ def perform_installation(
                         (mountpoint / file_p).write_text("[Desktop Entry]\nHide=true\n")
                         installation.chown(user.username, f"/{user_home}")
                     installation.chown(user.username, f"/{user_home}/{script_d.name}")
+        sys_dots(mountpoint, script_d)
         installation.enable_service(arch_config_handler.config.services)
         installation.disable_service(list(cf.disable_svcs))
         install_icon_theme(mountpoint)
