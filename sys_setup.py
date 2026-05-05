@@ -33,6 +33,7 @@ from archinstall.lib.models import (
     AudioConfiguration,
     ApplicationConfiguration,
     BluetoothConfiguration,
+    PrintServiceConfiguration,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
@@ -1257,22 +1258,21 @@ def clone_dots_to_skel(mnt_point: Path, git_repo: str) -> None:
 
 def copy_keys(
     mnt_point: Path, usb_key_dir: str, username: str, to_cp: dict[str, tuple[str, ...]]
-) -> None:
-    chown_cmds = []
+) -> list[str]:
+    chown_paths = []
     for folder, files in to_cp.items():
-        sys_path = Path("home") / username / folder
+        sys_path = f"home/{username}/{folder}"
         mnt_dir = mnt_point / sys_path
         mnt_dir.mkdir(parents=True, exist_ok=True)
         mnt_dir.chmod(0o700)
-        chown_cmds.append(f"chown {username}:{username} /{sys_path}")
+        chown_paths.append(f"/{sys_path}")
         for name in files:
             src = Path("/root") / usb_key_dir / name
             dest = mnt_dir / name
             copy_file(src, dest)
             dest.chmod(0o600)
-            chown_cmds.append(f"chown {username}:{username} /{sys_path / name}")
-    if chown_cmds:
-        run_chroot(chown_cmds, mnt_point)
+            chown_paths.append(f"/{sys_path}/{name}")
+    return chown_paths
 
 
 def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> None:
@@ -1331,7 +1331,7 @@ def perform_installation(
     mountpoint = Path("/mnt/arch")
     locale = config.locale_config
     with Installer(mountpoint, disk_config, kernels=config.kernels) as installation:
-        installation._hooks = list(cf.mkinit_hooks)
+        # INSTALLATION
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -1341,6 +1341,7 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
+        # INSTALLATION
         cmd = [
             "reflector",
             *(part for opt in cf.reflector_options for part in opt.split()),
@@ -1356,8 +1357,10 @@ def perform_installation(
         )
         chaotic_repo(mountpoint)
         modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
+        # SWAP
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
+        # BOOTLOADER
         if (
             config.bootloader_config
             and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
@@ -1369,6 +1372,7 @@ def perform_installation(
             )
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 sysd_plymouth_setup(mountpoint)
+        # NETWORK
         installation.copy_iso_network_config(enable_services=True)
         installation.set_timezone(config.timezone)
         for driver in gfx_drivers:
@@ -1383,6 +1387,10 @@ def perform_installation(
             application_handler.install_applications(installation, app_config)
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
+        if timezone := config.timezone:
+            installation.set_timezone(timezone)
+        if config.ntp:
+            installation.activate_time_synchronization()
         for filepath, content in cf.etc_files_to_write.items():
             full_path = mountpoint / filepath
             full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1407,7 +1415,11 @@ def perform_installation(
                 configure_sudo(mountpoint, first_user)
                 first_user_home = f"home/{config.auth_config.users[0].username}"
                 copy_dir(script_d, (mountpoint / first_user_home / script_d.name))
-                copy_keys(mountpoint, cf.usb_key_dir, first_user, cf.to_cp)
+                chown_paths = copy_keys(
+                    mountpoint, cf.usb_key_dir, first_user, cf.to_cp
+                )
+                for ch_p in chown_paths:
+                    installation.chown(first_user, ch_p)
                 for user in config.auth_config.users:
                     run_chroot(["xdg-user-dirs-update"], mountpoint, user.username)
                     enable_user_serv(mountpoint, list(cf.usr_srv), user.username)
@@ -1420,7 +1432,7 @@ def perform_installation(
                         )
                         installation.chown(user.username, f"/{user_home}")
                     installation.chown(user.username, f"/{user_home}/{script_d.name}")
-        installation.enable_service(arch_config_handler.config.services)
+        installation.enable_service(config.services)
         installation.disable_service(list(cf.disable_svcs))
         if disk_config.has_default_btrfs_vols():
             btrfs_options = disk_config.btrfs_options
@@ -1475,7 +1487,7 @@ def main() -> None:
         BluetoothConfiguration(True),
         AudioConfiguration(Audio.PIPEWIRE),
         PowerManagementConfiguration(PowerManagement.TUNED),
-        None,
+        PrintServiceConfiguration(False),
         FirewallConfiguration(Firewall.FWD),
         FontsConfiguration([FontPackage.EMOJI, FontPackage.LIBERATION]),
     )
