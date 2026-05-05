@@ -1299,7 +1299,6 @@ def perform_installation(
 
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
-
         if (
             config.bootloader_config
             and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
@@ -1461,7 +1460,7 @@ def main() -> None:
     arch_config_handler.config.swap = ZramConfiguration(enabled=True)
     arch_config_handler.config.timezone = cf.timezone
     arch_config_handler.config.bootloader_config = BootloaderConfiguration(
-        Bootloader.Systemd, uki=True
+        Bootloader.Systemd, uki=False, removable=False
     )
     arch_config_handler.config.ntp = True
     arch_config_handler.config.kernels = list(cf.kernel)
