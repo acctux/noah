@@ -1347,9 +1347,9 @@ def perform_installation(
         # ]
         # run_dmc(cmd)
         # generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
-        # installation.minimal_installation(
-        #     hostname=config.hostname, locale_config=locale
-        # )
+        installation.minimal_installation(
+            hostname=config.hostname, locale_config=locale
+        )
         # generate_pacman_conf(mountpoint, list(cf.no_extracts))
         # copy_file(
         #     Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
