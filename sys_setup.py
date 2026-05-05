@@ -1330,12 +1330,7 @@ def perform_installation(
     disk_config = config.disk_config
     mountpoint = Path("/mnt/arch")
     locale = config.locale_config
-    with Installer(
-        mountpoint,
-        disk_config,
-        ["base", "sudo", "linux-firmware", "mkinitcpio"],
-        kernels=config.kernels,
-    ) as installation:
+    with Installer(mountpoint, disk_config, kernels=config.kernels) as installation:
         installation._hooks = list(cf.mkinit_hooks)
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
