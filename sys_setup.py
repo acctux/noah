@@ -1402,6 +1402,7 @@ def perform_installation(
             mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
         )
         sys_dots(mountpoint, script_d)
+        install_icon_theme(mountpoint)
         if config.auth_config:
             if config.auth_config.users:
                 first_user = config.auth_config.users[0].username
@@ -1426,7 +1427,6 @@ def perform_installation(
                     installation.chown(user.username, f"/{user_home}/{script_d.name}")
         installation.enable_service(arch_config_handler.config.services)
         installation.disable_service(list(cf.disable_svcs))
-        install_icon_theme(mountpoint)
         if disk_config.has_default_btrfs_vols():
             btrfs_options = disk_config.btrfs_options
             snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
