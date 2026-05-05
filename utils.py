@@ -72,7 +72,7 @@ def run_dmc(
         return subprocess.Popen(cmd).wait()
     log = get_logger("Run CMD")
     try:
-        log.info(f"Running: {' '.join(cmd)}")
+        log.info(" ".join(cmd))
         result = subprocess.run(
             cmd,
             text=True,
