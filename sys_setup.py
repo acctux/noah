@@ -1456,7 +1456,7 @@ def main() -> None:
     if pw := src_pass_file(cf.usb_key_dir, cf.my_pass):
         user = User(cf.user_name, Password(pw), True, list(cf.groups))
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            None, [user]
+            root_enc_password=None, users=[user], u2f_config=None
         )
     arch_config_handler.config.hostname = cf.hostname
     arch_config_handler.config.swap = ZramConfiguration(enabled=True)
