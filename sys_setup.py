@@ -1309,7 +1309,10 @@ def perform_installation(
                 config.bootloader_config.removable,
             )
             if config.bootloader_config.bootloader == Bootloader.Systemd:
-                sysd_plymouth_setup(mountpoint)
+                if config.bootloader_config.uki:
+                    print("Nope")
+                else:
+                    sysd_plymouth_setup(mountpoint)
 
         modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
 
@@ -1460,7 +1463,7 @@ def main() -> None:
     arch_config_handler.config.swap = ZramConfiguration(enabled=True)
     arch_config_handler.config.timezone = cf.timezone
     arch_config_handler.config.bootloader_config = BootloaderConfiguration(
-        Bootloader.Systemd, uki=False, removable=False
+        Bootloader.Systemd, uki=True, removable=False
     )
     arch_config_handler.config.ntp = True
     arch_config_handler.config.kernels = list(cf.kernel)
