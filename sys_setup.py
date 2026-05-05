@@ -1368,8 +1368,12 @@ def perform_installation(
 
         sys_dots(mountpoint, script_d)
 
-        installation.arch_chroot(
-            f"git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git {mountpoint}/tmp/icons"
+        run_dmc(
+            [
+                "gitclone",
+                "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
+                f"{mountpoint}/tmp/icons",
+            ]
         )
         installation.arch_chroot("bash /tmp/install.sh")
 
