@@ -25,7 +25,7 @@ from archinstall.lib.general.general_menu import (
     select_post_installation,
 )
 from archinstall.lib.global_menu import GlobalMenu
-from archinstall.lib.installer import Installer, SysCommand
+from archinstall.lib.installer import Installer
 from archinstall.lib.menu.util import delayed_warning
 from archinstall.lib.models import (
     Bootloader,
@@ -47,7 +47,6 @@ import time
 import subprocess
 import json
 import re
-import shlex
 import shutil
 from dataclasses import dataclass, field
 from textwrap import dedent
@@ -1112,7 +1111,7 @@ def sysd_plymouth_setup(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
 
 
 def modify_fstab(mnt_point: Path) -> None:
-    fstab_path = mnt_point / "etc" / "fstab"
+    fstab_path = (mnt_point / "etc" / "fstab")
     content = fstab_path.read_text()
     content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
     content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
@@ -1293,7 +1292,8 @@ def perform_installation(
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        for cmd in chaotic_repo():
+        cmds=chaotic_repo()
+        for cmd in :
             run_dmc(cmd)
             for c in cmd:
                 combined_cmd = " ".join(c)
