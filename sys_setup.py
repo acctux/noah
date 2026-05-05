@@ -1368,12 +1368,10 @@ def perform_installation(
 
         sys_dots(mountpoint, script_d)
 
-        tmp = mountpoint / "tmp" / "icons"
-        tmp.mkdir(exist_ok=True)
         git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
-        run_dmc(["git", "clone", git, str(tmp)])
         run_custom_user_commands(
-            ["cd /tmp/icons", "bash install.sh"], installation=installation
+            [f"git clone {git}", "bash ./WhiteSur-icon-theme/install.sh"],
+            installation=installation,
         )
         icon_path = mountpoint / "/usr/share/icons"
         for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
