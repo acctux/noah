@@ -25,7 +25,7 @@ from archinstall.lib.general.general_menu import (
     select_post_installation,
 )
 from archinstall.lib.global_menu import GlobalMenu
-from archinstall.lib.installer import Installer
+from archinstall.lib.installer import Installer, run_custom_user_commands
 from archinstall.lib.menu.util import delayed_warning
 from archinstall.lib.models import (
     Bootloader,
@@ -1372,7 +1372,9 @@ def perform_installation(
         tmp.mkdir(exist_ok=True)
         git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
         run_dmc(["git", "clone", git, str(tmp)])
-        installation.arch_chroot("bash /tmp/icons/install.sh")
+        run_custom_user_commands(
+            ["cd /tmp/icons", "bash install.sh"], installation=installation
+        )
         icon_path = mountpoint / "/usr/share/icons"
         for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
             text = svg.read_text()
