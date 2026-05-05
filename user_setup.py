@@ -136,15 +136,12 @@ def deploy_dotfiles(
 # Encryption/Keys
 ############################
 def import_ssh(key_path: Path) -> None:
-    socket = f"/run/user/{os.getuid()}/gcr/ssh"
-    os.environ["SSH_AUTH_SOCK"] = socket
-    if not Path(socket).exists():
+    if not Path(f"/run/user/{os.getuid()}/gcr/ssh").exists():
         run_dmc(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
         run_dmc(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-    if run_dmc(["ssh-add", str(key_path)], check=True):
-        log.info(f"SSH key {key_path} added or already present.")
-    else:
-        log.error(f"Failed to add SSH key {key_path}.")
+    run_dmc(["gnome-keyring-daemon", "--start", "--components=ssh"], check=True)
+    run_dmc(["ssh-add", str(key_path)], check=False)
+    log.info(f"SSH key {key_path} added or already present.")
 
 
 def import_gpg(gpg_path: Path) -> None:
