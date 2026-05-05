@@ -1369,9 +1369,9 @@ def perform_installation(
         sys_dots(mountpoint, script_d)
 
         installation.arch_chroot(
-            "git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git /tmp/icons"
+            f"git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git {mountpoint}/tmp/icons"
         )
-        installation.arch_chroot("bash /tmp/icons/install.sh")
+        installation.arch_chroot("bash /tmp/install.sh")
 
         icon_path = mountpoint / "/usr/share/icons"
         for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
