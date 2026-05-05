@@ -1334,27 +1334,10 @@ def perform_installation(
         installation.minimal_installation(
             hostname=config.hostname, locale_config=locale
         )
-        generate_pacman_conf(mountpoint, list(cf.no_extracts))
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        srv = "keyserver.ubuntu.com"
-        web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-        cmds = [
-            ["pacman-key", "--init"],
-            ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv],
-            ["pacman-key", "--lsign-key", "3056513887B78AEB"],
-            ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
-            ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
-        ]
-        for cmd in cmds:
-            run_dmc(cmd)
-            installation.arch_chroot(" ".join(cmd))
-        run_dmc(["pacman", "-Sy"], check=True)
-        installation.arch_chroot("pacman -Sy")
-        for path in [Path("/etc/pacman.conf"), mountpoint / "etc/pacman.conf"]:
-            with path.open("a") as f:
-                f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+        generate_pacman_conf(mountpoint, list(cf.no_extracts))
 
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
@@ -1401,6 +1384,24 @@ def perform_installation(
 
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
+
+        srv = "keyserver.ubuntu.com"
+        web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
+        cmds = [
+            ["pacman-key", "--init"],
+            ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv],
+            ["pacman-key", "--lsign-key", "3056513887B78AEB"],
+            ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
+            ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
+        ]
+        for cmd in cmds:
+            run_dmc(cmd)
+            installation.arch_chroot(" ".join(cmd))
+        run_dmc(["pacman", "-Sy"], check=True)
+        installation.arch_chroot("pacman -Sy")
+        for path in [Path("/etc/pacman.conf"), mountpoint / "etc/pacman.conf"]:
+            with path.open("a") as f:
+                f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
 
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
