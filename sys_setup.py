@@ -1011,19 +1011,6 @@ def mnt_cp_keys(
 ###################################
 # PACMAN
 ###################################
-def chaotic_repo() -> list[list[str]]:
-    key_serv = "keyserver.ubuntu.com"
-    chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-    cmds = [
-        ["pacman-key", "--init"],
-        ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", key_serv],
-        ["pacman-key", "--lsign-key", "3056513887B78AEB"],
-        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
-        ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
-    ]
-    return cmds
-
-
 def generate_pacman_conf(
     mnt_point: Path | None,
     no_extracts: list,
@@ -1111,7 +1098,7 @@ def sysd_plymouth_setup(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
 
 
 def modify_fstab(mnt_point: Path) -> None:
-    fstab_path = (mnt_point / "etc" / "fstab")
+    fstab_path = mnt_point / "etc" / "fstab"
     content = fstab_path.read_text()
     content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
     content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
@@ -1292,11 +1279,32 @@ def perform_installation(
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        cmds=chaotic_repo()
-        for cmd in :
+        cmds = [
+            ["pacman-key", "--init"],
+            [
+                "pacman-key",
+                "--recv-key",
+                "3056513887B78AEB",
+                "--keyserver",
+                "keyserver.ubuntu.com",
+            ],
+            ["pacman-key", "--lsign-key", "3056513887B78AEB"],
+            [
+                "pacman",
+                "-U",
+                "--noconfirm",
+                "keyserver.ubuntu.com/chaotic-keyring.pkg.tar.zst",
+            ],
+            [
+                "pacman",
+                "-U",
+                "--noconfirm",
+                "https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst",
+            ],
+        ]
+        for cmd in cmds:
             run_dmc(cmd)
-            for c in cmd:
-                combined_cmd = " ".join(c)
+            combined_cmd = " ".join(cmd)
             installation.arch_chroot(combined_cmd)
         run_dmc(["pacman", "-Sy"], check=True)
         installation.arch_chroot("pacman -Sy")
