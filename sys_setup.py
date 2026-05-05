@@ -1395,20 +1395,6 @@ def perform_installation(
 
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
-        for filepath, content in cf.etc_files_to_write.items():
-            full_path = mountpoint / filepath
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            with full_path.open("w") as file:
-                file.write(content)
-                log.info(f"Content: {content}\nWritten to: {full_path}")
-        copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
-        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
-            "\n".join(cf.reflector_options)
-        )
-        set_firefox_extensions(
-            mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
-        )
-        sys_dots(mountpoint, script_d)
         if config.auth_config:
             if config.auth_config.users:
                 first_user = config.auth_config.users[0].username
@@ -1420,17 +1406,15 @@ def perform_installation(
                 copy_dir(script_d, (mountpoint / first_user_home / script_d.name))
                 copy_keys(mountpoint, cf.usb_key_dir, first_user, cf.to_cp)
                 for user in config.auth_config.users:
-                    user_home = f"home/{user.username}"
                     run_chroot(["xdg-user-dirs-update"], mountpoint, user.username)
                     enable_user_serv(mountpoint, list(cf.usr_srv), user.username)
                     user_service(mountpoint, user.username, cf.terminal)
+                    user_home = f"home/{user.username}"
                     for app in cf.apps_to_hide:
                         file_p = f"home/{user.username}/.local/share/applications/{app}.desktop"
                         (mountpoint / file_p).write_text("[Desktop Entry]\nHide=true\n")
-                        installation.chown(user.username, str(mountpoint / user_home))
-                    installation.chown(
-                        user.username, str(mountpoint / user_home / script_d.name)
-                    )
+                        installation.chown(user.username, f"/{user_home}")
+                    installation.chown(user.username, f"/{user_home}/{script_d.name}")
         installation.enable_service(arch_config_handler.config.services)
         installation.disable_service(list(cf.disable_svcs))
         install_icon_theme(mountpoint)
