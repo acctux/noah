@@ -1328,7 +1328,7 @@ def perform_installation(
         tmp.mkdir(exist_ok=True)
         git = f"https://github.com/{cf.git_user}/{cf.dots_repo}.git"
         run_dmc(["git", "clone", git, str(tmp)])
-        shutil.rmtree(tmp / cf.dots_repo / ".git")
+        shutil.rmtree(tmp / ".git")
         for p in tmp.iterdir():
             p.rename(p.parent / ("." + p.name))
         copy_dir(tmp, mountpoint / "etc" / "skel")
