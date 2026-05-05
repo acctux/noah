@@ -1325,7 +1325,7 @@ def perform_installation(
 
         installation.add_additional_packages("realtime-privileges")
 
-        tmp = mountpoint / "tmp"
+        tmp = Path(f"/tmp/{cf.dots_repo}")
         installation.arch_chroot(
             f"git clone https://github.com/{cf.git_user}/{cf.dots_repo}.git {tmp}"
         )
@@ -1417,8 +1417,10 @@ def perform_installation(
                         )
                         installation.chown(user.username, f"/{user_home}")
                     installation.chown(user.username, f"/{user_home}/{script_d.name}")
+
         installation.enable_service(config.services)
         installation.disable_service(list(cf.disable_svcs))
+
         if disk_config.has_default_btrfs_vols():
             btrfs_options = disk_config.btrfs_options
             snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
@@ -1430,8 +1432,10 @@ def perform_installation(
                     else None
                 )
                 installation.setup_btrfs_snapshot(snapshot_type, bootloader)
+
         installation.genfstab()
         modify_fstab(mountpoint)
+
         debug(f"Disk states after installing:\n{disk_layouts()}")
         if not arch_config_handler.args.silent:
             elapsed_time = time.monotonic() - start_time
