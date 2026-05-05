@@ -1378,7 +1378,6 @@ def perform_installation(
         installation.set_timezone(config.timezone)
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
-
         profile_handler.install_greeter(installation, GreeterType.Ly)
         installation.add_additional_packages("realtime-privileges")
         clone_dots_to_skel(mountpoint, cf.dots_git_repo)
