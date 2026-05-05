@@ -1296,7 +1296,6 @@ def perform_installation(
         for path in [Path("/etc/pacman.conf"), mountpoint / "etc/pacman.conf"]:
             with path.open("a") as f:
                 f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
-        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
 
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
@@ -1307,11 +1306,13 @@ def perform_installation(
         ):
             installation.add_bootloader(
                 config.bootloader_config.bootloader,
-                uki_enabled=True,
-                bootloader_removable=False,
+                config.bootloader_config.uki,
+                config.bootloader_config.removable,
             )
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 sysd_plymouth_setup(mountpoint)
+
+        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
 
         installation.copy_iso_network_config(enable_services=True)
 
