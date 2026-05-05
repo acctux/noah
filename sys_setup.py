@@ -1362,6 +1362,7 @@ def perform_installation(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
         chaotic_repo(mountpoint)
+        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
 
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
@@ -1394,6 +1395,20 @@ def perform_installation(
 
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
+        for filepath, content in cf.etc_files_to_write.items():
+            full_path = mountpoint / filepath
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            with full_path.open("w") as file:
+                file.write(content)
+                log.info(f"Content: {content}\nWritten to: {full_path}")
+        copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
+        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
+            "\n".join(cf.reflector_options)
+        )
+        set_firefox_extensions(
+            mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
+        )
+        sys_dots(mountpoint, script_d)
         if config.auth_config:
             if config.auth_config.users:
                 first_user = config.auth_config.users[0].username
@@ -1416,21 +1431,6 @@ def perform_installation(
                     installation.chown(
                         user.username, str(mountpoint / user_home / script_d.name)
                     )
-        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
-        for filepath, content in cf.etc_files_to_write.items():
-            full_path = mountpoint / filepath
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            with full_path.open("w") as file:
-                file.write(content)
-                log.info(f"Content: {content}\nWritten to: {full_path}")
-        copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
-        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
-            "\n".join(cf.reflector_options)
-        )
-        set_firefox_extensions(
-            mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
-        )
-        sys_dots(mountpoint, script_d)
         installation.enable_service(arch_config_handler.config.services)
         installation.disable_service(list(cf.disable_svcs))
         install_icon_theme(mountpoint)
