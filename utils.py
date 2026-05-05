@@ -9,21 +9,21 @@ import sys
 #########################
 class ColorFormatter(logging.Formatter):
     COLORS = {
-        logging.DEBUG: "\033[36m",
-        logging.INFO: "\033[34m",
-        logging.WARNING: "\033[93m",
-        logging.ERROR: "\033[31m",
-        logging.CRITICAL: "\033[41m",
+        logging.DEBUG: "\033[36m",  # cyan
+        logging.INFO: "\033[34m",  # blue
+        logging.WARNING: "\033[93m",  # yellow
+        logging.ERROR: "\033[31m",  # red
+        logging.CRITICAL: "\033[41m",  # red background
     }
     RESET = "\033[0m"
     UNDERLINE = "\033[4m"
-    NAME_COLOR = "\033[93m"
+    NAME_COLOR = "\033[93m"  # yellow
 
     def format(self, record):
-        message = f"{self.NAME_COLOR}{record.name}{self.RESET}: {record.getMessage()}"
-        color = self.COLORS.get(record.levelno, "")
-        if color:
-            message = f"{color}{message}{self.RESET}"
+        colored_name = f"{self.NAME_COLOR}{record.name}{self.RESET}"
+        level_color = self.COLORS.get(record.levelno, "")
+        colored_message = f"{level_color}{record.getMessage()}{self.RESET}"
+        message = f"{colored_name}: {colored_message}"
         if record.levelno == logging.CRITICAL:
             message = f"{self.UNDERLINE}{message}{self.RESET}"
         return message
