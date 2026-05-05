@@ -61,8 +61,6 @@ yazi_plugins = [
     "uhs-robert/recycle-bin",
     "h-hg/yamb",
 ]
-firewall_services = ["kdeconnect", "ssh", "wireguard"]
-firewall_ports = ["6881-6889/tcp", "6881-6889/udp"]
 
 
 def iwctl_scan() -> bool:
@@ -325,13 +323,6 @@ def scrcpy_setup(port=5555) -> None:
 def main(HOME=Path.home()):
     if shutil.which("zsh"):
         run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    if shutil.which("firewalld"):
-        run_dmc(["sudo", "firewall-cmd", "--set-default-zone=block"])
-        fw_cmd = ["sudo", "firewall-cmd", "--permanent", "--zone=block"]
-        for service in firewall_services:
-            run_dmc(fw_cmd + [f"--add-service={service}"])
-        for port in firewall_ports:
-            run_dmc(fw_cmd + [f"--add-port={port}"])
     if shutil.which("iwd") and not ping():
         run_dmc(["sudo", "rm", "/etc/resolv.conf"])
         run_dmc(["sudo", "resolvconf", "-u"])

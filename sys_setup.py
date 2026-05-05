@@ -343,8 +343,6 @@ class NoahConfig:
     aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
     sys_services: tuple[str, ...] = (
         "ananicy-cpp",
-        "bluetooth",
-        "iwd",
         "named",
         "swayosd-libinput-backend",
         "systemd-oomd",
@@ -499,6 +497,21 @@ class NoahConfig:
                 ethers: files
                 rpc: files
                 netgroup: files
+                """
+            ),
+            "etc/firewalld/zones/block.xml": dedent(
+                """\
+                <?xml version="1.0" encoding="utf-8"?>
+                <zone target="%%REJECT%%">
+                  <short>Block</short>
+                  <description>Unsolicited incoming network packets are rejected. Incoming packets that are related to outgoing network connections are accepted. Outgoing network connections are allowed.</description>
+                  <service name="kdeconnect"/>
+                  <service name="ssh"/>
+                  <service name="wireguard"/>
+                  <port port="6881-6889" protocol="tcp"/>
+                  <port port="6881-6889" protocol="udp"/>
+                  <forward/>
+                </zone>
                 """
             ),
             "etc/named.conf": dedent(
@@ -1210,18 +1223,25 @@ def copy_keys(
 
 def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> None:
     file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
+    data = {"policies": {"Extensions": {"Install": []}}}
     if file_path.exists():
-        new_exts = [
-            f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
-            for ext in ext_names
-        ]
-        data = json.loads(file_path.read_text())
-        install = data["policies"]["Extensions"]["Install"]
-        for ext in new_exts:
-            if ext not in install:
-                install.append(ext)
-        file_path.write_text(json.dumps(data, indent=2))
-        log.info("Firefox extensions updated successfully.")
+        try:
+            data = json.loads(file_path.read_text())
+        except json.JSONDecodeError:
+            log.warning("Invalid JSON in policies.json, resetting structure.")
+    policies = data.setdefault("policies", {})
+    extensions = policies.setdefault("Extensions", {})
+    install_list = extensions.setdefault("Install", [])
+    new_urls = [
+        f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
+        for ext in ext_names
+    ]
+    for url in new_urls:
+        if url not in install_list:
+            install_list.append(url)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(json.dumps(data, indent=2))
+    log.info("Updated policies.json")
 
 
 ###################################
