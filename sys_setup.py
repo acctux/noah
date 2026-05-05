@@ -1456,10 +1456,12 @@ def perform_installation(
 def main() -> None:
     cf = NoahConfig()
     mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
-    pw = src_pass_file(cf.usb_key_dir, cf.my_pass)
     arch_config_handler = ArchConfigHandler()
-    user = User(cf.user_name, Password(pw), True, list(cf.groups))
-    arch_config_handler.config.auth_config = AuthenticationConfiguration(None, [user])
+    if pw := src_pass_file(cf.usb_key_dir, cf.my_pass):
+        user = User(cf.user_name, Password(pw), True, list(cf.groups))
+        arch_config_handler.config.auth_config = AuthenticationConfiguration(
+            None, [user]
+        )
     arch_config_handler.config.hostname = cf.hostname
     arch_config_handler.config.swap = ZramConfiguration(enabled=True)
     arch_config_handler.config.timezone = cf.timezone
