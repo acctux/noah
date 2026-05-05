@@ -343,6 +343,8 @@ class NoahConfig:
     aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
     sys_services: tuple[str, ...] = (
         "ananicy-cpp",
+        "bluetooth",
+        "iwd",
         "named",
         "swayosd-libinput-backend",
         "systemd-oomd",
@@ -1024,10 +1026,6 @@ def generate_pacman_conf(
     parallel_downloads: int = 10,
     multilib: bool = True,
 ) -> None:
-    pacman_p = "etc/pacman.conf"
-    pac_mnt_p = Path("/") / pacman_p
-    if mnt_point:
-        pac_mnt_p = mnt_point / pacman_p
     no_extract_lines = "\n        ".join(
         [f"NoExtract = {item}" for item in no_extracts]
     )
@@ -1051,7 +1049,11 @@ def generate_pacman_conf(
 
         {"[multilib]\n        Include = /etc/pacman.d/mirrorlist" if multilib else ""}
     """)
-    pac_mnt_p.write_text(pacman_content)
+    pacman_p = "etc/pacman.conf"
+    pac_p = Path("/") / pacman_p
+    if mnt_point:
+        pac_p = mnt_point / pacman_p
+    pac_p.write_text(pacman_content)
 
 
 ###################################
