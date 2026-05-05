@@ -889,7 +889,7 @@ class NoahConfig:
 #########################
 def run_chroot(
     commands: list[str], mnt_point: Path, username: str | None = None, peek=True
-):
+) -> None:
     script_path = "var/tmp/user-commands.sh"
     chroot_path = mnt_point / script_path
     chroot_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1389,29 +1389,33 @@ def perform_installation(
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
-                for user in config.auth_config.users:
-                    user_home = f"home/{user.username}"
-                    for app in cf.apps_to_hide:
-                        file_p = f"home/{user.username}/.local/share/applications/{app}.desktop"
-                        (mountpoint / file_p).write_text("[Desktop Entry]\nHide=true\n")
-                        installation.chown(user.username, str(mountpoint / user_home))
-                    configure_sudo(mountpoint, user.username, pless=True)
-                    cmd = [f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"]
-                    run_chroot(cmd, mountpoint, user.username)
-                    configure_sudo(mountpoint, user.username)
-                    run_chroot(["xdg-user-dirs-update"], mountpoint, user.username)
-                    copy_dir(script_d, (mountpoint / user_home / script_d.name))
-                    installation.chown(
-                        user.username, str(mountpoint / user_home / script_d.name)
-                    )
-                    copy_keys(mountpoint, cf.usb_key_dir, user.username, cf.to_cp)
-                    user_service(mountpoint, user.username, cf.terminal)
-                    enable_user_serv(mountpoint, list(cf.usr_srv), user.username)
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
 
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
+        if config.auth_config:
+            if config.auth_config.users:
+                first_user = config.auth_config.users[0].username
+                configure_sudo(mountpoint, first_user, pless=True)
+                cmd = [f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"]
+                run_chroot(cmd, mountpoint, first_user)
+                configure_sudo(mountpoint, first_user)
+                first_user_home = f"home/{config.auth_config.users[0].username}"
+                copy_dir(script_d, (mountpoint / first_user_home / script_d.name))
+                copy_keys(mountpoint, cf.usb_key_dir, first_user, cf.to_cp)
+                for user in config.auth_config.users:
+                    user_home = f"home/{user.username}"
+                    run_chroot(["xdg-user-dirs-update"], mountpoint, user.username)
+                    enable_user_serv(mountpoint, list(cf.usr_srv), user.username)
+                    user_service(mountpoint, user.username, cf.terminal)
+                    for app in cf.apps_to_hide:
+                        file_p = f"home/{user.username}/.local/share/applications/{app}.desktop"
+                        (mountpoint / file_p).write_text("[Desktop Entry]\nHide=true\n")
+                        installation.chown(user.username, str(mountpoint / user_home))
+                    installation.chown(
+                        user.username, str(mountpoint / user_home / script_d.name)
+                    )
         modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
         for filepath, content in cf.etc_files_to_write.items():
             full_path = mountpoint / filepath
