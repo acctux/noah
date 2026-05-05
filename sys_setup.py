@@ -1368,22 +1368,16 @@ def perform_installation(
 
         sys_dots(mountpoint, script_d)
 
-        run_dmc(
-            [
-                "git",
-                "clone",
-                "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
-                f"{mountpoint}/tmp/icons",
-            ]
-        )
+        tmp = mountpoint / "tmp" / "icons"
+        tmp.mkdir(exist_ok=True)
+        git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
+        run_dmc(["git", "clone", git, str(tmp)])
         installation.arch_chroot("bash /tmp/icons/install.sh")
-
         icon_path = mountpoint / "/usr/share/icons"
         for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
             text = svg.read_text()
             if "#ffffff" in text:
                 svg.write_text(text.replace("#ffffff", "#F4F5F6"))
-
         if (icon_path / "WhiteSur-light").exists():
             shutil.rmtree(icon_path / "WhiteSur-light")
 
