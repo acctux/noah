@@ -1345,28 +1345,23 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-
         cmd = [
             "reflector",
             *(part for opt in cf.reflector_options for part in opt.split()),
         ]
         run_dmc(cmd)
         generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
-
         installation.minimal_installation(
             hostname=config.hostname, locale_config=locale
         )
-
         generate_pacman_conf(mountpoint, list(cf.no_extracts))
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
         chaotic_repo(mountpoint)
         modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
-
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
-
         if (
             config.bootloader_config
             and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
@@ -1378,7 +1373,6 @@ def perform_installation(
             )
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 sysd_plymouth_setup(mountpoint)
-
         installation.copy_iso_network_config(enable_services=True)
         installation.set_timezone(config.timezone)
         for driver in gfx_drivers:
@@ -1392,7 +1386,6 @@ def perform_installation(
                 installation.create_users(config.auth_config.users)
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
-
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
         for filepath, content in cf.etc_files_to_write.items():
@@ -1426,7 +1419,9 @@ def perform_installation(
                     user_home = f"home/{user.username}"
                     for app in cf.apps_to_hide:
                         file_p = f"home/{user.username}/.local/share/applications/{app}.desktop"
-                        (mountpoint / file_p).write_text("[Desktop Entry]\nHide=true\n")
+                        (mountpoint / file_p).write_text(
+                            "[Desktop Entry]\nNoDisplay=true\n"
+                        )
                         installation.chown(user.username, f"/{user_home}")
                     installation.chown(user.username, f"/{user_home}/{script_d.name}")
         installation.enable_service(arch_config_handler.config.services)
