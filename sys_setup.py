@@ -889,27 +889,6 @@ class NoahConfig:
 #########################
 # UTILS
 #########################
-def run_chroot(
-    commands: list[str], mnt_point: Path, username: str | None = None, peek=True
-) -> None:
-    script_path = "var/tmp/user-commands.sh"
-    chroot_path = mnt_point / script_path
-    chroot_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(chroot_path, "w") as script:
-        script.write("#!/bin/bash\n")
-        if peek:
-            script.write("set -e\n")
-        for cmd in commands:
-            if username:
-                log.info(f"Will run as {username}: {cmd}")
-                cmd = f"su - {username} -c {shlex.quote(cmd)}"
-            log.info(f"Chroot run: {cmd}")
-            script.write(cmd + "\n")
-    chroot_path.chmod(0o755)
-    SysCommand(f"arch-chroot -S {mnt_point} /{script_path}")
-    chroot_path.unlink()
-
-
 def src_pass_file(usb_key_dir: str, pass_file: str) -> str:
     key_path = Path("/root") / usb_key_dir / pass_file
     pw = ""
@@ -1033,11 +1012,7 @@ def mnt_cp_keys(
 ###################################
 # PACMAN
 ###################################
-def chaotic_repo(mnt_point: Path) -> None:
-    def append_repo(path: Path):
-        with path.open("a") as f:
-            f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
-
+def chaotic_repo() -> list[list[str]]:
     key_serv = "keyserver.ubuntu.com"
     chaotic_web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
     cmds = [
@@ -1047,13 +1022,7 @@ def chaotic_repo(mnt_point: Path) -> None:
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-keyring.pkg.tar.zst"],
         ["pacman", "-U", "--noconfirm", f"{chaotic_web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
-    for cmd in cmds:
-        run_dmc(cmd, check=True)
-    append_repo(Path("/etc/pacman.conf"))
-    run_dmc(["pacman", "-Sy"], check=True)
-    run_chroot([" ".join(cmd) for cmd in cmds], mnt_point)
-    append_repo(mnt_point / "etc/pacman.conf")
-    run_chroot(["pacman -Sy"], mnt_point)
+    return cmds
 
 
 def generate_pacman_conf(
@@ -1178,18 +1147,16 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(mnt_point: Path, units: list[UsrSrv], username: str) -> None:
-    user_commands: list[str] = []
-    base_dir = Path(f"/home/{username}/.config/systemd/user")
+def enable_user_serv(units: list[UsrSrv], username: str) -> tuple[list[str], list[str]]:
+    chroot_cmds: list[str] = []
+    chown_cmds: list = []
+    base_dir = f"/home/{username}/.config/systemd/user"
     for unit in units:
+        target_dir = f"{base_dir}/{unit.target}.target.wants"
+        chroot_cmds.append(f"mkdir -p {target_dir}")
         for service in unit.services:
-            target_dir = base_dir / f"{unit.target}.target.wants"
-            user_commands.append(f"mkdir -p {target_dir}")
-            user_commands.append(
-                f"ln -sf {unit.source}/{service} {target_dir / service}"
-            )
-    run_chroot([f"chown -R {username}:{username} /home/{username}/"], mnt_point)
-    run_chroot(user_commands, mnt_point, username)
+            chroot_cmds.append(f"ln -sf {unit.source}/{service} {target_dir}/{service}")
+    return chroot_cmds, chown_cmds
 
 
 def user_service(
@@ -1198,7 +1165,7 @@ def user_service(
     terminal: str,
     user_script="user_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
-) -> None:
+) -> tuple[list[str], list[str]]:
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
     dir_path = f"home/{username}/.config/systemd/user"
@@ -1221,41 +1188,13 @@ def user_service(
     )
     (mnt_point / dir_path / name).write_text(content)
     unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
-    enable_user_serv(mnt_point, [unit], username)
+    chroot_cmds, chown_cmds = enable_user_serv([unit], username)
+    return chroot_cmds, chown_cmds
 
 
 ###################################
 # User Space
 ###################################
-def install_icon_theme(
-    mnt_point: Path,
-    git: str = "vinceliuice/WhiteSur-icon-theme",
-    old: str = "#ffffff",
-    new: str = "#F4F5F6",
-    icon_dir: str = "/usr/share/icons",
-) -> None:
-    tmp = "/tmp/icons"
-    cmd = [f"git clone https://github.com/{git}.git {tmp}", f"bash {tmp}/install.sh"]
-    run_chroot(cmd, mnt_point)
-    icon_path = mnt_point / icon_dir
-    for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
-        text = svg.read_text()
-        if old in text:
-            svg.write_text(text.replace(old, new))
-    if (icon_path / "WhiteSur-light").exists():
-        shutil.rmtree(icon_path / "WhiteSur-light")
-
-
-def clone_dots_to_skel(mnt_point: Path, git_repo: str) -> None:
-    tmp = mnt_point / "tmp" / git_repo
-    cmd = ["git", "clone", f"https://github.com/{git_repo}.git", f"{tmp}"]
-    run_dmc(cmd, True)
-    shutil.rmtree(tmp / ".git")
-    for p in tmp.iterdir():
-        p.rename(p.parent / ("." + p.name))
-    copy_dir(tmp, mnt_point / "etc" / "skel")
-
-
 def copy_keys(
     mnt_point: Path, usb_key_dir: str, username: str, to_cp: dict[str, tuple[str, ...]]
 ) -> list[str]:
@@ -1331,7 +1270,6 @@ def perform_installation(
     mountpoint = Path("/mnt/arch")
     locale = config.locale_config
     with Installer(mountpoint, disk_config, kernels=config.kernels) as installation:
-        # INSTALLATION
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
         if disk_config.config_type != DiskLayoutType.Pre_mount:
@@ -1341,7 +1279,7 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-        # INSTALLATION
+
         cmd = [
             "reflector",
             *(part for opt in cf.reflector_options for part in opt.split()),
@@ -1355,12 +1293,21 @@ def perform_installation(
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        chaotic_repo(mountpoint)
+        for cmd in chaotic_repo():
+            run_dmc(cmd)
+            for c in cmd:
+                combined_cmd = " ".join(c)
+            installation.arch_chroot(combined_cmd)
+        run_dmc(["pacman", "-Sy"], check=True)
+        installation.arch_chroot("pacman -Sy")
+        for path in [Path("/etc/pacman.conf"), mountpoint / "etc/pacman.conf"]:
+            with path.open("a") as f:
+                f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
         modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
-        # SWAP
+
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
-        # BOOTLOADER
+
         if (
             config.bootloader_config
             and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
@@ -1372,46 +1319,82 @@ def perform_installation(
             )
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 sysd_plymouth_setup(mountpoint)
-        # NETWORK
+
         installation.copy_iso_network_config(enable_services=True)
+
         installation.set_timezone(config.timezone)
+
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
+
         profile_handler.install_greeter(installation, GreeterType.Ly)
+
         installation.add_additional_packages("realtime-privileges")
-        clone_dots_to_skel(mountpoint, cf.dots_git_repo)
+
+        tmp = mountpoint / "tmp" / "dots"
+        installation.arch_chroot(
+            f"git clone https://github.com/{cf.dots_git_repo}.git {tmp}"
+        )
+        shutil.rmtree(tmp / ".git")
+        for p in tmp.iterdir():
+            p.rename(p.parent / ("." + p.name))
+        copy_dir(tmp, mountpoint / "etc" / "skel")
+
         if config.auth_config:
             if config.auth_config.users:
                 installation.create_users(config.auth_config.users)
+
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
+
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
+
         if timezone := config.timezone:
             installation.set_timezone(timezone)
+
         if config.ntp:
             installation.activate_time_synchronization()
+
         for filepath, content in cf.etc_files_to_write.items():
             full_path = mountpoint / filepath
             full_path.parent.mkdir(parents=True, exist_ok=True)
             with full_path.open("w") as file:
                 file.write(content)
                 log.info(f"Content: {content}\nWritten to: {full_path}")
+
         copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
+
         (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
             "\n".join(cf.reflector_options)
         )
+
         set_firefox_extensions(
             mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
         )
+
         sys_dots(mountpoint, script_d)
-        install_icon_theme(mountpoint)
+
+        installation.arch_chroot(
+            "git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git /tmp/icons"
+        )
+        installation.arch_chroot(f"bash {tmp}/install.sh")
+
+        icon_path = mountpoint / "/usr/share/icons"
+        for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
+            text = svg.read_text()
+            if "#ffffff" in text:
+                svg.write_text(text.replace("#ffffff", "#F4F5F6"))
+
+        if (icon_path / "WhiteSur-light").exists():
+            shutil.rmtree(icon_path / "WhiteSur-light")
+
         if config.auth_config:
             if config.auth_config.users:
                 first_user = config.auth_config.users[0].username
                 configure_sudo(mountpoint, first_user, pless=True)
-                cmd = [f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"]
-                run_chroot(cmd, mountpoint, first_user)
+                cmd = f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"
+                installation.arch_chroot(cmd, first_user)
                 configure_sudo(mountpoint, first_user)
                 first_user_home = f"home/{config.auth_config.users[0].username}"
                 copy_dir(script_d, (mountpoint / first_user_home / script_d.name))
@@ -1421,9 +1404,17 @@ def perform_installation(
                 for ch_p in chown_paths:
                     installation.chown(first_user, ch_p)
                 for user in config.auth_config.users:
-                    run_chroot(["xdg-user-dirs-update"], mountpoint, user.username)
-                    enable_user_serv(mountpoint, list(cf.usr_srv), user.username)
-                    user_service(mountpoint, user.username, cf.terminal)
+                    installation.arch_chroot("xdg-user-dirs-update", user.username)
+                    chroot_cmds, chown_cmds = enable_user_serv(
+                        list(cf.usr_srv), user.username
+                    )
+                    new_chroot_cmds, new_chown_cmds = user_service(
+                        mountpoint, user.username, cf.terminal
+                    )
+                    chroot_cmds += new_chroot_cmds
+                    chown_cmds += new_chown_cmds
+                    for cmd in chroot_cmds:
+                        installation.arch_chroot(cmd, user.username)
                     user_home = f"home/{user.username}"
                     for app in cf.apps_to_hide:
                         file_p = f"home/{user.username}/.local/share/applications/{app}.desktop"
