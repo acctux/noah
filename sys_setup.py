@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from archinstall.lib.models.bootloader import BootloaderConfiguration
 from archinstall.lib.models.application import (
     ZramConfiguration,
     PowerManagementConfiguration,
@@ -1149,10 +1150,9 @@ def modify_fstab(mnt_point: Path) -> None:
 
 
 def modify_mkinit(mnt_point: Path, hooks: list[str], plymouth: bool) -> None:
-    mkinitcpio_conf_path = f"{mnt_point}/etc/mkinitcpio.conf"
     if plymouth and "plymouth" not in hooks:
         hooks.insert(hooks.index("kms") + 1, "plymouth")
-    with open(mkinitcpio_conf_path, "r+") as mkinit:
+    with open(f"/{mnt_point}/etc/mkinitcpio.conf", "r+") as mkinit:
         content = mkinit.read()
         content = re.sub(r"\nHOOKS=.*", f"\nHOOKS=({' '.join(hooks)})", content)
         mkinit.seek(0)
@@ -1301,6 +1301,7 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu.set_enabled("archinstall_language", True)
     global_menu.set_enabled("locale_config", True)
     global_menu.set_enabled("timezone", True)
+    global_menu.set_enabled("bootloader_config", True)
     global_menu.set_enabled("ntp", True)
     global_menu.set_enabled("kernels", True)
     global_menu.set_enabled("hostname", True)
@@ -1468,6 +1469,9 @@ def main() -> None:
     arch_config_handler.config.hostname = cf.hostname
     arch_config_handler.config.swap = ZramConfiguration(enabled=True)
     arch_config_handler.config.timezone = cf.timezone
+    arch_config_handler.config.bootloader_config = BootloaderConfiguration(
+        Bootloader.Systemd
+    )
     arch_config_handler.config.ntp = True
     arch_config_handler.config.kernels = list(cf.kernel)
     arch_config_handler.config.services = list(cf.sys_services + cf.custom_services)
