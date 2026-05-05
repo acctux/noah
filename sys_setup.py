@@ -974,17 +974,17 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
     while True:
         print(
             f"\033[91m{'No.':<5}\033[0m "
-            f"\033[93m{'Name':<8}\033[0m "
-            f"\033[94m{'Size':<8}\033[0m "
-            f"\033[96m{'FS Type':>8}\033[0m"
+            f"\033[93m{'Name':<10}\033[0m "
+            f"\033[94m{'Size':<10}\033[0m "
+            f"\033[96m{'FS Type':>10}\033[0m"
         )
         print("-" * 45)
         for i, (name, size, fstype) in enumerate(candidates, 1):
             print(
                 f"\033[91m{i:<5}\033[0m "
-                f"\033[93m{name:<8}\033[0m "
-                f"\033[94m{size:<8}\033[0m "
-                f"\033[96m{fstype:>8}\033[0m"
+                f"\033[93m{name:<10}\033[0m "
+                f"\033[94m{size:<10}\033[0m "
+                f"\033[96m{fstype:>10}\033[0m"
             )
         choice = input(f"\033[92mEnter 1-{len(candidates)}: \033[0m").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(candidates)):
@@ -1221,27 +1221,58 @@ def copy_keys(
     return chown_paths
 
 
-def set_firefox_extensions(mnt_point: Path, browser: str, ext_names: list) -> None:
+def set_extensions(mnt_point: Path, browser: str, ext_names: list[str]) -> None:
     file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
-    data = {"policies": {"Extensions": {"Install": []}}}
+    uninstall_names = ["google", "bing", "amazondotcom", "ebay", "twitter"]
+    new_policies = {
+        "DisableAppUpdate": True,
+        "DisableDeveloperTools": False,
+        "DisableFeedbackCommands": True,
+        "DisableFirefoxStudies": True,
+        "DisablePocket": True,
+        "DisableProfileImport": False,
+        "DisableSetDesktopBackground": False,
+        "DisableTelemetry": True,
+        "OverrideFirstRunPage": "about:welcome",
+        "OverridePostUpdatePage": "",
+        "DNSOverHTTPS": {"Enabled": False, "ProviderURL": "", "Locked": False},
+        "HardwareAcceleration": True,
+        "WebsiteFilter": {
+            "Block": ["https://localhost/*"],
+            "Exceptions": ["https://localhost/*"],
+        },
+        "Extensions": {
+            "Install": [
+                f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
+                for ext in ext_names
+            ],
+            "Uninstall": [f"{name}@search.mozilla.org" for name in uninstall_names],
+        },
+        "3rdparty": {
+            "Extensions": {
+                "uBlock0@raymondhill.net": {
+                    "adminSettings": {
+                        "assetsBootstrapLocation": "https://codeberg.org/librewolf/source/raw/branch/main/assets/uBOAssets.json"
+                    }
+                }
+            }
+        },
+        "SearchEngines": {
+            "PreventInstalls": False,
+            "Default": "DuckDuckGo",
+            "Remove": ["Bing", "Amazon.com", "eBay", "Twitter"],
+        },
+    }
+    data = {}
     if file_path.exists():
         try:
             data = json.loads(file_path.read_text())
         except json.JSONDecodeError:
-            log.warning("Invalid JSON in policies.json, resetting structure.")
-    policies = data.setdefault("policies", {})
-    extensions = policies.setdefault("Extensions", {})
-    install_list = extensions.setdefault("Install", [])
-    new_urls = [
-        f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
-        for ext in ext_names
-    ]
-    for url in new_urls:
-        if url not in install_list:
-            install_list.append(url)
+            log.warning(f"Corrupt JSON in {file_path}, resetting.")
+    data.setdefault("policies", {}).update(new_policies)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(json.dumps(data, indent=2))
-    log.info("Updated policies.json")
+    log.info(f"Policies for {browser} have been set (overwritten).")
 
 
 ###################################
@@ -1393,9 +1424,7 @@ def perform_installation(
             "\n".join(cf.reflector_options)
         )
 
-        set_firefox_extensions(
-            mountpoint, cf.firefox_browser, list(cf.firefox_extensions)
-        )
+        set_extensions(mountpoint, cf.firefox_browser, list(cf.firefox_extensions))
 
         sys_dots(mountpoint, script_d)
 
