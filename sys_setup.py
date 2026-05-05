@@ -1134,16 +1134,15 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(units: list[UsrSrv], username: str) -> tuple[list[str], list[str]]:
+def enable_user_serv(units: list[UsrSrv], username: str) -> list[str]:
     chroot_cmds: list[str] = []
-    chown_cmds: list = []
     base_dir = f"/home/{username}/.config/systemd/user"
     for unit in units:
         target_dir = f"{base_dir}/{unit.target}.target.wants"
         chroot_cmds.append(f"mkdir -p {target_dir}")
         for service in unit.services:
             chroot_cmds.append(f"ln -sf {unit.source}/{service} {target_dir}/{service}")
-    return chroot_cmds, chown_cmds
+    return chroot_cmds
 
 
 def user_service(
@@ -1152,7 +1151,7 @@ def user_service(
     terminal: str,
     user_script="user_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
-) -> tuple[list[str], list[str]]:
+) -> list[str]:
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
     dir_path = f"home/{username}/.config/systemd/user"
@@ -1175,8 +1174,8 @@ def user_service(
     )
     (mnt_point / dir_path / name).write_text(content)
     unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
-    chroot_cmds, chown_cmds = enable_user_serv([unit], username)
-    return chroot_cmds, chown_cmds
+    chroot_cmds = enable_user_serv([unit], username)
+    return chroot_cmds
 
 
 ###################################
@@ -1399,24 +1398,19 @@ def perform_installation(
                     installation.chown(first_user, ch_p)
                 for user in config.auth_config.users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
-                    chroot_cmds, chown_cmds = enable_user_serv(
-                        list(cf.usr_srv), user.username
-                    )
-                    new_chroot_cmds, new_chown_cmds = user_service(
-                        mountpoint, user.username, cf.terminal
-                    )
-                    chroot_cmds += new_chroot_cmds
-                    chown_cmds += new_chown_cmds
+                    chroot_cmds = enable_user_serv(list(cf.usr_srv), user.username)
+                    chroot_cmds += user_service(mountpoint, user.username, cf.terminal)
                     for cmd in chroot_cmds:
                         installation.arch_chroot(cmd, user.username)
                     user_home = f"home/{user.username}"
                     for app in cf.apps_to_hide:
-                        file_p = f"home/{user.username}/.local/share/applications/{app}.desktop"
+                        file_p = f"{user_home}/.local/share/applications/{app}.desktop"
                         (mountpoint / file_p).write_text(
                             "[Desktop Entry]\nNoDisplay=true\n"
                         )
-                        installation.chown(user.username, f"/{user_home}")
-                    installation.chown(user.username, f"/{user_home}/{script_d.name}")
+                    installation.arch_chroot(
+                        f"chown -R {user.username}:{user.username} /{user_home}"
+                    )
 
         installation.enable_service(config.services)
         installation.disable_service(list(cf.disable_svcs))
