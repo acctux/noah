@@ -1501,28 +1501,5 @@ def main() -> None:
     perform_installation(arch_config_handler, ApplicationHandler(), cf, gfx_drivers)
 
 
-# if __name__ == "__main__":
-#     main()
-
-
-def print_root_uuid() -> None:
-    """
-    Reads the current kernel command line and prints the root=UUID value.
-    """
-    # Read the current kernel command line
-    with open("/proc/cmdline", "r") as f:
-        cmdline = f.read().strip()
-        print(cmdline)
-
-    # Extract root=UUID=xxxx
-    match = re.search(r"root=UUID=([^\s]+)", cmdline)
-    if not match:
-        print("No root=UUID=... found in /proc/cmdline")
-        return
-
-    uuid = match.group(1)
-    print(f"Root UUID: {uuid}")
-
-
-# Example usage:
-print_root_uuid()
+if __name__ == "__main__":
+    main()
