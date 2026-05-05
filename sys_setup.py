@@ -68,7 +68,8 @@ class NoahConfig:
     user_name: str = "nick"
     hostname: str = "yulia"
     timezone: str = "US/Eastern"
-    dots_git_repo: str = "acctux/polka"
+    dots_repo: str = "polka"
+    git_user: str = "acctux"
     usb_key_dir: str = "keys"
     wireguard_dir: str = "wireguard"
     my_pass: str = "pass.py"
@@ -1324,9 +1325,9 @@ def perform_installation(
 
         installation.add_additional_packages("realtime-privileges")
 
-        tmp = mountpoint / "tmp" / "dots"
+        tmp = mountpoint / "tmp" / cf.dots_repo
         installation.arch_chroot(
-            f"git clone https://github.com/{cf.dots_git_repo}.git {tmp}"
+            f"git clone https://github.com/{cf.git_user}/{cf.dots_repo}.git {tmp}"
         )
         shutil.rmtree(tmp / ".git")
         for p in tmp.iterdir():
