@@ -1370,7 +1370,8 @@ def perform_installation(
 
         run_dmc(
             [
-                "gitclone",
+                "git",
+                "clone",
                 "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
                 f"{mountpoint}/tmp/icons",
             ]
