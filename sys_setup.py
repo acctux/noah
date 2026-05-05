@@ -1280,15 +1280,13 @@ def perform_installation(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
         srv = "keyserver.ubuntu.com"
-        mirror_list = (
-            "https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst"
-        )
+        web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
         cmds = [
             ["pacman-key", "--init"],
             ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv],
             ["pacman-key", "--lsign-key", "3056513887B78AEB"],
-            ["pacman", "-U", "--noconfirm", f"{srv}/chaotic-keyring.pkg.tar.zst"],
-            ["pacman", "-U", "--noconfirm", mirror_list],
+            ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
+            ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
         ]
         for cmd in cmds:
             run_dmc(cmd)
