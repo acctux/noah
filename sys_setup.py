@@ -1341,23 +1341,23 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-        # cmd = [
-        #     "reflector",
-        #     *(part for opt in cf.reflector_options for part in opt.split()),
-        # ]
-        # run_dmc(cmd)
-        # generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
+        cmd = [
+            "reflector",
+            *(part for opt in cf.reflector_options for part in opt.split()),
+        ]
+        run_dmc(cmd)
+        generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
         installation.minimal_installation(
             hostname=config.hostname, locale_config=locale
         )
-        # generate_pacman_conf(mountpoint, list(cf.no_extracts))
-        # copy_file(
-        #     Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        # )
-        # chaotic_repo(mountpoint)
-        # modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
-        # if config.swap and config.swap.enabled:
-        #     installation.setup_swap(algo=config.swap.algorithm)
+        generate_pacman_conf(mountpoint, list(cf.no_extracts))
+        copy_file(
+            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
+        )
+        chaotic_repo(mountpoint)
+        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
+        if config.swap and config.swap.enabled:
+            installation.setup_swap(algo=config.swap.algorithm)
         if (
             config.bootloader_config
             and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
@@ -1466,7 +1466,7 @@ def main() -> None:
     arch_config_handler.config.swap = ZramConfiguration(enabled=True)
     arch_config_handler.config.timezone = cf.timezone
     arch_config_handler.config.bootloader_config = BootloaderConfiguration(
-        Bootloader.Systemd
+        Bootloader.Systemd, uki=True
     )
     arch_config_handler.config.ntp = True
     arch_config_handler.config.kernels = list(cf.kernel)
