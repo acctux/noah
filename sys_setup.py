@@ -1279,33 +1279,20 @@ def perform_installation(
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
+        srv = "keyserver.ubuntu.com"
+        mirror_list = (
+            "https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst"
+        )
         cmds = [
             ["pacman-key", "--init"],
-            [
-                "pacman-key",
-                "--recv-key",
-                "3056513887B78AEB",
-                "--keyserver",
-                "keyserver.ubuntu.com",
-            ],
+            ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv],
             ["pacman-key", "--lsign-key", "3056513887B78AEB"],
-            [
-                "pacman",
-                "-U",
-                "--noconfirm",
-                "keyserver.ubuntu.com/chaotic-keyring.pkg.tar.zst",
-            ],
-            [
-                "pacman",
-                "-U",
-                "--noconfirm",
-                "https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst",
-            ],
+            ["pacman", "-U", "--noconfirm", f"{srv}/chaotic-keyring.pkg.tar.zst"],
+            ["pacman", "-U", "--noconfirm", mirror_list],
         ]
         for cmd in cmds:
             run_dmc(cmd)
-            combined_cmd = " ".join(cmd)
-            installation.arch_chroot(combined_cmd)
+            installation.arch_chroot(" ".join(cmd))
         run_dmc(["pacman", "-Sy"], check=True)
         installation.arch_chroot("pacman -Sy")
         for path in [Path("/etc/pacman.conf"), mountpoint / "etc/pacman.conf"]:
