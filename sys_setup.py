@@ -1325,11 +1325,11 @@ def perform_installation(
 
         installation.add_additional_packages("realtime-privileges")
 
-        tmp = mountpoint / "tmp" / cf.dots_repo
+        tmp = mountpoint / "tmp"
         installation.arch_chroot(
             f"git clone https://github.com/{cf.git_user}/{cf.dots_repo}.git {tmp}"
         )
-        shutil.rmtree(tmp / ".git")
+        shutil.rmtree(tmp / cf.dots_repo / ".git")
         for p in tmp.iterdir():
             p.rename(p.parent / ("." + p.name))
         copy_dir(tmp, mountpoint / "etc" / "skel")
