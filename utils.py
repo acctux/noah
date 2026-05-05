@@ -17,9 +17,10 @@ class ColorFormatter(logging.Formatter):
     }
     RESET = "\033[0m"
     UNDERLINE = "\033[4m"
+    NAME_COLOR = "\033[93m"
 
     def format(self, record):
-        message = f"{record.name}: {record.getMessage()}"
+        message = f"{self.NAME_COLOR}{record.name}: {record.getMessage()}"
         color = self.COLORS.get(record.levelno, "")
         if color:
             message = f"{color}{message}{self.RESET}"

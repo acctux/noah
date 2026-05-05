@@ -76,7 +76,13 @@ class NoahConfig:
     parallel_downloads: int = 10
     multilib: bool = True
     kernel: tuple[str, ...] = ("linux",)
-    groups: tuple[str, ...] = ("adm", "games", "realtime", "storage", "video")
+    groups: tuple[str, ...] = (
+        "adm",
+        "games",
+        "realtime",
+        "storage",
+        "video",
+    )
     terminal: str = "kitty"
     usb_cp_files: tuple[str, ...] = (
         "id_ed25519",
@@ -1463,7 +1469,7 @@ def main() -> None:
     arch_config_handler.config.swap = ZramConfiguration(enabled=True)
     arch_config_handler.config.timezone = cf.timezone
     arch_config_handler.config.bootloader_config = BootloaderConfiguration(
-        Bootloader.Systemd, uki=True, removable=False
+        Bootloader.Systemd, uki=False, removable=False
     )
     arch_config_handler.config.ntp = True
     arch_config_handler.config.kernels = list(cf.kernel)

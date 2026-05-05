@@ -32,18 +32,15 @@ def logid_failed(check_str="[WARN] Failed") -> bool:
     return False
 
 
-def logid_nuclear() -> None:
-    print("Performing logid nuclear restart...")
-    run_cmd(["sudo", "systemctl", "stop", "logid.service"])
-    time.sleep(1)
-    run_cmd(["sudo", "systemctl", "start", "logid.service"])
-
-
 def restart_logid():
+    def logid_nuclear() -> None:
+        run_cmd(["sudo", "systemctl", "stop", "logid.service"])
+        time.sleep(1)
+        run_cmd(["sudo", "systemctl", "start", "logid.service"])
+
     logid_nuclear()
     time.sleep(3)
     FLAGFILE.touch()
-    print("logid_nuclear complete")
     time.sleep(10)
     if logid_failed():
         print("Warning still in logs after restart! Retrying")
