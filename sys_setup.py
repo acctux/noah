@@ -1341,31 +1341,31 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-        cmd = [
-            "reflector",
-            *(part for opt in cf.reflector_options for part in opt.split()),
-        ]
-        run_dmc(cmd)
-        generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
-        installation.minimal_installation(
-            hostname=config.hostname, locale_config=locale
-        )
-        generate_pacman_conf(mountpoint, list(cf.no_extracts))
-        copy_file(
-            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        )
-        chaotic_repo(mountpoint)
-        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
-        if config.swap and config.swap.enabled:
-            installation.setup_swap(algo=config.swap.algorithm)
+        # cmd = [
+        #     "reflector",
+        #     *(part for opt in cf.reflector_options for part in opt.split()),
+        # ]
+        # run_dmc(cmd)
+        # generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
+        # installation.minimal_installation(
+        #     hostname=config.hostname, locale_config=locale
+        # )
+        # generate_pacman_conf(mountpoint, list(cf.no_extracts))
+        # copy_file(
+        #     Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
+        # )
+        # chaotic_repo(mountpoint)
+        # modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
+        # if config.swap and config.swap.enabled:
+        #     installation.setup_swap(algo=config.swap.algorithm)
         if (
             config.bootloader_config
             and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
         ):
             installation.add_bootloader(
                 config.bootloader_config.bootloader,
-                config.bootloader_config.uki,
-                config.bootloader_config.removable,
+                uki_enabled=True,
+                bootloader_removable=False,
             )
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 sysd_plymouth_setup(mountpoint)
@@ -1455,8 +1455,8 @@ def perform_installation(
 
 def main() -> None:
     cf = NoahConfig()
-    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
+    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
     if pw := src_pass_file(cf.usb_key_dir, cf.my_pass):
         user = User(cf.user_name, Password(pw), True, list(cf.groups))
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
