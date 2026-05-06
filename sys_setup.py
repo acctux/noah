@@ -1547,7 +1547,11 @@ def main() -> None:
     )
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
-    pkgs = list(nc.pkgs["base"] + nc.pkgs["language"] + nc.pkgs["chaotic_repo"])
+    pkgs = list(
+        nc.pkgs.get("base", ())
+        + nc.pkgs.get("language", ())
+        + nc.pkgs.get("chaotic_repo", ())
+    )
     if GfxDriver.VMOpenSource not in gfx_drivers:
         pkgs.extend(list(nc.pkgs["extra"] + nc.pkgs["extra_chaos"]))
     arch_config_handler.config.packages = pkgs
