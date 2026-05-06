@@ -131,11 +131,7 @@ class NoahConfig:
             UsrSrv(
                 source="/usr/lib/systemd/user",
                 target="sockets",
-                services=[
-                    "gnome-keyring-daemon.socket",
-                    "gcr-ssh-agent.socket",
-                    "mpd.socket",
-                ],
+                services=["gcr-ssh-agent.socket", "mpd.socket"],
             ),
             UsrSrv(
                 source="/usr/lib/systemd/user",
@@ -1599,4 +1595,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
