@@ -74,18 +74,6 @@ arch_config = ArchConfig(
         firewall_config=FirewallConfiguration(Firewall.FWD),
         fonts_config=FontsConfiguration([FontPackage.LIBERATION, FontPackage.EMOJI]),
     ),
-    auth_config=AuthenticationConfiguration(
-        root_enc_password=None,
-        users=[
-            User(
-                "nick",
-                Password(enc_password=None),
-                True,
-                ["adm", "games", "realtime", "storage", "video"],
-            )
-        ],
-        u2f_config=None,
-    ),
     locale_config=LocaleConfiguration(
         kb_layout="us", sys_lang="en_US", sys_enc="UTF-8"
     ),
@@ -170,6 +158,8 @@ class NoahConfig:
             ),
         )
 
+    username: str = "nick"
+    groups: list[str] = ["adm", "games", "realtime", "storage", "video"]
     dots_repo: str = "polka"
     git_user: str = "acctux"
     usb_key_dir: str = "keys"
@@ -1338,7 +1328,6 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
 def perform_installation(
     arch_config_handler: ArchConfigHandler,
     application_handler: ApplicationHandler,
-    cf: NoahConfig,
     gfx_drivers: list[GfxDriver],
 ) -> None:
     script_d = Path(__file__).resolve().parent
@@ -1361,20 +1350,20 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-
+        nc = NoahConfig()
         cmd = [
             "reflector",
-            *(part for opt in cf.reflector_options for part in opt.split()),
+            *(part for opt in nc.reflector_options for part in opt.split()),
         ]
         run_dmc(cmd)
-        generate_pacman_conf(None, no_extracts=list(cf.no_extracts))
+        generate_pacman_conf(None, no_extracts=list(nc.no_extracts))
         installation.minimal_installation(
             hostname=config.hostname, locale_config=locale
         )
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        generate_pacman_conf(mountpoint, list(cf.no_extracts))
+        generate_pacman_conf(mountpoint, list(nc.no_extracts))
 
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
@@ -1393,7 +1382,7 @@ def perform_installation(
                 else:
                     sysd_plymouth_setup(mountpoint)
 
-        modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
+        modify_mkinit(mountpoint, list(nc.mkinit_hooks), plymouth=True)
 
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
@@ -1405,9 +1394,9 @@ def perform_installation(
 
         installation.add_additional_packages("realtime-privileges")
 
-        tmp = mountpoint / "tmp" / cf.dots_repo
+        tmp = mountpoint / "tmp" / nc.dots_repo
         tmp.mkdir(exist_ok=True)
-        git = f"https://github.com/{cf.git_user}/{cf.dots_repo}.git"
+        git = f"https://github.com/{nc.git_user}/{nc.dots_repo}.git"
         run_dmc(["git", "clone", git, str(tmp)])
         shutil.rmtree(tmp / ".git")
         for p in tmp.iterdir():
@@ -1452,11 +1441,11 @@ def perform_installation(
         if config.ntp:
             installation.activate_time_synchronization()
 
-        write_etc_file(mountpoint, cf.etc_files_to_write)
-        copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
+        write_etc_file(mountpoint, nc.etc_files_to_write)
+        copy_dir(Path("/root") / nc.wireguard_dir, mountpoint / "etc" / "wireguard")
         reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
-        reflector_timer_conf.write_text("\n".join(cf.reflector_options))
-        set_extensions(mountpoint, cf.firefox_browser, list(cf.firefox_extensions))
+        reflector_timer_conf.write_text("\n".join(nc.reflector_options))
+        set_extensions(mountpoint, nc.firefox_browser, list(nc.firefox_extensions))
         sys_dots(mountpoint, script_d)
 
         git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
@@ -1474,25 +1463,25 @@ def perform_installation(
             if config.auth_config.users:
                 first_user = config.auth_config.users[0].username
                 configure_sudo(mountpoint, first_user, pless=True)
-                cmd = f"paru -S --noconfirm --needed {' '.join(cf.aur_pkgs)}"
+                cmd = f"paru -S --noconfirm --needed {' '.join(nc.aur_pkgs)}"
                 installation.arch_chroot(cmd, first_user)
                 configure_sudo(mountpoint, first_user)
                 first_user_home = f"home/{config.auth_config.users[0].username}"
                 copy_dir(script_d, (mountpoint / first_user_home / script_d.name))
                 chown_paths = copy_keys(
-                    mountpoint, cf.usb_key_dir, first_user, cf.to_cp
+                    mountpoint, nc.usb_key_dir, first_user, nc.to_cp
                 )
                 for ch_p in chown_paths:
                     installation.chown(first_user, ch_p)
                 for user in config.auth_config.users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
-                    cf.populate_usr_srv(user.username)
-                    chroot_cmds = enable_user_serv(list(cf.usr_srv), user.username)
-                    chroot_cmds += user_service(mountpoint, user.username, cf.terminal)
+                    nc.populate_usr_srv(user.username)
+                    chroot_cmds = enable_user_serv(list(nc.usr_srv), user.username)
+                    chroot_cmds += user_service(mountpoint, user.username, nc.terminal)
                     for cmd in chroot_cmds:
                         installation.arch_chroot(cmd, user.username)
                     user_home = f"home/{user.username}"
-                    for app in cf.apps_to_hide:
+                    for app in nc.apps_to_hide:
                         file_p = f"{user_home}/.local/share/applications/{app}.desktop"
                         (mountpoint / file_p).write_text(
                             "[Desktop Entry]\nNoDisplay=true\n"
@@ -1502,7 +1491,7 @@ def perform_installation(
                     )
 
         installation.enable_service(config.services)
-        installation.disable_service(list(cf.disable_svcs))
+        installation.disable_service(list(nc.disable_svcs))
 
         if disk_config.has_default_btrfs_vols():
             btrfs_options = disk_config.btrfs_options
@@ -1538,23 +1527,14 @@ def perform_installation(
 
 
 def main() -> None:
-    cf = NoahConfig()
-    mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
+    nc = NoahConfig()
+    mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    if pw := src_pass_file(cf.usb_key_dir, cf.my_pass):
+    if pw := src_pass_file(nc.usb_key_dir, nc.my_pass):
         auth_c = arch_config.auth_config
         if auth_c:
             arch_config_handler.config.auth_config = AuthenticationConfiguration(
-                auth_c.root_enc_password,
-                users=[
-                    User(
-                        auth_c.users[0].username,
-                        Password(pw),
-                        auth_c.users[0].sudo,
-                        auth_c.users[0].groups,
-                    )
-                ],
-                u2f_config=auth_c.u2f_config,
+                None, [User(nc.username, Password(pw), True, nc.groups)], None
             )
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
@@ -1564,13 +1544,13 @@ def main() -> None:
     arch_config_handler.config.ntp = True
     arch_config_handler.config.kernels = arch_config.kernels
     arch_config_handler.config.services = arch_config.services + list(
-        cf.custom_services
+        nc.custom_services
     )
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
-    pkgs = list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
+    pkgs = list(nc.pkgs["base"] + nc.pkgs["language"] + nc.pkgs["chaotic_repo"])
     if GfxDriver.VMOpenSource not in gfx_drivers:
-        pkgs.extend(list(cf.pkgs["extra"] + cf.pkgs["extra_chaos"]))
+        pkgs.extend(list(nc.pkgs["extra"] + nc.pkgs["extra_chaos"]))
     arch_config_handler.config.packages = pkgs
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
@@ -1589,7 +1569,7 @@ def main() -> None:
         if not delayed_warning("Starting device modifications in "):
             return main()
         fs_handler.perform_filesystem_operations()
-    perform_installation(arch_config_handler, ApplicationHandler(), cf, gfx_drivers)
+    perform_installation(arch_config_handler, ApplicationHandler(), gfx_drivers)
 
 
 if __name__ == "__main__":
