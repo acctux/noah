@@ -53,7 +53,7 @@ import subprocess
 import json
 import re
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import field
 from textwrap import dedent
 from utils import log, run_dmc, yes_no
 from archinstall.lib.profile.profiles_handler import profile_handler
@@ -106,7 +106,6 @@ arch_config = ArchConfig(
 ###########################################################
 # ARCHINSTALL CONF
 ###########################################################
-@dataclass()
 class NoahConfig:
     def populate_usr_srv(self, user_name: str):
         self.usr_srv = (
