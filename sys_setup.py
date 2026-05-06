@@ -159,7 +159,7 @@ class NoahConfig:
         )
 
     username: str = "nick"
-    groups: list[str] = ["adm", "games", "realtime", "storage", "video"]
+    groups: tuple[str, ...] = ("adm", "games", "realtime", "storage", "video")
     dots_repo: str = "polka"
     git_user: str = "acctux"
     usb_key_dir: str = "keys"
@@ -1534,7 +1534,7 @@ def main() -> None:
         auth_c = arch_config.auth_config
         if auth_c:
             arch_config_handler.config.auth_config = AuthenticationConfiguration(
-                None, [User(nc.username, Password(pw), True, nc.groups)], None
+                None, [User(nc.username, Password(pw), True, list(nc.groups))], None
             )
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
