@@ -139,7 +139,6 @@ def import_ssh(key_path: Path) -> None:
     if not Path(f"/run/user/{os.getuid()}/gcr/ssh").exists():
         run_dmc(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
         run_dmc(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-    run_dmc(["gnome-keyring-daemon", "--start", "--components=ssh"], check=True)
     run_dmc(["ssh-add", str(key_path)], check=False)
     log.info(f"SSH key {key_path} added or already present.")
 
