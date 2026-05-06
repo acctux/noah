@@ -1452,12 +1452,13 @@ def perform_installation(
         installation.arch_chroot(f"git clone {git}")
         installation.arch_chroot("bash ./WhiteSur-icon-theme/install.sh")
         icon_path = mountpoint / "usr/share/icons"
-        for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
-            text = svg.read_text()
-            if "#ffffff" in text:
-                svg.write_text(text.replace("#ffffff", "#F4F5F6"))
         if (icon_path / "WhiteSur-light").exists():
             shutil.rmtree(icon_path / "WhiteSur-light")
+        for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
+            if svg.is_file:
+                text = svg.read_text()
+                if "#ffffff" in text:
+                    svg.write_text(text.replace("#ffffff", "#F4F5F6"))
 
         if config.auth_config:
             if config.auth_config.users:
@@ -1546,11 +1547,7 @@ def main() -> None:
     )
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
-    pkgs = list(
-        nc.pkgs.get("base", ())
-        + nc.pkgs.get("language", ())
-        + nc.pkgs.get("chaotic_repo", ())
-    )
+    pkgs = list(nc.pkgs["base"] + nc.pkgs["language"] + nc.pkgs["chaotic_repo"])
     if GfxDriver.VMOpenSource not in gfx_drivers:
         pkgs.extend(list(nc.pkgs["extra"] + nc.pkgs["extra_chaos"]))
     arch_config_handler.config.packages = pkgs
