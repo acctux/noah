@@ -79,7 +79,7 @@ arch_config = ArchConfig(
         users=[
             User(
                 "nick",
-                Password(""),
+                Password(enc_password=None),
                 True,
                 ["adm", "games", "realtime", "storage", "video"],
             )
@@ -112,7 +112,6 @@ arch_config = ArchConfig(
         "paccache.timer",
         "reflector.timer",
     ],
-    custom_commands=["echo 'Hello, World!'"],
 )
 
 
