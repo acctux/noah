@@ -35,11 +35,9 @@ from archinstall.lib.models import (
     BluetoothConfiguration,
     PrintServiceConfiguration,
     LocaleConfiguration,
-    DiskLayoutConfiguration,
     ProfileConfiguration,
     NetworkConfiguration,
     NicType,
-    Nic,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
@@ -74,50 +72,28 @@ arch_config = ArchConfig(
         power_management_config=PowerManagementConfiguration(PowerManagement.TUNED),
         print_service_config=PrintServiceConfiguration(enabled=True),
         firewall_config=FirewallConfiguration(Firewall.FWD),
-        fonts_config=FontsConfiguration(
-            [
-                FontPackage.LIBERATION,
-                FontPackage.EMOJI,
-            ]
-        ),
+        fonts_config=FontsConfiguration([FontPackage.LIBERATION, FontPackage.EMOJI]),
     ),
     auth_config=AuthenticationConfiguration(
         root_enc_password=None,
         users=[
             User(
-                username="",
-                password=Password(""),
-                sudo=True,
-                groups=["adm", "games", "realtime", "storage", "video"],
+                "nick",
+                Password(""),
+                True,
+                ["adm", "games", "realtime", "storage", "video"],
             )
         ],
         u2f_config=None,
     ),
     locale_config=LocaleConfiguration(
-        kb_layout="us",
-        sys_lang="en_US",
-        sys_enc="UTF-8",
-    ),
-    disk_config=DiskLayoutConfiguration(
-        config_type=DiskLayoutType.Default,
-        device_modifications=[],
-        lvm_config=None,
-        mountpoint=None,
+        kb_layout="us", sys_lang="en_US", sys_enc="UTF-8"
     ),
     profile_config=ProfileConfiguration(
-        profile=None,
-        gfx_driver=GfxDriver.NvidiaOpenKernel,
-        greeter=GreeterType.Ly,
+        profile=None, gfx_driver=GfxDriver.NvidiaOpenKernel, greeter=GreeterType.Ly
     ),
-    network_config=NetworkConfiguration(
-        type=NicType.ISO,
-        nics=[Nic()],
-    ),
-    bootloader_config=BootloaderConfiguration(
-        bootloader=Bootloader.Systemd,
-        uki=False,
-        removable=False,
-    ),
+    network_config=NetworkConfiguration(type=NicType.ISO),
+    bootloader_config=BootloaderConfiguration(Bootloader.Systemd, False, False),
     hostname="yulia",
     kernels=["linux"],
     ntp=True,
@@ -150,9 +126,7 @@ class NoahConfig:
             UsrSrv(
                 source="/usr/lib/systemd/user",
                 target="default",
-                services=[
-                    "psd.service",
-                ],
+                services=["psd.service"],
             ),
             UsrSrv(
                 source="/usr/lib/systemd/user",
@@ -1128,6 +1102,15 @@ def generate_pacman_conf(
     pac_p.write_text(pacman_content)
 
 
+def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
+    for filepath, content in files_to_write.items():
+        full_path = mnt_point / filepath
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        with full_path.open("w") as file:
+            file.write(content)
+            log.info(f"Content: {content}\nWritten to: {full_path}")
+
+
 ###################################
 # ETC/BOOT
 ###################################
@@ -1417,19 +1400,13 @@ def perform_installation(
 
         modify_mkinit(mountpoint, list(cf.mkinit_hooks), plymouth=True)
 
-        installation.copy_iso_network_config(enable_services=True)
-
-        installation.set_timezone(config.timezone)
-
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
 
         profile_handler.install_greeter(installation, GreeterType.Ly)
 
         if config.network_config:
-            install_network_config(
-                config.network_config, installation, config.profile_config
-            )
+            install_network_config(config.network_config, installation, None)
 
         installation.add_additional_packages("realtime-privileges")
 
@@ -1480,20 +1457,11 @@ def perform_installation(
         if config.ntp:
             installation.activate_time_synchronization()
 
-        for filepath, content in cf.etc_files_to_write.items():
-            full_path = mountpoint / filepath
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            with full_path.open("w") as file:
-                file.write(content)
-                log.info(f"Content: {content}\nWritten to: {full_path}")
-
+        write_etc_file(mountpoint, cf.etc_files_to_write)
         copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
-
         reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
         reflector_timer_conf.write_text("\n".join(cf.reflector_options))
-
         set_extensions(mountpoint, cf.firefox_browser, list(cf.firefox_extensions))
-
         sys_dots(mountpoint, script_d)
 
         git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
@@ -1587,8 +1555,8 @@ def main() -> None:
                     User(
                         auth_c.users[0].username,
                         Password(pw),
-                        sudo=auth_c.users[0].sudo,
-                        groups=auth_c.users[0].groups,
+                        auth_c.users[0].sudo,
+                        auth_c.users[0].groups,
                     )
                 ],
                 u2f_config=auth_c.u2f_config,
