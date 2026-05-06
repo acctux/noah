@@ -1452,13 +1452,23 @@ def perform_installation(
         installation.arch_chroot(f"git clone {git}")
         installation.arch_chroot("bash ./WhiteSur-icon-theme/install.sh")
         icon_path = mountpoint / "usr/share/icons"
-        if (icon_path / "WhiteSur-light").exists():
-            shutil.rmtree(icon_path / "WhiteSur-light")
-        for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
-            if svg.is_file:
-                text = svg.read_text()
-                if "#ffffff" in text:
-                    svg.write_text(text.replace("#ffffff", "#F4F5F6"))
+        white_sur_light = icon_path / "WhiteSur-light"
+        if white_sur_light.exists():
+            shutil.rmtree(white_sur_light)
+            log.info(f"Removed {white_sur_light}")
+        themes_to_modify = []
+        for folder in icon_path.iterdir():
+            if folder.is_dir() and (
+                "-dark" in folder.name or "WhiteSur" in folder.name
+            ):
+                themes_to_modify.append(folder)
+        for theme_dir in themes_to_modify:
+            for svg_file in theme_dir.rglob("*.svg"):
+                if svg_file.is_file():
+                    text = svg_file.read_text()
+                    if "#ffffff" in text:
+                        svg_file.write_text(text.replace("#ffffff", "#F4F5F6"))
+                        log.info(f"Modified {svg_file}")
 
         if config.auth_config:
             if config.auth_config.users:
