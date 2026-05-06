@@ -89,8 +89,10 @@ arch_config = ArchConfig(
     timezone="US/Eastern",
     services=[
         "ananicy-cpp",
+        "iwd",
         "named",
         "swayosd-libinput-backend",
+        "systemd-networkd",
         "systemd-oomd",
         "btrfs-scrub@-.timer",
         "btrfs-scrub@home.timer",
