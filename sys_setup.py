@@ -25,7 +25,7 @@ from archinstall.lib.general.general_menu import (
     select_post_installation,
 )
 from archinstall.lib.global_menu import GlobalMenu
-from archinstall.lib.installer import Installer, run_custom_user_commands
+from archinstall.lib.installer import Installer
 from archinstall.lib.menu.util import delayed_warning
 from archinstall.lib.models import (
     Bootloader,
@@ -34,12 +34,19 @@ from archinstall.lib.models import (
     ApplicationConfiguration,
     BluetoothConfiguration,
     PrintServiceConfiguration,
+    LocaleConfiguration,
+    DiskLayoutConfiguration,
+    ProfileConfiguration,
+    NetworkConfiguration,
+    NicType,
+    Nic,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.users import Password
+from archinstall.lib.network.network_handler import install_network_config
 from pydantic import BaseModel
 from pathlib import Path
 import sys
@@ -60,14 +67,140 @@ class UsrSrv(BaseModel):
     services: list[str]
 
 
+arch_config = ArchConfig(
+    app_config=ApplicationConfiguration(
+        bluetooth_config=BluetoothConfiguration(enabled=True),
+        audio_config=AudioConfiguration(audio=Audio.PIPEWIRE),
+        power_management_config=PowerManagementConfiguration(PowerManagement.TUNED),
+        print_service_config=PrintServiceConfiguration(enabled=True),
+        firewall_config=FirewallConfiguration(Firewall.FWD),
+        fonts_config=FontsConfiguration(
+            [
+                FontPackage.LIBERATION,
+                FontPackage.EMOJI,
+            ]
+        ),
+    ),
+    auth_config=AuthenticationConfiguration(
+        root_enc_password=None,
+        users=[
+            User(
+                username="",
+                password=Password(""),
+                sudo=True,
+                groups=["adm", "games", "realtime", "storage", "video"],
+            )
+        ],
+        u2f_config=None,
+    ),
+    locale_config=LocaleConfiguration(
+        kb_layout="us",
+        sys_lang="en_US",
+        sys_enc="UTF-8",
+    ),
+    disk_config=DiskLayoutConfiguration(
+        config_type=DiskLayoutType.Default,
+        device_modifications=[],
+        lvm_config=None,
+        mountpoint=None,
+    ),
+    profile_config=ProfileConfiguration(
+        profile=None,
+        gfx_driver=GfxDriver.NvidiaOpenKernel,
+        greeter=GreeterType.Ly,
+    ),
+    network_config=NetworkConfiguration(
+        type=NicType.ISO,
+        nics=[Nic()],
+    ),
+    bootloader_config=BootloaderConfiguration(
+        bootloader=Bootloader.Systemd,
+        uki=False,
+        removable=False,
+    ),
+    hostname="yulia",
+    kernels=["linux"],
+    ntp=True,
+    swap=ZramConfiguration(enabled=True),
+    timezone="US/Eastern",
+    services=[
+        "ananicy-cpp",
+        "named",
+        "swayosd-libinput-backend",
+        "systemd-oomd",
+        "btrfs-scrub@-.timer",
+        "btrfs-scrub@home.timer",
+        "fstrim.timer",
+        "logrotate.timer",
+        "man-db.timer",
+        "paccache.timer",
+        "reflector.timer",
+    ],
+    custom_commands=["echo 'Hello, World!'"],
+)
+
+
 ###########################################################
 # ARCHINSTALL CONF
 ###########################################################
 @dataclass()
 class NoahConfig:
-    user_name: str = "nick"
-    hostname: str = "yulia"
-    timezone: str = "US/Eastern"
+    def populate_usr_srv(self, user_name: str):
+        self.usr_srv = (
+            UsrSrv(
+                source="/usr/lib/systemd/user",
+                target="default",
+                services=[
+                    "psd.service",
+                ],
+            ),
+            UsrSrv(
+                source="/usr/lib/systemd/user",
+                target="sockets",
+                services=[
+                    "gnome-keyring-daemon.socket",
+                    "gcr-ssh-agent.socket",
+                    "mpd.socket",
+                ],
+            ),
+            UsrSrv(
+                source="/usr/lib/systemd/user",
+                target="graphical-session",
+                services=[
+                    "cliphist.service",
+                    "hypridle.service",
+                    "hyprsunset.service",
+                    "swaync.service",
+                    "waybar.service",
+                ],
+            ),
+            UsrSrv(
+                source=f"/home/{user_name}/.config/systemd/user",
+                target="graphical-session",
+                services=[
+                    "ayugram.service",
+                    "clip-persist.service",
+                    "kdeconnectd.service",
+                    "kanshi.service",
+                    "playerctld.service",
+                    "polkit-gnome.service",
+                    "snixembed.service",
+                    "swayosd.service",
+                    "awww-daemon.service",
+                ],
+            ),
+            UsrSrv(
+                source=f"/home/{user_name}/.config/systemd/user",
+                target="timers",
+                services=[
+                    "emailcheck.timer",
+                    "task-reminder.timer",
+                    "task-schedule.timer",
+                    "wall.timer",
+                ],
+            ),
+        )
+
     dots_repo: str = "polka"
     git_user: str = "acctux"
     usb_key_dir: str = "keys"
@@ -75,14 +208,6 @@ class NoahConfig:
     my_pass: str = "pass.py"
     parallel_downloads: int = 10
     multilib: bool = True
-    kernel: tuple[str, ...] = ("linux",)
-    groups: tuple[str, ...] = (
-        "adm",
-        "games",
-        "realtime",
-        "storage",
-        "video",
-    )
     terminal: str = "kitty"
     usb_cp_files: tuple[str, ...] = (
         "id_ed25519",
@@ -341,19 +466,6 @@ class NoahConfig:
         }
     )
     aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
-    sys_services: tuple[str, ...] = (
-        "ananicy-cpp",
-        "named",
-        "swayosd-libinput-backend",
-        "systemd-oomd",
-        "btrfs-scrub@-.timer",
-        "btrfs-scrub@home.timer",
-        "fstrim.timer",
-        "logrotate.timer",
-        "man-db.timer",
-        "paccache.timer",
-        "reflector.timer",
-    )
     custom_services: tuple[str, ...] = (
         "loggy",
         "sysinfo",
@@ -361,59 +473,6 @@ class NoahConfig:
     disable_svcs: tuple[str, ...] = (
         "systemd-resolved",
         "systemd-networkd-wait-online",
-    )
-    usr_srv: tuple[UsrSrv, ...] = (
-        UsrSrv(
-            source="/usr/lib/systemd/user",
-            target="default",
-            services=["pipewire-pulse.service", "psd.service"],
-        ),
-        UsrSrv(
-            source="/usr/lib/systemd/user",
-            target="sockets",
-            services=[
-                "pipewire-pulse.socket",
-                "gnome-keyring-daemon.socket",
-                "gcr-ssh-agent.socket",
-                "mpd.socket",
-            ],
-        ),
-        UsrSrv(
-            source="/usr/lib/systemd/user",
-            target="graphical-session",
-            services=[
-                "cliphist.service",
-                "hypridle.service",
-                "hyprsunset.service",
-                "swaync.service",
-                "waybar.service",
-            ],
-        ),
-        UsrSrv(
-            source=f"/home/{user_name}/.config/systemd/user",
-            target="graphical-session",
-            services=[
-                "ayugram.service",
-                "clip-persist.service",
-                "kdeconnectd.service",
-                "kanshi.service",
-                "playerctld.service",
-                "polkit-gnome.service",
-                "snixembed.service",
-                "swayosd.service",
-                "awww-daemon.service",
-            ],
-        ),
-        UsrSrv(
-            source=f"/home/{user_name}/.config/systemd/user",
-            target="timers",
-            services=[
-                "emailcheck.timer",
-                "task-reminder.timer",
-                "task-schedule.timer",
-                "wall.timer",
-            ],
-        ),
     )
     apps_to_hide: tuple[str, ...] = (
         "avahi-discover",
@@ -447,6 +506,12 @@ class NoahConfig:
     )
     etc_files_to_write: dict[str, str] = field(
         default_factory=lambda: {
+            "etc/tmpfiles.d/mpd.conf": dedent(
+                """\
+                x /home/*/.cache/mpd 0755 %u %g -
+                x /home/*/.cache/mpd/playlists 0755 %u %g -
+                """
+            ),
             "etc/iwd/main.conf": dedent(
                 """\
                 [Network]
@@ -895,12 +960,6 @@ class NoahConfig:
                 xauth_cmd = /usr/bin/xauth
                 xinitrc = ~/.xinitrc
                 xsessions = /usr/share/xsessions
-                """
-            ),
-            "etc/tmpfiles.d/mpd.conf": dedent(
-                f"""\
-                d /home/{NoahConfig.user_name}/.cache/mpd 0755 {NoahConfig.user_name} mpd -
-                d /home/{NoahConfig.user_name}/.cache/mpd/playlists 0755 {NoahConfig.user_name} mpd -
                 """
             ),
         }
@@ -1367,6 +1426,11 @@ def perform_installation(
 
         profile_handler.install_greeter(installation, GreeterType.Ly)
 
+        if config.network_config:
+            install_network_config(
+                config.network_config, installation, config.profile_config
+            )
+
         installation.add_additional_packages("realtime-privileges")
 
         tmp = mountpoint / "tmp" / cf.dots_repo
@@ -1387,21 +1451,25 @@ def perform_installation(
 
         srv = "keyserver.ubuntu.com"
         web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-        cmds = [
-            ["pacman-key", "--init"],
-            ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv],
-            ["pacman-key", "--lsign-key", "3056513887B78AEB"],
-            ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
-            ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
-        ]
-        for cmd in cmds:
-            run_dmc(cmd)
-            installation.arch_chroot(" ".join(cmd))
-        run_dmc(["pacman", "-Sy"], check=True)
-        installation.arch_chroot("pacman -Sy")
+        run_dmc(["pacman-key", "--init"])
+        installation.arch_chroot(" ".join(["pacman-key", "--init"]))
+        cmd = ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv]
+        run_dmc(cmd)
+        installation.arch_chroot(" ".join(cmd))
+        cmd = ["pacman-key", "--lsign-key", "3056513887B78AEB"]
+        run_dmc(cmd)
+        installation.arch_chroot(" ".join(cmd))
+        cmd = ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"]
+        run_dmc(cmd)
+        installation.arch_chroot(" ".join(cmd))
+        cmd = ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"]
+        run_dmc(cmd)
+        installation.arch_chroot(" ".join(cmd))
         for path in [Path("/etc/pacman.conf"), mountpoint / "etc/pacman.conf"]:
             with path.open("a") as f:
                 f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+        run_dmc(["pacman", "-Sy"], check=True)
+        installation.arch_chroot("pacman -Sy")
 
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
@@ -1421,20 +1489,17 @@ def perform_installation(
 
         copy_dir(Path("/root") / cf.wireguard_dir, mountpoint / "etc" / "wireguard")
 
-        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
-            "\n".join(cf.reflector_options)
-        )
+        reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
+        reflector_timer_conf.write_text("\n".join(cf.reflector_options))
 
         set_extensions(mountpoint, cf.firefox_browser, list(cf.firefox_extensions))
 
         sys_dots(mountpoint, script_d)
 
         git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
-        run_custom_user_commands(
-            [f"git clone {git}", "bash ./WhiteSur-icon-theme/install.sh"],
-            installation=installation,
-        )
-        icon_path = mountpoint / "/usr/share/icons"
+        installation.arch_chroot(f"git clone {git}")
+        installation.arch_chroot("bash ./WhiteSur-icon-theme/install.sh")
+        icon_path = mountpoint / "usr/share/icons"
         for svg in [p for p in icon_path.rglob("*.svg") if "scalable" not in p.parts]:
             text = svg.read_text()
             if "#ffffff" in text:
@@ -1458,6 +1523,7 @@ def perform_installation(
                     installation.chown(first_user, ch_p)
                 for user in config.auth_config.users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
+                    cf.populate_usr_srv(user.username)
                     chroot_cmds = enable_user_serv(list(cf.usr_srv), user.username)
                     chroot_cmds += user_service(mountpoint, user.username, cf.terminal)
                     for cmd in chroot_cmds:
@@ -1510,30 +1576,34 @@ def perform_installation(
 
 def main() -> None:
     cf = NoahConfig()
-    arch_config_handler = ArchConfigHandler()
     mnt_cp_keys(cf.usb_key_dir, list(cf.usb_cp_files), cf.wireguard_dir)
+    arch_config_handler = ArchConfigHandler()
     if pw := src_pass_file(cf.usb_key_dir, cf.my_pass):
-        user = User(cf.user_name, Password(pw), True, list(cf.groups))
-        arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            root_enc_password=None, users=[user], u2f_config=None
-        )
-    arch_config_handler.config.hostname = cf.hostname
-    arch_config_handler.config.swap = ZramConfiguration(enabled=True)
-    arch_config_handler.config.timezone = cf.timezone
-    arch_config_handler.config.bootloader_config = BootloaderConfiguration(
-        Bootloader.Systemd, uki=False, removable=False
-    )
+        auth_c = arch_config.auth_config
+        if auth_c:
+            arch_config_handler.config.auth_config = AuthenticationConfiguration(
+                auth_c.root_enc_password,
+                users=[
+                    User(
+                        auth_c.users[0].username,
+                        Password(pw),
+                        sudo=auth_c.users[0].sudo,
+                        groups=auth_c.users[0].groups,
+                    )
+                ],
+                u2f_config=auth_c.u2f_config,
+            )
+    arch_config_handler.config.hostname = arch_config.hostname
+    arch_config_handler.config.ntp = arch_config.ntp
+    arch_config_handler.config.swap = arch_config.swap
+    arch_config_handler.config.timezone = arch_config.timezone
+    arch_config_handler.config.bootloader_config = arch_config.bootloader_config
     arch_config_handler.config.ntp = True
-    arch_config_handler.config.kernels = list(cf.kernel)
-    arch_config_handler.config.services = list(cf.sys_services + cf.custom_services)
-    arch_config_handler.config.app_config = ApplicationConfiguration(
-        BluetoothConfiguration(True),
-        AudioConfiguration(Audio.PIPEWIRE),
-        PowerManagementConfiguration(PowerManagement.TUNED),
-        PrintServiceConfiguration(False),
-        FirewallConfiguration(Firewall.FWD),
-        FontsConfiguration([FontPackage.EMOJI, FontPackage.LIBERATION]),
+    arch_config_handler.config.kernels = arch_config.kernels
+    arch_config_handler.config.services = arch_config.services + list(
+        cf.custom_services
     )
+    arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
     pkgs = list(cf.pkgs["base"] + cf.pkgs["language"] + cf.pkgs["chaotic_repo"])
     if GfxDriver.VMOpenSource not in gfx_drivers:
@@ -1561,3 +1631,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
