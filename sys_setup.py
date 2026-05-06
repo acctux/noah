@@ -1531,11 +1531,9 @@ def main() -> None:
     mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
     if pw := src_pass_file(nc.usb_key_dir, nc.my_pass):
-        auth_c = arch_config.auth_config
-        if auth_c:
-            arch_config_handler.config.auth_config = AuthenticationConfiguration(
-                None, [User(nc.username, Password(pw), True, list(nc.groups))], None
-            )
+        arch_config_handler.config.auth_config = AuthenticationConfiguration(
+            None, [User(nc.username, Password(pw), True, list(nc.groups))], None
+        )
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
