@@ -83,7 +83,7 @@ arch_config = ArchConfig(
 ###########################################################
 @dataclass
 class NoahConfig:
-    def populate_usr_srv(self, user_name: str):
+    def populate_usr_srv(self, user_name: str) -> list[UsrSrv]:
         self.usr_srv = (
             UsrSrv(
                 source="/usr/lib/systemd/user",
@@ -132,6 +132,7 @@ class NoahConfig:
                 ],
             ),
         )
+        return list(self.usr_srv)
 
     groups: tuple[str, ...] = ("adm", "games", "realtime", "storage", "video")
     dots_repo: str = "polka"

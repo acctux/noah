@@ -634,6 +634,7 @@ def perform_installation(
     arch_config_handler: ArchConfigHandler,
     auth_handler: AuthenticationHandler,
     application_handler: ApplicationHandler,
+    nc: NoahConfig,
     gfx_drivers: list[GfxDriver],
 ) -> None:
     script_d = Path(__file__).resolve().parent
@@ -667,8 +668,6 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
-
-        nc = NoahConfig()
 
         run_dmc(
             [
@@ -752,8 +751,8 @@ def perform_installation(
         install_icons(installation)
         if users:
             for user in users:
-                usr_srv = nc.populate_usr_srv(user.username)
                 installation.arch_chroot("xdg-user-dirs-update", user.username)
+                usr_srv = nc.populate_usr_srv(user.username)
                 enable_user_serv(installation, usr_srv, user.username)
             generate_mpd_tmpfiles(installation, users)
             configure_sudo(installation.target, users[0].username, pless=True)
@@ -878,7 +877,11 @@ def sys_setup() -> None:
             return sys_setup()
         fs_handler.perform_filesystem_operations()
     perform_installation(
-        arch_config_handler, AuthenticationHandler(), ApplicationHandler(), gfx_drivers
+        arch_config_handler,
+        AuthenticationHandler(),
+        ApplicationHandler(),
+        nc,
+        gfx_drivers,
     )
 
 
