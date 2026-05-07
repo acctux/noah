@@ -830,17 +830,14 @@ def sys_setup() -> None:
     arch_config_handler = ArchConfigHandler()
     users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
     if users_list := users_json.get("users", []):
+        user = User(
+            users_list[0]["username"],
+            Password(plaintext=users_list[0]["password"]),
+            True,
+            list(nc.groups),
+        )
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            None,
-            [
-                User(
-                    users_list[0]["username"],
-                    Password(plaintext=users_list[0]["password"]),
-                    True,
-                    list(nc.groups),
-                )
-            ],
-            None,
+            None, [user], None
         )
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
