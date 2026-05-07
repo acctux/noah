@@ -32,12 +32,13 @@ def find_disk_with_fs(devices, primary_fs="FAT32", fallback_fs="BTRFS"):
     for disk in devices:
         print(f"Checking disk: {disk.device_info.path}")
         for part in disk.partition_infos:
-            if part.fs_type.name == primary_fs:
-                print(f"Found {primary_fs} partition: {part.path}")
-                fat32_disk = disk.device_info.path
-                break
-            elif part.fs_type.name == fallback_fs and btrfs_disk is None:
-                btrfs_disk = disk.device_info.path
+            if part.fs_type:
+                if part.fs_type.name == primary_fs:
+                    print(f"Found {primary_fs} partition: {part.path}")
+                    fat32_disk = disk.device_info.path
+                    break
+                elif part.fs_type.name == fallback_fs and btrfs_disk is None:
+                    btrfs_disk = disk.device_info.path
 
         if fat32_disk:
             return fat32_disk
