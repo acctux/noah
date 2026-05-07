@@ -29,7 +29,6 @@ from archinstall.lib.models import (
     PartitionFlag,
     DeviceModification,
     DiskLayoutConfiguration,
-    SubvolumeModification,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
@@ -37,7 +36,7 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.users import Password
 from archinstall.lib.network.network_handler import install_network_config
-from archinstall.lib.disk.device_handler import device_handler, DeviceHandler
+from archinstall.lib.disk.device_handler import device_handler
 import sys
 import time
 import subprocess
@@ -156,6 +155,51 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
+def create_disk_config():
+    devices = device_handler.devices
+    target_disk = ""
+    for disk in devices:
+        log.info(f"Checking disk: {disk.device_info.path}")
+        for part in disk.partition_infos:
+            if not part.fs_type:
+                continue
+            if part.fs_type.name == "FAT32":
+                target_disk = disk
+                break
+            elif part.fs_type.name == "BTRFS":
+                target_disk = disk
+            log.info(f"Found partition: {part.path}")
+    if target_disk:
+        device = device_handler.get_device(disk.device_info.path)
+        if device:
+            device_modification = DeviceModification(device, wipe=True)
+            boot_partition = PartitionModification(
+                status=ModificationStatus.CREATE,
+                type=PartitionType.PRIMARY,
+                start=Size(1, Unit.MiB, target_disk.device_info.sector_size),
+                length=Size(512, Unit.MiB, target_disk.device_info.sector_size),
+                mountpoint=Path("/boot"),
+                fs_type=FilesystemType.FAT32,
+                flags=[PartitionFlag.BOOT],
+            )
+            device_modification.add_partition(boot_partition)
+            start_root = boot_partition.length
+            length_root = device.device_info.total_size - start_root
+            root_partition = PartitionModification(
+                status=ModificationStatus.CREATE,
+                type=PartitionType.PRIMARY,
+                start=start_root,
+                length=length_root,
+                mountpoint=None,
+                fs_type=FilesystemType("btrfs"),
+            )
+            device_modification.add_partition(root_partition)
+            return DiskLayoutConfiguration(
+                config_type=DiskLayoutType.Default,
+                device_modifications=[device_modification],
+            )
+
+
 def load_users_json(json_file: Path) -> dict:
     if not json_file.exists():
         log.error(f"JSON file {json_file} does not exist.")
@@ -276,7 +320,7 @@ def mnt_cp_keys(
     time.sleep(1)
     if yes_no("Files copied, unmount?"):
         run_dmc(["umount", str(usb_mnt)], check=True)
-        time.sleep(3)
+        time.sleep(1)
 
 
 ###################################
@@ -811,7 +855,6 @@ def perform_installation(
         modify_fstab(mountpoint)
 
         debug(f"Disk states after installing:\n{disk_layouts()}")
-        mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
         if not arch_config_handler.args.silent:
             elapsed_time = time.monotonic() - start_time
             action: PostInstallationAction = tui.run(
@@ -830,49 +873,9 @@ def perform_installation(
 
 
 def sys_setup() -> None:
-    arch_config_handler = ArchConfigHandler()
-    fs_type = FilesystemType("btrfs")
-    device_path = Path("/dev/vda")
-    device = device_handler.get_device(device_path) or device_handler.get_device(
-        Path("/dev/nvme0n1")
-    )
-    if not device:
-        raise ValueError("No device found for given path")
-
-    device_modification = DeviceModification(device, wipe=True)
-    boot_partition = PartitionModification(
-        status=ModificationStatus.CREATE,
-        type=PartitionType.PRIMARY,
-        start=Size(1, Unit.MiB, device.device_info.sector_size),
-        length=Size(512, Unit.MiB, device.device_info.sector_size),
-        mountpoint=Path("/boot"),
-        fs_type=FilesystemType.FAT32,
-        flags=[PartitionFlag.BOOT, PartitionFlag.ESP],
-    )
-    device_modification.add_partition(boot_partition)
-    start_root = boot_partition.length
-    length_root = device.device_info.total_size - start_root
-    root_partition = PartitionModification(
-        status=ModificationStatus.CREATE,
-        type=PartitionType.PRIMARY,
-        start=start_root,
-        length=length_root,
-        btrfs_subvols=[
-            SubvolumeModification(Path("@"), Path("/")),
-            SubvolumeModification(Path("@home"), Path("/home")),
-        ],
-        flags=[],
-        mountpoint=None,
-        mount_options=["compress=zstd"],
-        fs_type=fs_type,
-    )
-    device_modification.add_partition(root_partition)
-    disk_config = DiskLayoutConfiguration(
-        config_type=DiskLayoutType.Default,
-        device_modifications=[device_modification],
-    )
-    arch_config_handler.config.disk_config = disk_config
     nc = NoahConfig()
+    mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
+    arch_config_handler = ArchConfigHandler()
     users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
     if users_list := users_json.get("users", []):
         first_user = users_list[0]
@@ -888,6 +891,9 @@ def sys_setup() -> None:
             ],
             None,
         )
+    disk_config = create_disk_config()
+
+    arch_config_handler.config.disk_config = disk_config
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
