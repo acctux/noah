@@ -160,15 +160,18 @@ def create_disk_config():
     target_disk = ""
     for disk in devices:
         log.info(f"Checking disk: {disk.device_info.path}")
-        for part in disk.partition_infos:
-            if not part.fs_type:
-                continue
-            if part.fs_type.name == "FAT32":
-                target_disk = disk
-                break
-            elif part.fs_type.name == "BTRFS":
-                target_disk = disk
-            log.info(f"Found partition: {part.path}")
+        if disk.device_info.type == "virtblk":
+            target_disk = disk
+        else:
+            for part in disk.partition_infos:
+                if not part.fs_type:
+                    continue
+                if part.fs_type.name == "FAT32":
+                    target_disk = disk
+                    break
+                elif part.fs_type.name == "BTRFS":
+                    target_disk = disk
+                log.info(f"Found partition: {part.path}")
     if target_disk:
         device = device_handler.get_device(disk.device_info.path)
         if device:
