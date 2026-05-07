@@ -797,14 +797,14 @@ pkgs: dict[str, list[str]] = {
         "wireguard-tools",
         "networkmanager",
         # media
-        "cava",
-        "imv",
-        "mpd",
-        "mpd-mpris",
-        "mpv-mpris",
-        "pavucontrol",
-        "playerctl",
-        "rmpc",
+        # "cava",
+        # "imv",
+        # "mpd",
+        # "mpd-mpris",
+        # "mpv-mpris",
+        # "pavucontrol",
+        # "playerctl",
+        # "rmpc",
         # Hypr
         "capitaine-cursors",
         "fuzzel",
@@ -829,17 +829,17 @@ pkgs: dict[str, list[str]] = {
         "waybar",
         "xdg-desktop-portal-gnome",
         "xdg-desktop-portal-hyprland",
-        # Python
-        "python-dbus-fast",  # loggy
-        "python-gnupg",  # noah
-        "python-imaplib2",  # emailcheck
-        "python-pandas",  # weather
-        "python-pydantic",  # noah
-        "python-pyperclip",  # noah
-        "python-systemd",  # loggy
-        "python-wand",  # wallpaper script
-        "otf-firamono-nerd",
-        "inotify-tools",  # nvim
+        # # Python
+        # "python-dbus-fast",  # loggy
+        # "python-gnupg",  # noah
+        # "python-imaplib2",  # emailcheck
+        # "python-pandas",  # weather
+        # "python-pydantic",  # noah
+        # "python-pyperclip",  # noah
+        # "python-systemd",  # loggy
+        # "python-wand",  # wallpaper script
+        # "otf-firamono-nerd",
+        # "inotify-tools",  # nvim
         # "npm",
         # "neovim-lspconfig",
         # "uv",

@@ -361,7 +361,9 @@ def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
         Defaults    editor=/usr/sbin/nvim, !env_editor
         """
     )
-    (mnt_point / f"etc/sudoers.d/00_{user_name}").write_text(sudoers_content)
+    sudoers_file = mnt_point / f"etc/sudoers.d/00_{user_name}"
+    sudoers_file.write_text(sudoers_content)
+    sudoers_file.chmod(0o440)
     log.info(f"{'Removed' if pless else 'Created'} pass requirement for {user_name}")
 
 
@@ -767,7 +769,6 @@ def perform_installation(
                 generate_mpd_tmpfiles(installation, users)
                 first_user = users[0].username
                 configure_sudo(installation.target, first_user, pless=True)
-                installation.arch_chroot("sudo -k", first_user)
                 cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
                 installation.arch_chroot(cmd, first_user)
                 configure_sudo(installation.target, first_user)
