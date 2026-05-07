@@ -774,6 +774,7 @@ def perform_installation(
             enable_user_serv(installation, list(nc.usr_srv), users)
             user_service(installation, users, nc.terminal)
             hide_apps(installation, users, nc)
+
         if (profile_config := config.profile_config) and profile_config.profile:
             profile_config.profile.post_install(installation)
             if users:

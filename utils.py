@@ -797,14 +797,14 @@ pkgs: dict[str, list[str]] = {
         "wireguard-tools",
         "networkmanager",
         # media
-        # "cava",
-        # "imv",
-        # "mpd",
-        # "mpd-mpris",
-        # "mpv-mpris",
-        # "pavucontrol",
-        # "playerctl",
-        # "rmpc",
+        "cava",
+        "imv",
+        "mpd",
+        "mpd-mpris",
+        "mpv-mpris",
+        "pavucontrol",
+        "playerctl",
+        "rmpc",
         # Hypr
         "capitaine-cursors",
         "fuzzel",
@@ -829,66 +829,66 @@ pkgs: dict[str, list[str]] = {
         "waybar",
         "xdg-desktop-portal-gnome",
         "xdg-desktop-portal-hyprland",
-        # # Python
-        # "python-dbus-fast",  # loggy
-        # "python-gnupg",  # noah
-        # "python-imaplib2",  # emailcheck
-        # "python-pandas",  # weather
-        # "python-pydantic",  # noah
-        # "python-pyperclip",  # noah
-        # "python-systemd",  # loggy
-        # "python-wand",  # wallpaper script
-        # "otf-firamono-nerd",
-        # "inotify-tools",  # nvim
-        # "npm",
-        # "neovim-lspconfig",
-        # "uv",
-        # "qt5ct",
-        # "qt6ct",
-        # "wl-clipboard",
-        # "wl-clip-persist",
-        # "yazi",
-        # "zbar",  # qr codes
-        # "qrencode",  # qr codes
-        # "git-delta",
-        # "taskwarrior-tui",
-        # "man-pages",
-        # "rofimoji",
-        # # coding
-        # # Language Servers
-        # "bash-language-server",
-        # "lua-language-server",
-        # "rust-analyzer",
-        # "tombi",
-        # "ty",
-        # "vscode-css-languageserver",
-        # "vscode-json-languageserver",
-        # "yaml-language-server",
-        # # Formatters
-        # "ruff",
-        # "shfmt",
-        # # Lint
-        # "shellcheck",
-        # "biome",
-        # "luacheck",
-        # "yamllint",
-        # # Tree sitter
-        # "tree-sitter-bash",
-        # "tree-sitter-cli",
-        # "tree-sitter-python",
-        # "bat-extras",
-        # "eza",
-        # "fd",
-        # "fzf",
-        # "github-cli",
-        # "lazygit",
-        # "ripgrep-all",
-        # "sd",
-        # "file-roller",
-        # "unrar",  # File roller
-        # "gocryptfs",
-        # "zathura-pdf-mupdf",
-        # "zoxide",
+        # Python
+        "python-dbus-fast",  # loggy
+        "python-gnupg",  # noah
+        "python-imaplib2",  # emailcheck
+        "python-pandas",  # weather
+        "python-pydantic",  # noah
+        "python-pyperclip",  # noah
+        "python-systemd",  # loggy
+        "python-wand",  # wallpaper script
+        "otf-firamono-nerd",
+        "inotify-tools",  # nvim
+        "npm",
+        "neovim-lspconfig",
+        "uv",
+        "qt5ct",
+        "qt6ct",
+        "wl-clipboard",
+        "wl-clip-persist",
+        "yazi",
+        "zbar",  # qr codes
+        "qrencode",  # qr codes
+        "git-delta",
+        "taskwarrior-tui",
+        "man-pages",
+        "rofimoji",
+        # coding
+        # Language Servers
+        "bash-language-server",
+        "lua-language-server",
+        "rust-analyzer",
+        "tombi",
+        "ty",
+        "vscode-css-languageserver",
+        "vscode-json-languageserver",
+        "yaml-language-server",
+        # Formatters
+        "ruff",
+        "shfmt",
+        # Lint
+        "shellcheck",
+        "biome",
+        "luacheck",
+        "yamllint",
+        # Tree sitter
+        "tree-sitter-bash",
+        "tree-sitter-cli",
+        "tree-sitter-python",
+        "bat-extras",
+        "eza",
+        "fd",
+        "fzf",
+        "github-cli",
+        "lazygit",
+        "ripgrep-all",
+        "sd",
+        "file-roller",
+        "unrar",  # File roller
+        "gocryptfs",
+        "zathura-pdf-mupdf",
+        "zoxide",
     ],
     "language": [
         "hunspell-en_us",
