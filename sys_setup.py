@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from archinstall.lib.command import SysCommand
+import shlex
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
 from archinstall.lib.applications.application_handler import ApplicationHandler
@@ -143,6 +145,27 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
+def run_chroot(
+    commands: list[str], mnt_point: Path, username: str | None = None, peek=True
+) -> None:
+    script_path = "var/tmp/user-commands.sh"
+    chroot_path = mnt_point / script_path
+    chroot_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(chroot_path, "w") as script:
+        script.write("#!/bin/bash\n")
+        if peek:
+            script.write("set -e\n")
+        for cmd in commands:
+            if username:
+                log.info(f"Will run as {username}: {cmd}")
+                cmd = f"su - {username} -c {shlex.quote(cmd)}"
+            log.info(f"Chroot run: {cmd}")
+            script.write(cmd + "\n")
+    chroot_path.chmod(0o755)
+    SysCommand(f"arch-chroot -S {mnt_point} /{script_path}")
+    chroot_path.unlink()
+
+
 def load_users_json(json_file: Path) -> dict:
     if not json_file.exists():
         log.error(f"JSON file {json_file} does not exist.")
@@ -754,11 +777,10 @@ def perform_installation(
                     usr_srv = nc.populate_usr_srv(user.username)
                     enable_user_serv(installation, usr_srv, user.username)
                 generate_mpd_tmpfiles(installation, users)
-                cmd = "paru -Sy"
-                installation.arch_chroot(cmd, users[0].username)
-                cmd = f'su {users[0].username} -c "paru -Sy --nosudoloop --needed --noconfirm {" ".join(aur_pkgs)}"'
-                run_custom_user_commands([cmd], installation)
-                configure_sudo(installation.target, users[0].username)
+                configure_sudo(mountpoint, users[0].username, pless=True)
+                cmd = [f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"]
+                run_chroot(cmd, mountpoint, users[0].username)
+                configure_sudo(mountpoint, users[0].username)
                 copy_dir(
                     script_d,
                     (installation.target / f"home/{users[0].username}" / script_d.name),
