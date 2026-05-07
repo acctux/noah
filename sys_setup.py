@@ -18,13 +18,25 @@ from archinstall.lib.general.general_menu import (
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, run_custom_user_commands
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.models import Bootloader
+from archinstall.lib.models import (
+    Bootloader,
+    PartitionModification,
+    ModificationStatus,
+    PartitionType,
+    Size,
+    Unit,
+    FilesystemType,
+    PartitionFlag,
+    DeviceModification,
+    DiskLayoutConfiguration,
+)
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.users import Password
 from archinstall.lib.network.network_handler import install_network_config
+from archinstall.lib.disk.device_handler import device_handler
 import sys
 import time
 import subprocess
@@ -143,6 +155,78 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
+def create_disk_config(devices=None, primary_fs="FAT32", fallback_fs="BTRFS"):
+    devices = devices or device_handler.devices
+    target_disk = None
+    fallback_disk = None
+    for disk in devices:
+        log.info(f"Checking disk: {disk.device_info.path}")
+        for part in disk.partition_infos:
+            if not part.fs_type:
+                continue
+            if part.fs_type.name == primary_fs:
+                log.info(f"Found {primary_fs} partition: {part.path}")
+                target_disk = disk
+                break
+            elif part.fs_type.name == fallback_fs and fallback_disk is None:
+                fallback_disk = disk
+        if target_disk:
+            break
+
+    if not target_disk:
+        if fallback_disk:
+            log.info(
+                f"No {primary_fs} found, using {fallback_fs} disk: {fallback_disk.device_info.path}"
+            )
+            target_disk = fallback_disk
+        else:
+            raise ValueError(
+                f"No {primary_fs} or {fallback_fs} partitions found on any disk."
+            )
+    device_modification = DeviceModification(target_disk, wipe=True)
+    # Boot partition
+    boot_partition = PartitionModification(
+        status=ModificationStatus.CREATE,
+        type=PartitionType.PRIMARY,
+        start=Size(1, Unit.MiB, target_disk.device_info.sector_size),
+        length=Size(512, Unit.MiB, target_disk.device_info.sector_size),
+        mountpoint=Path("/boot"),
+        fs_type=FilesystemType.FAT32,
+        flags=[PartitionFlag.BOOT],
+    )
+    device_modification.add_partition(boot_partition)
+
+    # Root partition
+    root_partition = PartitionModification(
+        status=ModificationStatus.CREATE,
+        type=PartitionType.PRIMARY,
+        start=Size(513, Unit.MiB, target_disk.device_info.sector_size),
+        length=Size(20, Unit.GiB, target_disk.device_info.sector_size),
+        mountpoint=None,
+        fs_type=FilesystemType("ext4"),
+    )
+    device_modification.add_partition(root_partition)
+
+    # Home partition
+    start_home = root_partition.length
+    length_home = target_disk.device_info.total_size - start_home
+    home_partition = PartitionModification(
+        status=ModificationStatus.CREATE,
+        type=PartitionType.PRIMARY,
+        start=start_home,
+        length=length_home,
+        mountpoint=Path("/home"),
+        fs_type=FilesystemType("ext4"),
+    )
+    device_modification.add_partition(home_partition)
+
+    # Return DiskLayoutConfiguration
+    return DiskLayoutConfiguration(
+        config_type=DiskLayoutType.Default,
+        device_modifications=[device_modification],
+    )
+
+
 def load_users_json(json_file: Path) -> dict:
     if not json_file.exists():
         log.error(f"JSON file {json_file} does not exist.")

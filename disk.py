@@ -42,14 +42,11 @@ def find_disk_with_fs(devices, primary_fs="FAT32", fallback_fs="BTRFS"):
 
         if fat32_disk:
             return fat32_disk
-
-    # fallback if no FAT32 found
     if btrfs_disk:
         print(
             f"No {primary_fs} partition found, using {fallback_fs} disk: {btrfs_disk}"
         )
         return btrfs_disk
-
     print(f"No {primary_fs} or {fallback_fs} partitions found on any disk.")
     return None
 
