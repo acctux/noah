@@ -1,3 +1,4 @@
+from archinstall.default_profiles.minimal import MinimalProfile
 from pathlib import Path
 from textwrap import dedent
 from archinstall.default_profiles.profile import GreeterType
@@ -48,7 +49,9 @@ arch_config = ArchConfig(
         kb_layout="us", sys_lang="en_US", sys_enc="UTF-8"
     ),
     profile_config=ProfileConfiguration(
-        profile=None, gfx_driver=GfxDriver.NvidiaOpenKernel, greeter=GreeterType.Ly
+        profile=MinimalProfile(),
+        gfx_driver=GfxDriver.NvidiaOpenKernel,
+        greeter=GreeterType.Ly,
     ),
     network_config=NetworkConfiguration(type=NicType.ISO),
     bootloader_config=BootloaderConfiguration(Bootloader.Systemd, False, False),

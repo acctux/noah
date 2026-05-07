@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.hardware import _sys_info, GfxDriver
@@ -17,7 +18,7 @@ from archinstall.lib.general.general_menu import (
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, run_custom_user_commands
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.models import Bootloader
+from archinstall.lib.models import Bootloader, ProfileConfiguration
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
@@ -717,8 +718,9 @@ def perform_installation(
                     installation, config.auth_config, config.hostname
                 )
 
-        if profile_config := config.profile_config:
-            profile_handler.install_profile_config(installation, profile_config)
+        for gfx_driver in gfx_drivers:
+            profile_handler.install_gfx_driver(installation, gfx_driver)
+        profile_handler.install_greeter(installation, GreeterType.Ly)
 
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
