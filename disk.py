@@ -29,6 +29,7 @@ def find_disk_with_fat32(devices):
         return
     for disk in devices:
         print(f"Checking disk: {disk.device_info.path}")
+        print(disk)
         for part in disk.partition_infos:
             if part.fs_type.name == "FAT32":
                 print(f"Found FAT32 partition: {part.path}")
