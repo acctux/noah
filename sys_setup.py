@@ -170,40 +170,42 @@ def create_disk_config():
             elif part.fs_type.name == "BTRFS":
                 target_disk = disk
             log.info(f"Found partition: {part.path}")
-    if target_disk:
-        device = device_handler.get_device(disk.device_info.path)
-        if device:
-            device_modification = DeviceModification(device, wipe=True)
-            boot_partition = PartitionModification(
-                status=ModificationStatus.CREATE,
-                type=PartitionType.PRIMARY,
-                start=Size(1, Unit.MiB, target_disk.device_info.sector_size),
-                length=Size(512, Unit.MiB, target_disk.device_info.sector_size),
-                mountpoint=Path("/boot"),
-                fs_type=FilesystemType.FAT32,
-                flags=[PartitionFlag.BOOT, PartitionFlag.ESP],
-            )
-            device_modification.add_partition(boot_partition)
-            start_root = boot_partition.length
-            length_root = device.device_info.total_size - start_root
-            root_partition = PartitionModification(
-                status=ModificationStatus.CREATE,
-                type=PartitionType.PRIMARY,
-                start=start_root,
-                length=length_root,
-                btrfs_subvols=[
-                    SubvolumeModification(Path("@"), Path("/")),
-                    SubvolumeModification(Path("@home"), Path("/home")),
-                ],
-                flags=[PartitionFlag.LINUX_HOME],
-                mountpoint=None,
-                fs_type=FilesystemType("btrfs"),
-            )
-            device_modification.add_partition(root_partition)
-            return DiskLayoutConfiguration(
-                config_type=DiskLayoutType.Default,
-                device_modifications=[device_modification],
-            )
+    if not target_disk:
+        return
+    device = device_handler.get_device(disk.device_info.path)
+    if device:
+        device_modification = DeviceModification(device, wipe=True)
+        boot_partition = PartitionModification(
+            status=ModificationStatus.CREATE,
+            type=PartitionType.PRIMARY,
+            start=Size(1, Unit.MiB, target_disk.device_info.sector_size),
+            length=Size(512, Unit.MiB, target_disk.device_info.sector_size),
+            mountpoint=Path("/boot"),
+            fs_type=FilesystemType.FAT32,
+            flags=[PartitionFlag.BOOT, PartitionFlag.ESP],
+        )
+        device_modification.add_partition(boot_partition)
+        start_root = boot_partition.length
+        length_root = device.device_info.total_size - start_root
+        root_partition = PartitionModification(
+            status=ModificationStatus.CREATE,
+            type=PartitionType.PRIMARY,
+            start=start_root,
+            length=length_root,
+            btrfs_subvols=[
+                SubvolumeModification(Path("@"), Path("/")),
+                SubvolumeModification(Path("@home"), Path("/home")),
+            ],
+            flags=[],
+            mountpoint=None,
+            mount_options=["compress=zstd:3"],
+            fs_type=FilesystemType("btrfs"),
+        )
+        device_modification.add_partition(root_partition)
+        return DiskLayoutConfiguration(
+            config_type=DiskLayoutType.Default,
+            device_modifications=[device_modification],
+        )
 
 
 def load_users_json(json_file: Path) -> dict:
