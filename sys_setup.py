@@ -756,7 +756,7 @@ def perform_installation(
                 generate_mpd_tmpfiles(installation, users)
                 cmd = "paru -Sy"
                 installation.arch_chroot(cmd, users[0].username)
-                cmd = f'su {users[0].username} -c "sudo paru -Sy --nosudoloop --needed --noconfirm {" ".join(aur_pkgs)}"'
+                cmd = f'su {users[0].username} -c "paru -Sy --nosudoloop --needed --noconfirm {" ".join(aur_pkgs)}"'
                 run_custom_user_commands([cmd], installation)
                 configure_sudo(installation.target, users[0].username)
                 copy_dir(
