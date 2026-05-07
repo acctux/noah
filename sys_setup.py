@@ -30,6 +30,7 @@ from archinstall.lib.models import (
     DeviceModification,
     DiskLayoutConfiguration,
     SubvolumeModification,
+    BDevice,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
@@ -156,12 +157,10 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
-def create_disk_config():
-    devices = device_handler.devices
+def create_disk_config(devices: list[BDevice]):
     target_disk = ""
     for disk in devices:
-        log.info(f"Checking disk: {disk.device_info.path}")
-        if disk.device_info.type == "virtblk":
+        if disk.partition_infos == "virtblk":
             target_disk = disk
         else:
             for part in disk.partition_infos:
@@ -169,12 +168,11 @@ def create_disk_config():
                     continue
                 if part.fs_type.name == "FAT32":
                     target_disk = disk
-                    break
                 elif part.fs_type.name == "BTRFS":
                     target_disk = disk
                 log.info(f"Found partition: {part.path}")
     if target_disk:
-        device = device_handler.get_device(disk.device_info.path)
+        device = device_handler.get_device(target_disk.device_info.path)
         if device:
             device_modification = DeviceModification(device, wipe=True)
             boot_partition = PartitionModification(
