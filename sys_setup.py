@@ -477,7 +477,8 @@ def user_service(
         unit = UsrSrv(
             source=f"/{dir_path}", target="graphical-session", services=[name]
         )
-    enable_user_serv(installation, [unit], users)
+    for user in users:
+        enable_user_serv(installation, [unit], user.username)
 
 
 def install_icons(installation: Installer):
@@ -758,6 +759,7 @@ def perform_installation(
             installation.set_user_password(root_user)
             users = config.auth_config.users
             for user in users:
+                nc.populate_usr_srv(user.username)
                 installation.arch_chroot("xdg-user-dirs-update", user.username)
                 enable_user_serv(installation, list(nc.usr_srv), user.username)
             generate_mpd_tmpfiles(installation, users)
