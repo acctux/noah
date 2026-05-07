@@ -435,16 +435,17 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 def enable_user_serv(
     installation: Installer, units: list[UsrSrv], username: str
 ) -> None:
-    base_dir = f"/home/{username}/.config/systemd/user"
+    base_dir = f"home/{username}/.config/systemd/user"
     for unit in units:
         target_dir = f"{base_dir}/{unit.target}.target.wants"
+        full_target_dir = installation.target / target_dir
         (installation.target / target_dir).mkdir(parents=True, exist_ok=True)
         installation.chown(username, f"/{target_dir}")
         for service in unit.services:
-            installation.arch_chroot(
-                f"ln -sf {unit.source}/{service} {target_dir}/{service}",
-                username,
-            )
+            source_path = Path(unit.source) / service
+            symlink_path = full_target_dir / service
+            symlink_path.symlink_to(source_path)
+            installation.chown(username, f"/{target_dir}")
 
 
 def user_service(
