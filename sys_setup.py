@@ -25,7 +25,6 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.users import Password
 from archinstall.lib.network.network_handler import install_network_config
-from pathlib import Path
 import sys
 import time
 import subprocess
@@ -34,6 +33,7 @@ import re
 import shutil
 import pwd
 import os
+from pathlib import Path
 from utils import UsrSrv, NoahConfig, arch_config, pkgs, aur_pkgs
 from getpass import getpass
 import logging
@@ -834,6 +834,9 @@ def sys_setup() -> None:
             ],
             None,
         )
+    from disk import disk_config
+
+    arch_config_handler.config.disk_config = disk_config
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
