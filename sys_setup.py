@@ -854,6 +854,7 @@ def perform_installation(
         modify_fstab(mountpoint)
 
         debug(f"Disk states after installing:\n{disk_layouts()}")
+        mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
         if not arch_config_handler.args.silent:
             elapsed_time = time.monotonic() - start_time
             action: PostInstallationAction = tui.run(
@@ -872,10 +873,10 @@ def perform_installation(
 
 
 def sys_setup() -> None:
-    nc = NoahConfig()
-    mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    arch_config_handler.config.disk_config = create_disk_config()
+    disk_config = create_disk_config()
+    arch_config_handler.config.disk_config = disk_config
+    nc = NoahConfig()
     users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
     if users_list := users_json.get("users", []):
         first_user = users_list[0]
