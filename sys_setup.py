@@ -80,22 +80,6 @@ def get_logger(log_name: str | None = None, level=logging.INFO):
 log = get_logger("Noah")
 
 
-#########################
-# ASK PASSWORD
-#########################
-def ask_pass(prompt="Password: ", confirm=True, min_len=6, retries=3) -> str:
-    for _ in range(retries):
-        pwd = getpass(prompt)
-        if len(pwd) < min_len:
-            log.warning(f"Password must be at least {min_len} characters.")
-            continue
-        if confirm and pwd != getpass("Confirm password: "):
-            log.warning("Passwords do not match.")
-            continue
-        return pwd
-    raise ValueError("Too many failed attempts.")
-
-
 def run_dmc(
     cmd: list[str],
     check: bool = False,
@@ -974,9 +958,8 @@ def import_gpg(gpg_path: Path) -> None:
 
     key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
-    import_result = gpg.import_keys(
-        key_data, passphrase=ask_pass("GPG Password: ", False, 6)
-    )
+    pwd = getpass("Enter GPG Password:")
+    import_result = gpg.import_keys(key_data, pwd)
     log.info(import_result.results)
 
 
