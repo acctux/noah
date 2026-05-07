@@ -25,6 +25,8 @@ fs_type = FilesystemType("ext4")
 
 
 def find_disk_with_fat32(devices):
+    if not devices:
+        return
     for disk in devices:
         print(f"Checking disk: {disk.device_info.path}")
         for part in disk.partition_infos:
