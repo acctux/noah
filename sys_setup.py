@@ -756,7 +756,7 @@ def perform_installation(
                 generate_mpd_tmpfiles(installation, users)
                 cmd = "sudo pacman -Sy"
                 installation.arch_chroot(cmd, users[0].username)
-                cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
+                cmd = f"paru -S --nosudoloop --noconfirm --needed {' '.join(aur_pkgs)}"
                 installation.arch_chroot(cmd, users[0].username)
                 configure_sudo(installation.target, users[0].username)
                 copy_dir(
