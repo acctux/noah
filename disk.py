@@ -23,12 +23,12 @@ def create_disk_config():
     target_disk = ""
     for disk in devices:
         print(f"Checking disk: {disk.device_info.path}")
+        if disk.device_info.type == "virtblk":
+            target_disk = disk
+            break
         for part in disk.partition_infos:
             if not part.fs_type:
                 continue
-            elif part.type == "virtblk":
-                target_disk = disk
-                break
             elif part.fs_type.name == "FAT32":
                 target_disk = disk
                 break
