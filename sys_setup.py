@@ -484,6 +484,7 @@ def install_icons(installation: Installer):
     git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
     installation.arch_chroot(f"git clone {git}")
     installation.arch_chroot("bash ./WhiteSur-icon-theme/install.sh")
+    installation.arch_chroot("rm -rf ./WhiteSur-icon-theme")
     icon_path = installation.target / "usr/share/icons"
     white_sur_light = icon_path / "WhiteSur-light"
     if white_sur_light.exists():
@@ -766,7 +767,7 @@ def perform_installation(
                 generate_mpd_tmpfiles(installation, users)
                 first_user = users[0].username
                 configure_sudo(installation.target, first_user, pless=True)
-                installation.arch_chroot("sudo -k")
+                installation.arch_chroot("sudo -k", first_user)
                 cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
                 installation.arch_chroot(cmd, first_user)
                 configure_sudo(installation.target, first_user)
