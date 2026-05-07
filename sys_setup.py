@@ -722,9 +722,6 @@ def perform_installation(
             if config.auth_config.users:
                 users = config.auth_config.users
                 installation.create_users(config.auth_config.users)
-                auth_handler.setup_auth(
-                    installation, config.auth_config, config.hostname
-                )
 
         for gfx_driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, gfx_driver)
@@ -749,23 +746,27 @@ def perform_installation(
         )
         sys_dots(installation.target, script_d)
         install_icons(installation)
-        if users:
-            for user in users:
-                installation.arch_chroot("xdg-user-dirs-update", user.username)
-                usr_srv = nc.populate_usr_srv(user.username)
-                enable_user_serv(installation, usr_srv, user.username)
-            generate_mpd_tmpfiles(installation, users)
-            configure_sudo(installation.target, users[0].username, pless=True)
-            cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
-            installation.arch_chroot(cmd, users[0].username)
-            configure_sudo(installation.target, users[0].username)
-            copy_dir(
-                script_d,
-                (installation.target / f"home/{users[0].username}" / script_d.name),
-            )
-            copy_keys(installation, nc.usb_key_dir, users[0].username, nc.to_cp)
-            user_service(installation, users, nc.terminal)
-            hide_apps(installation, users, nc)
+        if config.auth_config:
+            if users:
+                for user in users:
+                    installation.arch_chroot("xdg-user-dirs-update", user.username)
+                    usr_srv = nc.populate_usr_srv(user.username)
+                    enable_user_serv(installation, usr_srv, user.username)
+                generate_mpd_tmpfiles(installation, users)
+                configure_sudo(installation.target, users[0].username, pless=True)
+                cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
+                installation.arch_chroot(cmd, users[0].username)
+                configure_sudo(installation.target, users[0].username)
+                copy_dir(
+                    script_d,
+                    (installation.target / f"home/{users[0].username}" / script_d.name),
+                )
+                copy_keys(installation, nc.usb_key_dir, users[0].username, nc.to_cp)
+                user_service(installation, users, nc.terminal)
+                hide_apps(installation, users, nc)
+                auth_handler.setup_auth(
+                    installation, config.auth_config, config.hostname
+                )
 
         if timezone := config.timezone:
             installation.set_timezone(timezone)
@@ -837,7 +838,7 @@ def sys_setup() -> None:
                     first_user["username"],
                     Password(enc_password=first_user["enc_password"]),
                     first_user.get("sudo", True),
-                    list(nc.groups),
+                    first_user.get("groups", list(nc.groups)),
                 )
             ],
             None,
