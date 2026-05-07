@@ -433,19 +433,16 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(
-    installation: Installer, units: list[UsrSrv], users: list[User]
-) -> None:
-    for user in users:
-        base_dir = f"/home/{user.username}/.config/systemd/user"
-        for unit in units:
-            target_dir = f"{base_dir}/{unit.target}.target.wants"
-            installation.arch_chroot(f"mkdir -p {target_dir}", user.username)
-            for service in unit.services:
-                installation.arch_chroot(
-                    f"ln -sf {unit.source}/{service} {target_dir}/{service}",
-                    user.username,
-                )
+def enable_user_serv(installation: Installer, units: list[UsrSrv], user: str) -> None:
+    base_dir = f"/home/{user}/.config/systemd/user"
+    for unit in units:
+        target_dir = f"{base_dir}/{unit.target}.target.wants"
+        installation.arch_chroot(f"mkdir -p {target_dir}", user)
+        for service in unit.services:
+            installation.arch_chroot(
+                f"ln -sf {unit.source}/{service} {target_dir}/{service}",
+                user,
+            )
 
 
 def user_service(
@@ -762,6 +759,7 @@ def perform_installation(
             users = config.auth_config.users
             for user in users:
                 installation.arch_chroot("xdg-user-dirs-update", user.username)
+                enable_user_serv(installation, list(nc.usr_srv), user.username)
             generate_mpd_tmpfiles(installation, users)
             configure_sudo(installation.target, users[0].username, pless=True)
             cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
@@ -772,7 +770,6 @@ def perform_installation(
                 (installation.target / f"home/{users[0].username}" / script_d.name),
             )
             copy_keys(installation, nc.usb_key_dir, users[0].username, nc.to_cp)
-            enable_user_serv(installation, list(nc.usr_srv), users)
             user_service(installation, users, nc.terminal)
             hide_apps(installation, users, nc)
 
