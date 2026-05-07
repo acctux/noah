@@ -758,28 +758,26 @@ def perform_installation(
         if config.auth_config and config.auth_config.root_enc_password:
             root_user = User("root", config.auth_config.root_enc_password, False)
             installation.set_user_password(root_user)
-
+            users = config.auth_config.users
+            for user in users:
+                installation.arch_chroot("xdg-user-dirs-update", user.username)
+            generate_mpd_tmpfiles(installation, users)
+            configure_sudo(installation.target, users[0].username, pless=True)
+            cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
+            installation.arch_chroot(cmd, users[0].username)
+            configure_sudo(installation.target, users[0].username)
+            copy_dir(
+                script_d,
+                (installation.target / f"home/{users[0].username}" / script_d.name),
+            )
+            copy_keys(installation, nc.usb_key_dir, users[0].username, nc.to_cp)
+            enable_user_serv(installation, list(nc.usr_srv), users)
+            user_service(installation, users, nc.terminal)
+            hide_apps(installation, users, nc)
         if (profile_config := config.profile_config) and profile_config.profile:
             profile_config.profile.post_install(installation)
             if users:
                 profile_config.profile.provision(installation, users)
-
-                for user in users:
-                    installation.arch_chroot("xdg-user-dirs-update", user.username)
-                generate_mpd_tmpfiles(installation, users)
-                first_user = users[0].username
-                configure_sudo(installation.target, first_user, pless=True)
-                cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
-                installation.arch_chroot(cmd, first_user)
-                configure_sudo(installation.target, first_user)
-                copy_dir(
-                    script_d,
-                    (installation.target / f"home/{users[0].username}" / script_d.name),
-                )
-                copy_keys(installation, nc.usb_key_dir, first_user, nc.to_cp)
-                enable_user_serv(installation, list(nc.usr_srv), users)
-                user_service(installation, users, nc.terminal)
-                hide_apps(installation, users, nc)
 
         if services := config.services:
             installation.enable_service(services)
