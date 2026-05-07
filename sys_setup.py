@@ -440,10 +440,11 @@ def enable_user_serv(
         base_dir = f"/home/{user.username}/.config/systemd/user"
         for unit in units:
             target_dir = f"{base_dir}/{unit.target}.target.wants"
-            installation.arch_chroot(f"mkdir -p {target_dir}")
+            installation.arch_chroot(f"mkdir -p {target_dir}", user.username)
             for service in unit.services:
                 installation.arch_chroot(
-                    f"ln -sf {unit.source}/{service} {target_dir}/{service}"
+                    f"ln -sf {unit.source}/{service} {target_dir}/{service}",
+                    user.username,
                 )
 
 
