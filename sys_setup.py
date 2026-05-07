@@ -757,7 +757,7 @@ def perform_installation(
                 cmd = "paru -Sy"
                 installation.arch_chroot(cmd, users[0].username)
                 cmd = f"paru -Sy --nosudoloop --noconfirm --needed {' '.join(aur_pkgs)}"
-                installation.arch_chroot(cmd, users[0].username)
+                installation.arch_chroot(cmd, users[0].username, peek_output=True)
                 configure_sudo(installation.target, users[0].username)
                 copy_dir(
                     script_d,
