@@ -269,7 +269,7 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
 
     data = json.loads(
         subprocess.check_output(
-            ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"], text=True
+            ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"]
         )
     )
     candidates = []
@@ -306,7 +306,7 @@ def mnt_cp_keys(
     home: Path = Path.home(),
 ) -> None:
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
-        run_dmc(["umount", str(usb_mnt)], check=True)
+        run_dmc(["umount", str(usb_mnt)])
     missing = []
     if key_dir and key_files:
         missing += [k for k in key_files if not (home / key_dir / k).exists()]
@@ -329,7 +329,7 @@ def mnt_cp_keys(
         copy_dir(usb_mnt / wireguard_dir, home / wireguard_dir)
     time.sleep(1)
     if yes_no("Files copied, unmount?"):
-        run_dmc(["umount", str(usb_mnt)], check=True)
+        run_dmc(["umount", str(usb_mnt)])
         time.sleep(1)
 
 
