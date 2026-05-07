@@ -25,6 +25,7 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.users import Password
 from archinstall.lib.network.network_handler import install_network_config
+from pathlib import Path
 import sys
 import time
 import subprocess
@@ -33,7 +34,6 @@ import re
 import shutil
 import pwd
 import os
-from pathlib import Path
 from utils import UsrSrv, NoahConfig, arch_config, pkgs, aur_pkgs
 from getpass import getpass
 import logging
@@ -242,38 +242,28 @@ def mnt_cp_keys(
         run_dmc(["umount", str(usb_mnt)])
         run_dmc(["udevadm", "settle"])
         time.sleep(1)
-
     missing = []
     if key_dir and key_files:
         missing += [k for k in key_files if not (home / key_dir / k).exists()]
     if wireguard_dir and not (home / wireguard_dir).is_dir():
         missing.append(wireguard_dir)
-
     if not missing:
         log.info("All required files present.")
         return
-
     if not yes_no(f"Mount USB to copy {', '.join(missing)}"):
         return
-
     selected = get_device()
-    run_dmc(["udevadm", "settle"])  # ensure kernel recognizes the device
-
+    run_dmc(["udevadm", "settle"])
     usb_mnt.mkdir(parents=True, exist_ok=True)
     run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
-
-    time.sleep(2)  # let the filesystem stabilize
-
+    time.sleep(2)
     if key_dir and key_files:
         (home / key_dir).mkdir(parents=True, exist_ok=True)
         for k in key_files:
             copy_file(usb_mnt / key_dir / k, home / key_dir / k)
-
     if wireguard_dir:
         copy_dir(usb_mnt / wireguard_dir, home / wireguard_dir)
-
     time.sleep(1)
-
     if yes_no("Files copied, unmount?"):
         run_dmc(["umount", str(usb_mnt)])
         run_dmc(["udevadm", "settle"])
@@ -771,9 +761,12 @@ def perform_installation(
             if users:
                 profile_config.profile.provision(installation, users)
 
+                for user in users:
+                    installation.arch_chroot("xdg-user-dirs-update", user.username)
                 generate_mpd_tmpfiles(installation, users)
                 first_user = users[0].username
                 configure_sudo(installation.target, first_user, pless=True)
+                installation.arch_chroot("sudo -k")
                 cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
                 installation.arch_chroot(cmd, first_user)
                 configure_sudo(installation.target, first_user)
@@ -785,8 +778,6 @@ def perform_installation(
                 enable_user_serv(installation, list(nc.usr_srv), users)
                 user_service(installation, users, nc.terminal)
                 hide_apps(installation, users, nc)
-                for user in users:
-                    installation.arch_chroot("xdg-user-dirs-update", user.username)
 
         if services := config.services:
             installation.enable_service(services)
@@ -848,7 +839,6 @@ def sys_setup() -> None:
             ],
             None,
         )
-
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
