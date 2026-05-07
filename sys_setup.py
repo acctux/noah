@@ -833,10 +833,20 @@ def sys_setup() -> None:
     nc = NoahConfig()
     mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    if users := load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass):
+    users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
+
+    if users_list := users_json.get("users", []):
+        first_user = users_list[0]
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            None,
-            [User(users[0].username, users[0].password, True, list(nc.groups))],
+            None,  # or hashed root password if you have one
+            [
+                User(
+                    first_user["username"],
+                    Password(first_user["enc_password"]),
+                    first_user.get("sudo", True),
+                    list(nc.groups),
+                )
+            ],
             None,
         )
     arch_config_handler.config.hostname = arch_config.hostname
