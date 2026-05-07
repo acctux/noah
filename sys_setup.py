@@ -460,7 +460,7 @@ def user_service(
     installation: Installer,
     users: list[User],
     terminal: str,
-    user_script="user_setup.py",
+    user_script="sys_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
 ) -> None:
     if terminal.strip().lower() == "alacritty":
@@ -834,7 +834,6 @@ def sys_setup() -> None:
     mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
     users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
-
     if users_list := users_json.get("users", []):
         first_user = users_list[0]
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
