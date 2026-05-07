@@ -29,6 +29,7 @@ from archinstall.lib.models import (
     PartitionFlag,
     DeviceModification,
     DiskLayoutConfiguration,
+    SubvolumeModification,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
@@ -180,7 +181,7 @@ def create_disk_config():
                 length=Size(512, Unit.MiB, target_disk.device_info.sector_size),
                 mountpoint=Path("/boot"),
                 fs_type=FilesystemType.FAT32,
-                flags=[PartitionFlag.BOOT],
+                flags=[PartitionFlag.BOOT, PartitionFlag.ESP],
             )
             device_modification.add_partition(boot_partition)
             start_root = boot_partition.length
@@ -190,6 +191,11 @@ def create_disk_config():
                 type=PartitionType.PRIMARY,
                 start=start_root,
                 length=length_root,
+                btrfs_subvols=[
+                    SubvolumeModification(Path("@"), Path("/")),
+                    SubvolumeModification(Path("@home"), Path("/home")),
+                ],
+                flags=[PartitionFlag.LINUX_HOME],
                 mountpoint=None,
                 fs_type=FilesystemType("btrfs"),
             )

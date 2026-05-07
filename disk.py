@@ -10,6 +10,7 @@ from archinstall.lib.models import (
     PartitionFlag,
     DiskLayoutConfiguration,
     DiskLayoutType,
+    SubvolumeModification,
 )
 import logging
 from archinstall.lib.disk.device_handler import device_handler
@@ -57,7 +58,7 @@ device = device_handler.get_device(fat32_disk)
 
 if not device:
     raise ValueError("No device found for given path")
-
+print(device)
 # create a new modification for the specific device
 device_modification = DeviceModification(device, wipe=True)
 
@@ -91,13 +92,17 @@ home_partition = PartitionModification(
     type=PartitionType.PRIMARY,
     start=start_home,
     length=length_home,
-    mountpoint=Path("/home"),
     fs_type=fs_type,
+    mountpoint=Path("/home"),
     mount_options=[],
+    flags=[],
+    btrfs_subvols=[
+        SubvolumeModification(Path("@"), Path("/")),
+        SubvolumeModification(Path("@home"), Path("/home")),
+    ],
 )
 device_modification.add_partition(home_partition)
 disk_config = DiskLayoutConfiguration(
     config_type=DiskLayoutType.Default,
     device_modifications=[device_modification],
 )
-print(disk_config)
