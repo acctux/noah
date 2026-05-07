@@ -1,9 +1,6 @@
-from archinstall.default_profiles.minimal import MinimalProfile
 from pathlib import Path
 from textwrap import dedent
-from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.models.bootloader import BootloaderConfiguration
-from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.models.application import (
     PowerManagementConfiguration,
     PowerManagement,
@@ -20,7 +17,6 @@ from archinstall.lib.models import (
     PrintServiceConfiguration,
     Audio,
     LocaleConfiguration,
-    ProfileConfiguration,
     NetworkConfiguration,
     NicType,
     Bootloader,
@@ -47,11 +43,6 @@ arch_config = ArchConfig(
     ),
     locale_config=LocaleConfiguration(
         kb_layout="us", sys_lang="en_US", sys_enc="UTF-8"
-    ),
-    profile_config=ProfileConfiguration(
-        profile=MinimalProfile(),
-        gfx_driver=GfxDriver.NvidiaOpenKernel,
-        greeter=GreeterType.Ly,
     ),
     network_config=NetworkConfiguration(type=NicType.ISO),
     bootloader_config=BootloaderConfiguration(Bootloader.Systemd, False, False),
@@ -857,39 +848,39 @@ pkgs: dict[str, list[str]] = {
         "rofimoji",
         # coding
         # Language Servers
-        "bash-language-server",
-        "lua-language-server",
-        "rust-analyzer",
-        "tombi",
-        "ty",
-        "vscode-css-languageserver",
-        "vscode-json-languageserver",
-        "yaml-language-server",
-        # Formatters
-        "ruff",
-        "shfmt",
-        # Lint
-        "shellcheck",
-        "biome",
-        "luacheck",
-        "yamllint",
-        # Tree sitter
-        "tree-sitter-bash",
-        "tree-sitter-cli",
-        "tree-sitter-python",
-        "bat-extras",
-        "eza",
-        "fd",
-        "fzf",
-        "github-cli",
-        "lazygit",
-        "ripgrep-all",
-        "sd",
-        "file-roller",
-        "unrar",  # File roller
-        "gocryptfs",
-        "zathura-pdf-mupdf",
-        "zoxide",
+        # "bash-language-server",
+        # "lua-language-server",
+        # "rust-analyzer",
+        # "tombi",
+        # "ty",
+        # "vscode-css-languageserver",
+        # "vscode-json-languageserver",
+        # "yaml-language-server",
+        # # Formatters
+        # "ruff",
+        # "shfmt",
+        # # Lint
+        # "shellcheck",
+        # "biome",
+        # "luacheck",
+        # "yamllint",
+        # # Tree sitter
+        # "tree-sitter-bash",
+        # "tree-sitter-cli",
+        # "tree-sitter-python",
+        # "bat-extras",
+        # "eza",
+        # "fd",
+        # "fzf",
+        # "github-cli",
+        # "lazygit",
+        # "ripgrep-all",
+        # "sd",
+        # "file-roller",
+        # "unrar",  # File roller
+        # "gocryptfs",
+        # "zathura-pdf-mupdf",
+        # "zoxide",
     ],
     "language": [
         "hunspell-en_us",

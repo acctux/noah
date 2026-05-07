@@ -754,6 +754,8 @@ def perform_installation(
                     usr_srv = nc.populate_usr_srv(user.username)
                     enable_user_serv(installation, usr_srv, user.username)
                 generate_mpd_tmpfiles(installation, users)
+                cmd = "sudo pacman -Sy"
+                installation.arch_chroot(cmd, users[0].username)
                 cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
                 installation.arch_chroot(cmd, users[0].username)
                 configure_sudo(installation.target, users[0].username)
