@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-import pwd
-from utils import UsrSrv, NoahConfig, arch_config, pkgs, aur_pkgs
-from getpass import getpass
-import logging
 from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
-import os
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.hardware import _sys_info, GfxDriver
 from archinstall.lib.args import (
@@ -36,6 +31,11 @@ import subprocess
 import json
 import re
 import shutil
+import pwd
+import os
+from utils import UsrSrv, NoahConfig, arch_config, pkgs, aur_pkgs
+from getpass import getpass
+import logging
 from textwrap import dedent
 from archinstall.lib.profile.profiles_handler import profile_handler
 
@@ -835,6 +835,7 @@ def sys_setup() -> None:
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
+    arch_config_handler.config.profile_config = arch_config.profile_config
     arch_config_handler.config.timezone = arch_config.timezone
     arch_config_handler.config.bootloader_config = arch_config.bootloader_config
     arch_config_handler.config.ntp = True
