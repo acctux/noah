@@ -156,10 +156,6 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
-def create_disk_config(device_handler: DeviceHandler = device_handler):
-
-
-
 def load_users_json(json_file: Path) -> dict:
     if not json_file.exists():
         log.error(f"JSON file {json_file} does not exist.")
@@ -871,7 +867,7 @@ def sys_setup() -> None:
         fs_type=fs_type,
     )
     device_modification.add_partition(root_partition)
-    disk_config= DiskLayoutConfiguration(
+    disk_config = DiskLayoutConfiguration(
         config_type=DiskLayoutType.Default,
         device_modifications=[device_modification],
     )
