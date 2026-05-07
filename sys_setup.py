@@ -838,11 +838,11 @@ def sys_setup() -> None:
     if users_list := users_json.get("users", []):
         first_user = users_list[0]
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            None,  # or hashed root password if you have one
+            None,
             [
                 User(
                     first_user["username"],
-                    Password(first_user["enc_password"]),
+                    Password(enc_password=first_user["enc_password"]),
                     first_user.get("sudo", True),
                     list(nc.groups),
                 )
