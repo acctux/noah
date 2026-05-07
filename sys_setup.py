@@ -193,8 +193,14 @@ def create_disk_config():
                 type=PartitionType.PRIMARY,
                 start=start_root,
                 length=length_root,
+                btrfs_subvols=[
+                    SubvolumeModification(Path("@"), Path("/")),
+                    SubvolumeModification(Path("@home"), Path("/home")),
+                ],
+                flags=[],
                 mountpoint=None,
-                fs_type=FilesystemType("btrfs"),
+                mount_options=["compress=zstd"],
+                fs_type=fs_type,
             )
             device_modification.add_partition(root_partition)
             return DiskLayoutConfiguration(
