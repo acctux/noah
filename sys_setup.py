@@ -198,7 +198,7 @@ def create_disk_config():
             ],
             flags=[],
             mountpoint=None,
-            mount_options=["compress=zstd:3"],
+            mount_options=["compress=zstd"],
             fs_type=FilesystemType("btrfs"),
         )
         device_modification.add_partition(root_partition)
