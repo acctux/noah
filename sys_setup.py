@@ -835,7 +835,7 @@ def sys_setup() -> None:
             [
                 User(
                     users_list[0]["username"],
-                    Password(enc_password=users_list[0]["password"]),
+                    Password(plaintext=users_list[0]["password"]),
                     True,
                     list(nc.groups),
                 )
