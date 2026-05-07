@@ -24,21 +24,36 @@ print(devices)
 fs_type = FilesystemType("ext4")
 
 
-def find_disk_with_fat32(devices):
-    if not devices:
-        return
+def find_disk_with_fs(devices, primary_fs="FAT32", fallback_fs="BTRFS"):
+    """Find a disk containing primary_fs, otherwise fallback_fs."""
+    fat32_disk = None
+    btrfs_disk = None
+
     for disk in devices:
         print(f"Checking disk: {disk.device_info.path}")
-        if "sda" in str(disk.device_info.path):
-            return
         for part in disk.partition_infos:
-            if part.fs_type.name == "FAT32":
-                print(f"Found FAT32 partition: {part.path}")
-                return disk.device_info.path
+            if part.fs_type.name == primary_fs:
+                print(f"Found {primary_fs} partition: {part.path}")
+                fat32_disk = disk.device_info.path
+                break
+            elif part.fs_type.name == fallback_fs and btrfs_disk is None:
+                btrfs_disk = disk.device_info.path
+
+        if fat32_disk:
+            return fat32_disk
+
+    # fallback if no FAT32 found
+    if btrfs_disk:
+        print(
+            f"No {primary_fs} partition found, using {fallback_fs} disk: {btrfs_disk}"
+        )
+        return btrfs_disk
+
+    print(f"No {primary_fs} or {fallback_fs} partitions found on any disk.")
     return None
 
 
-fat32_disk = find_disk_with_fat32(devices)
+fat32_disk = find_disk_with_fs(devices)
 
 device = device_handler.get_device(fat32_disk)
 
