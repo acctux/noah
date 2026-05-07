@@ -32,7 +32,7 @@ def create_disk_config():
                 target_disk = disk
             print(f"Found partition: {part.path}")
     if not target_disk:
-        print(disk.partition_infos)
+        print(devices)
         return
     device = device_handler.get_device(disk.device_info.path)
     if device:
