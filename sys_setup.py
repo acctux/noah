@@ -224,7 +224,7 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
             )
         choice = input(f"\033[92mEnter 1-{len(candidates)}: \033[0m").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(candidates)):
-            log.error("Out of range.")
+            log.error("Enter valid number.")
             continue
         selected_path = f"/dev/{candidates[int(choice) - 1][0]}"
         break
