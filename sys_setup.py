@@ -158,7 +158,7 @@ def ping(host: str = "google.com") -> bool:
 #########################
 def create_disk_config():
     devices = device_handler.devices
-    target_disk = ""
+    target_disk = None
     for disk in devices:
         print(f"Checking disk: {disk.device_info.path}")
         if disk.device_info.type == "virtblk":
