@@ -901,9 +901,7 @@ def sys_setup() -> None:
             ],
             None,
         )
-    disk_config = create_disk_config()
 
-    arch_config_handler.config.disk_config = disk_config
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
@@ -921,6 +919,8 @@ def sys_setup() -> None:
     if GfxDriver.VMOpenSource not in gfx_drivers:
         base_pkgs.extend(pkgs["extra"] + pkgs["extra_chaos"])
     arch_config_handler.config.packages = base_pkgs
+    disk_config = create_disk_config()
+    arch_config_handler.config.disk_config = disk_config
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
