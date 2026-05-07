@@ -822,30 +822,30 @@ pkgs: dict[str, list[str]] = {
         "xdg-desktop-portal-gnome",
         "xdg-desktop-portal-hyprland",
         # Python
-        "python-dbus-fast",  # loggy
-        "python-gnupg",  # noah
-        "python-imaplib2",  # emailcheck
-        "python-pandas",  # weather
-        "python-pydantic",  # noah
-        "python-pyperclip",  # noah
-        "python-systemd",  # loggy
-        "python-wand",  # wallpaper script
-        "otf-firamono-nerd",
-        "inotify-tools",  # nvim
-        "npm",
-        "neovim-lspconfig",
-        "uv",
-        "qt5ct",
-        "qt6ct",
-        "wl-clipboard",
-        "wl-clip-persist",
-        "yazi",
-        "zbar",  # qr codes
-        "qrencode",  # qr codes
+        # "python-dbus-fast",  # loggy
+        # "python-gnupg",  # noah
+        # "python-imaplib2",  # emailcheck
+        # "python-pandas",  # weather
+        # "python-pydantic",  # noah
+        # "python-pyperclip",  # noah
+        # "python-systemd",  # loggy
+        # "python-wand",  # wallpaper script
+        # "otf-firamono-nerd",
+        # "inotify-tools",  # nvim
+        # "npm",
+        # "neovim-lspconfig",
+        # "uv",
+        # "qt5ct",
+        # "qt6ct",
+        # "wl-clipboard",
+        # "wl-clip-persist",
+        # "yazi",
+        # "zbar",  # qr codes
+        # "qrencode",  # qr codes
         "git-delta",
-        "taskwarrior-tui",
+        # "taskwarrior-tui",
         "man-pages",
-        "rofimoji",
+        # "rofimoji",
         # coding
         # Language Servers
         # "bash-language-server",
