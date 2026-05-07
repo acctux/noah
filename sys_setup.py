@@ -915,8 +915,7 @@ def sys_setup() -> None:
     if GfxDriver.VMOpenSource not in gfx_drivers:
         base_pkgs.extend(pkgs["extra"] + pkgs["extra_chaos"])
     arch_config_handler.config.packages = base_pkgs
-    devices = device_handler.devices
-    disk_config = create_disk_config(devices)
+    disk_config = create_disk_config(device_handler.devices)
     arch_config_handler.config.disk_config = disk_config
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
