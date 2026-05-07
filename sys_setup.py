@@ -18,27 +18,13 @@ from archinstall.lib.general.general_menu import (
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, run_custom_user_commands
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.models import (
-    Bootloader,
-    PartitionModification,
-    ModificationStatus,
-    PartitionType,
-    Size,
-    Unit,
-    FilesystemType,
-    PartitionFlag,
-    DeviceModification,
-    DiskLayoutConfiguration,
-    SubvolumeModification,
-    BDevice,
-)
+from archinstall.lib.models import Bootloader
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.users import Password
 from archinstall.lib.network.network_handler import install_network_config
-from archinstall.lib.disk.device_handler import device_handler
 import sys
 import time
 import subprocess
@@ -157,55 +143,6 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
-def create_disk_config(devices: list[BDevice]) -> DiskLayoutConfiguration | None:
-    target_disk = ""
-    for disk in devices:
-        if disk.partition_infos == "virtblk":
-            target_disk = disk
-        else:
-            for part in disk.partition_infos:
-                if not part.fs_type:
-                    continue
-                if part.fs_type.name == "FAT32":
-                    target_disk = disk
-                elif part.fs_type.name == "BTRFS":
-                    target_disk = disk
-                log.info(f"Found partition: {part.path}")
-    if target_disk:
-        device_modification = DeviceModification(target_disk, wipe=True)
-        boot_partition = PartitionModification(
-            status=ModificationStatus.CREATE,
-            type=PartitionType.PRIMARY,
-            start=Size(1, Unit.MiB, target_disk.device_info.sector_size),
-            length=Size(512, Unit.MiB, target_disk.device_info.sector_size),
-            mountpoint=Path("/boot"),
-            fs_type=FilesystemType.FAT32,
-            flags=[PartitionFlag.BOOT, PartitionFlag.ESP],
-        )
-        device_modification.add_partition(boot_partition)
-        start_root = boot_partition.length
-        length_root = target_disk.device_info.total_size - start_root
-        root_partition = PartitionModification(
-            status=ModificationStatus.CREATE,
-            type=PartitionType.PRIMARY,
-            start=start_root,
-            length=length_root,
-            btrfs_subvols=[
-                SubvolumeModification(Path("@"), Path("/")),
-                SubvolumeModification(Path("@home"), Path("/home")),
-            ],
-            flags=[],
-            mountpoint=None,
-            mount_options=["compress=zstd"],
-            fs_type=FilesystemType.BTRFS,
-        )
-        device_modification.add_partition(root_partition)
-        return DiskLayoutConfiguration(
-            config_type=DiskLayoutType.Default,
-            device_modifications=[device_modification],
-        )
-
-
 def load_users_json(json_file: Path) -> dict:
     if not json_file.exists():
         log.error(f"JSON file {json_file} does not exist.")
@@ -915,8 +852,6 @@ def sys_setup() -> None:
     if GfxDriver.VMOpenSource not in gfx_drivers:
         base_pkgs.extend(pkgs["extra"] + pkgs["extra_chaos"])
     arch_config_handler.config.packages = base_pkgs
-    disk_config = create_disk_config(device_handler.devices)
-    arch_config_handler.config.disk_config = disk_config
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
