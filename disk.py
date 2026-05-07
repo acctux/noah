@@ -35,7 +35,7 @@ def create_disk_config():
     if not target_disk:
         print(devices)
         return
-    device = device_handler.get_device(disk.device_info.path)
+    device = device_handler.get_device(target_disk.device_info.path)
     if device:
         device_modification = DeviceModification(device, wipe=True)
         boot_partition = PartitionModification(
