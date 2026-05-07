@@ -722,6 +722,7 @@ def perform_installation(
             if config.auth_config.users:
                 users = config.auth_config.users
                 installation.create_users(config.auth_config.users)
+                configure_sudo(installation.target, users[0].username, pless=True)
 
         for gfx_driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, gfx_driver)
@@ -753,7 +754,6 @@ def perform_installation(
                     usr_srv = nc.populate_usr_srv(user.username)
                     enable_user_serv(installation, usr_srv, user.username)
                 generate_mpd_tmpfiles(installation, users)
-                configure_sudo(installation.target, users[0].username, pless=True)
                 cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
                 installation.arch_chroot(cmd, users[0].username)
                 configure_sudo(installation.target, users[0].username)
