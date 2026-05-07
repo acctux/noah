@@ -751,9 +751,9 @@ class NoahConfig:
         }
 
 
-pkgs: dict[str, tuple[str, ...]] = field(
+pkgs: dict[str, list[str]] = field(
     default_factory=lambda: {
-        "base": (
+        "base": [
             # HARDWARE
             "ananicy-cpp",
             "bluetui",
@@ -888,21 +888,21 @@ pkgs: dict[str, tuple[str, ...]] = field(
             "unrar",  # File roller
             "gocryptfs",
             "zathura-pdf-mupdf",
-        ),
-        "language": (
+        ],
+        "language": [
             "hunspell-en_us",
             "hyphen-en",
             "tesseract-data-eng",
-        ),
-        "chaotic_repo": (
+        ],
+        "chaotic_repo": [
             "cachyos-ananicy-rules-git",
             "floorp",
             "octopi",
             "paru",
             "systemd-oomd-defaults",
             "ocrmypdf",
-        ),
-        "extra": (
+        ],
+        "extra": [
             "rust",
             "stylua",
             "yamlfmt",
@@ -947,8 +947,8 @@ pkgs: dict[str, tuple[str, ...]] = field(
             "wine-mono",
             "wine-staging",
             "winetricks",
-        ),
-        "extra_chaos": (
+        ],
+        "extra_chaos": [
             "logiops",
             "neovim-symlinks",
             "ayugram-desktop-git",
@@ -958,8 +958,7 @@ pkgs: dict[str, tuple[str, ...]] = field(
             "proton-cachyos-slr",
             "rpcs3-git",
             "eden-git",
-        ),
+        ],
     }
 )
 aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
-

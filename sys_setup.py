@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 import pwd
-from utils import UsrSrv, NoahConfig, arch_config
-import pyperclip
+from utils import UsrSrv, NoahConfig, arch_config, pkgs, aur_pkgs
 from getpass import getpass
 import logging
-import gnupg
 from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
 import os
 from archinstall.lib.applications.application_handler import ApplicationHandler
@@ -145,7 +143,6 @@ def yes_no(prompt: str, default: bool = True) -> bool:
             return True
         if r in ("n"):
             return False
-        log.warning("Please enter 'y' or 'n'.")
 
 
 def ping(host: str = "google.com") -> bool:
@@ -774,7 +771,7 @@ def perform_installation(
                 generate_mpd_tmpfiles(installation, users)
                 first_user = users[0].username
                 configure_sudo(installation.target, first_user, pless=True)
-                cmd = f"paru -S --noconfirm --needed {' '.join(nc.aur_pkgs)}"
+                cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
                 installation.arch_chroot(cmd, first_user)
                 configure_sudo(installation.target, first_user)
                 copy_dir(
@@ -849,11 +846,10 @@ def sys_setup() -> None:
     )
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
-
-    pkgs = list(nc.pkgs["base"] + nc.pkgs["language"] + nc.pkgs["chaotic_repo"])
+    base_pkgs = pkgs["base"] + pkgs["language"] + pkgs["chaotic_repo"]
     if GfxDriver.VMOpenSource not in gfx_drivers:
-        pkgs.extend(list(nc.pkgs["extra"] + nc.pkgs["extra_chaos"]))
-    arch_config_handler.config.packages = pkgs
+        base_pkgs.extend(pkgs["extra"] + pkgs["extra_chaos"])
+    arch_config_handler.config.packages = base_pkgs
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
@@ -876,6 +872,9 @@ def sys_setup() -> None:
     )
 
 
+############################
+# USER SETUP
+############################
 def iwctl_scan() -> bool:
     result = run_dmc(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
     time.sleep(10)
@@ -957,6 +956,8 @@ def import_ssh(key_path: Path) -> None:
 
 
 def import_gpg(gpg_path: Path) -> None:
+    import gnupg
+
     key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
     import_result = gpg.import_keys(
@@ -1086,6 +1087,8 @@ def set_folder_icons(
 # Launch Apps
 ############################
 def pass_and_input(pass_path: Path):
+    import pyperclip
+
     password = pass_path.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
