@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
-from archinstall.lib.models.bootloader import BootloaderConfiguration
-from archinstall.lib.models.application import (
-    ZramConfiguration,
-    PowerManagementConfiguration,
-    PowerManagement,
-    Firewall,
-    FirewallConfiguration,
-    FontsConfiguration,
-    FontPackage,
-)
+import pwd
+from utils import UsrSrv, NoahConfig, arch_config
+import pyperclip
+from getpass import getpass
+import logging
+import gnupg
+from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
+import os
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.hardware import _sys_info, GfxDriver
-from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.args import (
     ArchConfig,
     ArchConfigHandler,
@@ -25,27 +22,15 @@ from archinstall.lib.general.general_menu import (
     select_post_installation,
 )
 from archinstall.lib.global_menu import GlobalMenu
-from archinstall.lib.installer import Installer
+from archinstall.lib.installer import Installer, run_custom_user_commands
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.models import (
-    Bootloader,
-    Audio,
-    AudioConfiguration,
-    ApplicationConfiguration,
-    BluetoothConfiguration,
-    PrintServiceConfiguration,
-    LocaleConfiguration,
-    ProfileConfiguration,
-    NetworkConfiguration,
-    NicType,
-)
+from archinstall.lib.models import Bootloader
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.models.users import Password
 from archinstall.lib.network.network_handler import install_network_config
-from pydantic import BaseModel
 from pathlib import Path
 import sys
 import time
@@ -53,877 +38,123 @@ import subprocess
 import json
 import re
 import shutil
-from dataclasses import dataclass, field
 from textwrap import dedent
-from utils import log, run_dmc, yes_no
 from archinstall.lib.profile.profiles_handler import profile_handler
 
 
-class UsrSrv(BaseModel):
-    source: str
-    target: str
-    services: list[str]
+#########################
+# LOG
+#########################
+class ColorFormatter(logging.Formatter):
+    COLORS = {
+        logging.DEBUG: "\033[36m",  # cyan
+        logging.INFO: "\033[34m",  # blue
+        logging.WARNING: "\033[93m",  # yellow
+        logging.ERROR: "\033[31m",  # red
+        logging.CRITICAL: "\033[41m",  # red background
+    }
+    RESET = "\033[0m"
+    UNDERLINE = "\033[4m"
+    NAME_COLOR = "\033[93m"  # yellow
+
+    def format(self, record):
+        colored_name = f"{self.NAME_COLOR}{record.name}{self.RESET}"
+        level_color = self.COLORS.get(record.levelno, "")
+        colored_message = f"{level_color}{record.getMessage()}{self.RESET}"
+        message = f"{colored_name}: {colored_message}"
+        if record.levelno == logging.CRITICAL:
+            message = f"{self.UNDERLINE}{message}{self.RESET}"
+        return message
 
 
-arch_config = ArchConfig(
-    app_config=ApplicationConfiguration(
-        bluetooth_config=BluetoothConfiguration(enabled=True),
-        audio_config=AudioConfiguration(audio=Audio.PIPEWIRE),
-        power_management_config=PowerManagementConfiguration(PowerManagement.TUNED),
-        print_service_config=PrintServiceConfiguration(enabled=True),
-        firewall_config=FirewallConfiguration(Firewall.FWD),
-        fonts_config=FontsConfiguration([FontPackage.LIBERATION, FontPackage.EMOJI]),
-    ),
-    locale_config=LocaleConfiguration(
-        kb_layout="us", sys_lang="en_US", sys_enc="UTF-8"
-    ),
-    profile_config=ProfileConfiguration(
-        profile=None, gfx_driver=GfxDriver.NvidiaOpenKernel, greeter=GreeterType.Ly
-    ),
-    network_config=NetworkConfiguration(type=NicType.ISO),
-    bootloader_config=BootloaderConfiguration(Bootloader.Systemd, False, False),
-    hostname="yulia",
-    kernels=["linux"],
-    ntp=True,
-    swap=ZramConfiguration(enabled=True),
-    timezone="US/Eastern",
-    services=[
-        "ananicy-cpp",
-        "iwd",
-        "named",
-        "swayosd-libinput-backend",
-        "systemd-networkd",
-        "systemd-oomd",
-        "btrfs-scrub@-.timer",
-        "btrfs-scrub@home.timer",
-        "fstrim.timer",
-        "logrotate.timer",
-        "man-db.timer",
-        "paccache.timer",
-        "reflector.timer",
-    ],
-)
+def get_logger(log_name: str | None = None, level=logging.INFO):
+    logger = logging.getLogger(log_name)
+    if logger.handlers:
+        return logger
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(ColorFormatter())
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    logger.propagate = False
+    return logger
 
 
-###########################################################
-# ARCHINSTALL CONF
-###########################################################
-@dataclass
-class NoahConfig:
-    def populate_usr_srv(self, user_name: str):
-        self.usr_srv = (
-            UsrSrv(
-                source="/usr/lib/systemd/user",
-                target="default",
-                services=["psd.service"],
-            ),
-            UsrSrv(
-                source="/usr/lib/systemd/user",
-                target="sockets",
-                services=["gcr-ssh-agent.socket", "mpd.socket"],
-            ),
-            UsrSrv(
-                source="/usr/lib/systemd/user",
-                target="graphical-session",
-                services=[
-                    "cliphist.service",
-                    "hypridle.service",
-                    "hyprsunset.service",
-                    "swaync.service",
-                    "waybar.service",
-                ],
-            ),
-            UsrSrv(
-                source=f"/home/{user_name}/.config/systemd/user",
-                target="graphical-session",
-                services=[
-                    "ayugram.service",
-                    "clip-persist.service",
-                    "kdeconnectd.service",
-                    "kanshi.service",
-                    "playerctld.service",
-                    "polkit-gnome.service",
-                    "snixembed.service",
-                    "swayosd.service",
-                    "awww-daemon.service",
-                ],
-            ),
-            UsrSrv(
-                source=f"/home/{user_name}/.config/systemd/user",
-                target="timers",
-                services=[
-                    "emailcheck.timer",
-                    "task-reminder.timer",
-                    "task-schedule.timer",
-                    "wall.timer",
-                ],
-            ),
+log = get_logger("Noah")
+
+
+#########################
+# ASK PASSWORD
+#########################
+def ask_pass(prompt="Password: ", confirm=True, min_len=6, retries=3) -> str:
+    for _ in range(retries):
+        pwd = getpass(prompt)
+        if len(pwd) < min_len:
+            log.warning(f"Password must be at least {min_len} characters.")
+            continue
+        if confirm and pwd != getpass("Confirm password: "):
+            log.warning("Passwords do not match.")
+            continue
+        return pwd
+    raise ValueError("Too many failed attempts.")
+
+
+def run_dmc(
+    cmd: list[str],
+    check: bool = False,
+    input_text: str = "",
+    shell: bool = False,
+    cwd=None,
+    interactive=False,
+):
+    if interactive:
+        return subprocess.Popen(cmd).wait()
+    log = get_logger("Run CMD")
+    try:
+        log.info(" ".join(cmd))
+        result = subprocess.run(
+            cmd,
+            text=True,
+            check=check,
+            capture_output=True,
+            input=input_text,
+            shell=shell,
+            cwd=cwd,
         )
+        if result.stdout:
+            log.info(f"stdout: {result.stdout.strip()}")
+        return result
+    except subprocess.CalledProcessError as e:
+        log.error(f"Command failed: {' '.join(cmd)} (exit {e.returncode})")
+        if e.stdout:
+            log.info(f"stdout: {e.stdout.strip()}")
+        if e.stderr:
+            log.error(f"stderr: {e.stderr.strip()}")
+        return e
 
-    username: str = "nick"
-    groups: tuple[str, ...] = ("adm", "games", "realtime", "storage", "video")
-    dots_repo: str = "polka"
-    git_user: str = "acctux"
-    usb_key_dir: str = "keys"
-    wireguard_dir: str = "wireguard"
-    my_pass: str = "pass.py"
-    parallel_downloads: int = 10
-    multilib: bool = True
-    terminal: str = "kitty"
-    usb_cp_files: tuple[str, ...] = (
-        "id_ed25519",
-        "my_sec_gpg.asc",
-        "pass.txt",
-        my_pass,
-    )
-    no_extracts: tuple[str, ...] = (
-        "etc/xdg/autostart/firewall-applet.desktop",
-        "usr/share/icons/capitaine-cursors/*",
-    )
-    to_cp: dict[str, tuple[str, ...]] = field(
-        default_factory=lambda: {
-            ".ssh": ("id_ed25519", "pass.txt"),
-            ".gnupg": ("my_sec_gpg.asc",),
-        }
-    )
-    firefox_browser: str = "floorp"
-    firefox_extensions: tuple[str, ...] = (
-        "return-youtube-dislikes",
-        "leechblock-ng",
-        "proton-pass",
-        "firefox-color",
-        "darkreader",
-        "flagfox",
-        "ublock-origin",
-    )
-    mkinit_hooks: tuple[str, ...] = (
-        "base",
-        "systemd",
-        "autodetect",
-        "microcode",
-        "modconf",
-        "kms",
-        "sd-vconsole",
-        "block",
-        "filesystems",
-        "fsck",
-    )
-    reflector_options: tuple[str, ...] = (
-        "--country US",
-        "--protocol https",
-        "--latest 15",
-        "--sort rate",
-        "--number 3",
-        "--save /etc/pacman.d/mirrorlist",
-    )
-    pkgs: dict[str, tuple[str, ...]] = field(
-        default_factory=lambda: {
-            "base": (
-                # HARDWARE
-                "ananicy-cpp",
-                "bluetui",
-                "bluez-utils",  # for loggy
-                "brightnessctl",
-                "btop",
-                "cliphist",
-                "rocm-smi-lib",  # btop dependency for amd gpu
-                "dmidecode",
-                "dosfstools",
-                "exfatprogs",
-                "kanshi",
-                "kitty",
-                "less",
-                "mcfly",
-                "ntfs-3g",
-                "smartmontools",
-                "udisks2-btrfs",
-                "usb_modeswitch",
-                "powertop",
-                "gnome-logs",
-                "systemctl-tui",
-                "base-devel",
-                "logrotate",
-                "plymouth",
-                "rebuild-detector",
-                "reflector",
-                "xdg-user-dirs",
-                "zsh-autocomplete",
-                "zsh-completions",
-                "zsh-syntax-highlighting",
-                "starship",
-                "trash-cli",
-                # Network
-                "bind",
-                "impala",
-                "iw",
-                "openresolv",
-                "profile-sync-daemon",
-                "protonmail-bridge-core",
-                "wireguard-tools",
-                "networkmanager",
-                # media
-                "cava",
-                "imv",
-                "mpd",
-                "mpd-mpris",
-                "mpv-mpris",
-                "pavucontrol",
-                "playerctl",
-                "rmpc",
-                # Hypr
-                "capitaine-cursors",
-                "fuzzel",
-                "gnome-keyring",
-                "hypridle",
-                "hyprland",
-                "hyprlock",
-                "hyprshot",
-                "hyprsunset",
-                "kvantum",
-                "kvantum-qt5",
-                "polkit-gnome",
-                "qt5-wayland",
-                "qt6-wayland",
-                "satty",
-                "seahorse",
-                "snixembed",
-                "swaync",
-                "swayosd",
-                "awww",
-                "uwsm",
-                "waybar",
-                "xdg-desktop-portal-gnome",
-                "xdg-desktop-portal-hyprland",
-                # Python
-                "python-dbus-fast",  # loggy
-                "python-gnupg",  # noah
-                "python-imaplib2",  # emailcheck
-                "python-pandas",  # weather
-                "python-pydantic",  # noah
-                "python-pyperclip",  # noah
-                "python-systemd",  # loggy
-                "python-wand",  # wallpaper script
-                "otf-firamono-nerd",
-                "inotify-tools",  # nvim
-                "npm",
-                "neovim-lspconfig",
-                "uv",
-                "qt5ct",
-                "qt6ct",
-                "wl-clipboard",
-                "wl-clip-persist",
-                "yazi",
-                "zbar",  # qr codes
-                "qrencode",  # qr codes
-                "git-delta",
-                "taskwarrior-tui",
-                "man-pages",
-                "rofimoji",
-                # coding
-                # Language Servers
-                "bash-language-server",
-                "lua-language-server",
-                "rust-analyzer",
-                "tombi",
-                "ty",
-                "vscode-css-languageserver",
-                "vscode-json-languageserver",
-                "yaml-language-server",
-                # Formatters
-                "ruff",
-                "shfmt",
-                # Lint
-                "shellcheck",
-                "biome",
-                "luacheck",
-                "yamllint",
-                # Tree sitter
-                "tree-sitter-bash",
-                "tree-sitter-cli",
-                "tree-sitter-python",
-                "bat-extras",
-                "eza",
-                "fd",
-                "fzf",
-                "github-cli",
-                "lazygit",
-                "ripgrep-all",
-                "sd",
-                "file-roller",
-                "unrar",  # File roller
-                "gocryptfs",
-                "zathura-pdf-mupdf",
-            ),
-            "language": (
-                "hunspell-en_us",
-                "hyphen-en",
-                "tesseract-data-eng",
-            ),
-            "chaotic_repo": (
-                "cachyos-ananicy-rules-git",
-                "floorp",
-                "octopi",
-                "paru",
-                "systemd-oomd-defaults",
-                "ocrmypdf",
-            ),
-            "extra": (
-                "rust",
-                "stylua",
-                "yamlfmt",
-                "tree-sitter-rust",
-                "deluge-gtk",
-                "nvtop",
-                "jolt",
-                "ugrep",
-                "zoxide",
-                "anki",
-                "authenticator",
-                "baobab",
-                "bustle",
-                "partitionmanager",
-                "qalculate-qt",
-                "evince",
-                "gimp",
-                "guvcview",
-                "yt-dlp",  # for mpv youtube playback
-                "libreoffice-fresh",
-                "coin-or-mp",  # LibreOffice Calc Solver
-                "gnucash",
-                "kdeconnect",
-                "gvfs-mtp",
-                "sshfs",
-                "scrcpy",
-                "gvfs-afc",
-                "gvfs-gphoto2",
-                "usbmuxd",
-                "dbeaver",
-                "jdk-openjdk",
-                "mariadb",
-                "python-pymysql",
-                "gnome-chess",
-                "gnuchess",
-                "lib32-mangohud",
-                "lutris",
-                "mangohud",
-                "mgba-qt",
-                "steam",
-                "umu-launcher",
-                "wine-mono",
-                "wine-staging",
-                "winetricks",
-            ),
-            "extra_chaos": (
-                "logiops",
-                "neovim-symlinks",
-                "ayugram-desktop-git",
-                "qt6-imageformats",  # AyuGram missing dependency
-                "betterbird-bin",
-                "nchat-git",
-                "proton-cachyos-slr",
-                "rpcs3-git",
-                "eden-git",
-            ),
-        }
-    )
-    aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
-    custom_services: tuple[str, ...] = (
-        "loggy",
-        "sysinfo",
-    )
-    disable_svcs: tuple[str, ...] = (
-        "systemd-resolved",
-        "systemd-networkd-wait-online",
-    )
-    apps_to_hide: tuple[str, ...] = (
-        "avahi-discover",
-        "bssh",
-        "btop",
-        "bvnc",
-        "jshell-java-openjdk",
-        "jconsole-java-openjdk",
-        "libreoffice-base",
-        "libreoffice-draw",
-        "libreoffice-impress",
-        "libreoffice-math",
-        "khal",
-        "kvantummanager",
-        "nvtop",
-        "octopi-cachecleaner",
-        "octopi-notifier",
-        "octopi-repoeditor",
-        "org.gnome.baobab",
-        "org.kde.kdeconnect.nonplasma",
-        "qt5ct",
-        "qt6ct",
-        "qv4l2",
-        "qvidcap",
-        "scrcpy-console",
-        "taskwarrior-tui",
-        "tuned-gui",
-        "uuctl",
-        "xgps",
-        "xgpsspeed",
-    )
-    etc_files_to_write: dict[str, str] = field(
-        default_factory=lambda: {
-            "etc/tmpfiles.d/mpd.conf": dedent(
-                """\
-                x /home/*/.cache/mpd 0755 %u %g -
-                x /home/*/.cache/mpd/playlists 0755 %u %g -
-                """
-            ),
-            "etc/iwd/main.conf": dedent(
-                """\
-                [Network]
-                NameResolvingService=resolvconf
-                """
-            ),
-            "etc/systemd/system/iwd.service.d/override.conf": dedent(
-                """\
-                [Service]
-                RuntimeDirectory=resolvconf
-                ReadWritePaths=/etc/resolv.conf
-                """
-            ),
-            "etc/systemd/system/wg-quick@.service.d/override.conf": dedent(
-                """\
-                [Unit]
-                After=
-                Wants=
-                """
-            ),
-            "etc/systemd/network/20-usb-tether.network": dedent(
-                """\
-                [Match]
-                Name=enp*
 
-                [Network]
-                DHCP=yes
-                IPv6AcceptRA=yes
-                """
-            ),
-            "etc/resolvconf.conf": dedent(
-                """\
-                resolv_conf=/etc/resolv.conf
-                name_servers="::1 127.0.0.1"
-                """
-            ),
-            "etc/nsswitch.conf": dedent(
-                """\
-                passwd: files systemd
-                group: files [SUCCESS=merge] systemd
-                shadow: files systemd
-                gshadow: files systemd
-                publickey: files
-                hosts: mymachines mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] files myhostname dns
-                networks: files
-                protocols: files
-                services: files
-                ethers: files
-                rpc: files
-                netgroup: files
-                """
-            ),
-            "etc/firewalld/zones/block.xml": dedent(
-                """\
-                <?xml version="1.0" encoding="utf-8"?>
-                <zone target="%%REJECT%%">
-                  <short>Block</short>
-                  <description>Unsolicited incoming network packets are rejected. Incoming packets that are related to outgoing network connections are accepted. Outgoing network connections are allowed.</description>
-                  <service name="kdeconnect"/>
-                  <service name="ssh"/>
-                  <service name="wireguard"/>
-                  <port port="6881-6889" protocol="tcp"/>
-                  <port port="6881-6889" protocol="udp"/>
-                  <forward/>
-                </zone>
-                """
-            ),
-            "etc/named.conf": dedent(
-                """\
-                // vim:set ts=4 sw=4 et:
-                tls cloudflare {
-                    remote-hostname "one.one.one.one";
-                };
+def yes_no(prompt: str, default: bool = True) -> bool:
+    while True:
+        r = (
+            input(f"\033[92m{prompt} {'(Y/n)' if default else '(y/N)'}: \033[0m")
+            .strip()
+            .lower()
+        )
+        if r == "":
+            return default
+        if r in ("y"):
+            return True
+        if r in ("n"):
+            return False
+        log.warning("Please enter 'y' or 'n'.")
 
-                options {
-                    pid-file "/run/named/named.pid";
-                    directory "/var/named";
-                    max-cache-size 200m;
-                    listen-on { 127.0.0.1; };
-                    listen-on-v6 { ::1; };
-                    allow-recursion {
-                        127.0.0.1;
-                        ::1;
-                    };
-                    forward only;
-                    forwarders port 853 tls cloudflare {
-                        1.1.1.1; 2606:4700:4700::1111;
-                        1.0.0.1; 2606:4700:4700::1001;
-                    };
-                // if system time is wrong and can't connect
-                //    dnssec-validation no;
-                };
 
-                zone "localhost" IN {
-                    type master;
-                    file "localhost.zone";
-                };
-
-                zone "0.0.127.in-addr.arpa" IN {
-                    type master;
-                    file "127.0.0.zone";
-                };
-                """
-            ),
-            "etc/xdg/user-dirs.defaults": dedent(
-                """\
-                DOCUMENTS=Desktop/Documents
-                DESKTOP=Desktop
-                MUSIC=Desktop/Music
-                PICTURES=Desktop/Pictures
-                VIDEOS=Desktop/Videos
-                DOWNLOAD=Desktop/Downloads
-                TEMPLATES=Desktop/Templates
-                PUBLICSHARE=Desktop/Public
-                """
-            ),
-            "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
-            "boot/loader/loader.conf": dedent(
-                """\
-                default @saved
-                timeout 1
-                editor no
-                """
-            ),
-            "etc/pacman.d/hooks/95-systemd-boot.hook": dedent(
-                """\
-                [Trigger]
-                Type = Package
-                Operation = Upgrade
-                Target = systemd
-
-                [Action]
-                Description = Gracefully upgrading systemd-boot...
-                When = PostTransaction
-                Exec = /usr/bin/systemctl restart systemd-boot-update.service
-                """
-            ),
-            "etc/systemd/journald.conf.d/00-journal-size.conf": dedent(
-                """\
-                [Journal]
-                SystemMaxUse=50M
-                """
-            ),
-            "etc/systemd/zram-generator.conf": dedent(
-                """\
-                [zram0]
-                zram-size = min(ram / 3, 8192)
-                compression-algorithm = zstd
-                """
-            ),
-            "etc/sysctl.d/99-zram.conf": dedent(
-                """\
-                vm.swappiness = 180
-                vm.watermark_boost_factor = 0
-                vm.watermark_scale_factor = 125
-                vm.page-cluster = 0
-                """
-            ),
-            "etc/fuse.conf": dedent(
-                """\
-                user_allow_other
-                """
-            ),
-            "etc/sysctl.d/99-watchdog.conf": dedent(
-                """\
-                kernel.nmi_watchdog = 0
-                """
-            ),
-            "etc/sysctl.d/99-steam.conf": dedent(
-                """\
-                vm.max_map_count = 2147483642
-                """
-            ),
-            "etc/sysctl.d/99-net.conf": dedent(
-                """\
-                net.core.rmem_max = 8388608
-                net.core.wmem_max = 8388608
-                """
-            ),
-            "etc/udisks2/mount_options.conf": dedent(
-                """\
-                [defaults]
-                defaults=noatime
-                """
-            ),
-            "etc/udev/rules.d/99-thunderbolt.rules": dedent(
-                """\
-                ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{authorized}=="0", ATTR{authorized}="1"
-                """
-            ),
-            "etc/polkit-1/rules.d/49-rules.rules": dedent(
-                """\
-                polkit.addRule(function(action, subject) {
-                    if (
-                        subject.isInGroup("storage") &&
-                        (
-                            action.id == "org.freedesktop.udisks2.filesystem-mount" ||
-                            action.id == "org.freedesktop.udisks2.filesystem-mount-system" ||
-                            action.id == "org.freedesktop.udisks2.encrypted-unlock" ||
-                            action.id == "org.freedesktop.udisks2.encrypted-unlock-system"
-                        )
-                    ) {
-                        return polkit.Result.YES;
-                    }
-                    if (
-                        action.id === "org.kde.kpmcore.externalcommand.init" &&
-                        subject.isInGroup("wheel")
-                    ) {
-                        return polkit.Result.YES;
-                    }
-                });
-                """
-            ),
-            "etc/logid.cfg": dedent(
-                """\
-                // Top=0xc4  Gesture=0xc3 Back=0x53 Forward=0x56
-                devices: ({
-                    name: "MX Master 3S";
-                    smartshift: {
-                        on: true;
-                        threshold: 15;
-                    };
-                    hiresscroll: {
-                        hires: true;
-                        invert: false;
-                        target: false;
-                    };
-                    dpi: 5200;
-                    buttons: (
-                        {
-                            cid: 0x56;
-                            action: {
-                                type: "Gestures";
-                                gestures: (
-                                    {
-                                        direction: "None";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTCTRL", "KEY_V" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Up";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_SPACE" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Down";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_B" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Right";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_T" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Left";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_E" ];
-                                        }
-                                    }
-                                );
-                            };
-                        },
-                        {
-                            cid: 0x53;
-                            action: {
-                                type: "Gestures";
-                                gestures: (
-                                    {
-                                        direction: "None";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTCTRL", "KEY_C" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Right";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_G" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Left";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_D" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Up";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_F" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Down";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_ESC" ];
-                                        }
-                                    }
-                                );
-                            };
-                        },
-                        {
-                            cid: 0xc3;
-                            action: {
-                                type: "Gestures";
-                                gestures: (
-                                    {
-                                        direction: "None";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_R" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Right";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_K" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Left";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_J" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Up";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_H" ];
-                                        }
-                                    },
-                                    {
-                                        direction: "Down";
-                                        mode: "OnRelease";
-                                        action: {
-                                            type: "Keypress";
-                                            keys: [ "KEY_LEFTMETA", "KEY_L" ];
-                                        }
-                                    }
-                                );
-                            };
-                        },
-                        {
-                            cid: 0xc4;
-                            action: {
-                                type: "Keypress";
-                                keys: [ "KEY_LEFTSHIFT" ];
-                            };
-                        }
-                    );
-                });
-                """
-            ),
-            "etc/ly/config.ini": dedent(
-                """\
-                allow_empty_password = true
-                animation = matrix
-                animation_timeout_sec = 0
-                asterisk = *
-                auth_fails = 10
-                bg = 0x00101013
-                bigclock = none
-                blank_box = true
-                border_fg = 0x00D3DAE3
-                box_title = null
-                brightness_down_cmd = /usr/bin/brightnessctl -q s 10%-
-                brightness_down_key = F5
-                brightness_up_cmd = /usr/bin/brightnessctl -q s +10%
-                brightness_up_key = F6
-                clear_password = false
-                clock = null
-                cmatrix_fg = 0x000000FF
-                cmatrix_min_codepoint = 0x21
-                cmatrix_max_codepoint = 0x7B
-                colormix_col1 = 0x0000FF00
-                colormix_col2 = 0x000000CC
-                colormix_col3 = 0x20000000
-                console_dev = /dev/console
-                default_input = login
-                doom_top_color = 0x00FF0000
-                doom_middle_color = 0x00FFFF00
-                doom_bottom_color = 0x00FFFFFF
-                error_bg = 0x00000000
-                error_fg = 0x01FF0000
-                fg = 0x00D3DAE3
-                hide_borders = false
-                hide_key_hints = false
-                initial_info_text = null
-                input_len = 34
-                lang = en
-                load = true
-                login_cmd = null
-                logout_cmd = null
-                margin_box_h = 2
-                margin_box_v = 1
-                min_refresh_delta = 5
-                numlock = true
-                path = /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-                restart_cmd = /sbin/shutdown -r now
-                restart_key = F2
-                save = true
-                service_name = ly
-                session_log = .cache/ly
-                setup_cmd = /etc/ly/setup.sh
-                shutdown_cmd = /sbin/shutdown -a now
-                shutdown_key = F1
-                sleep_cmd = null
-                sleep_key = F3
-                text_in_center = false
-                tty = 2
-                vi_default_mode = normal
-                vi_mode = false
-                waylandsessions = /usr/share/wayland-sessions
-                x_cmd = /usr/bin/X
-                xauth_cmd = /usr/bin/xauth
-                xinitrc = ~/.xinitrc
-                xsessions = /usr/share/xsessions
-                """
-            ),
-        }
+def ping(host: str = "google.com") -> bool:
+    cmd = ["ping", "-c", "1", host]
+    return (
+        subprocess.run(
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ).returncode
+        == 0
     )
 
 
@@ -1051,7 +282,7 @@ def mnt_cp_keys(
 
 
 ###################################
-# PACMAN
+# ETC/BOOT
 ###################################
 def generate_pacman_conf(
     mnt_point: Path | None,
@@ -1098,9 +329,36 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
             log.info(f"Content: {content}\nWritten to: {full_path}")
 
 
-###################################
-# ETC/BOOT
-###################################
+def chaotic_repo(installation: Installer) -> None:
+    srv = "keyserver.ubuntu.com"
+    web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
+    cmds = [
+        ["pacman-key", "--init"],
+        ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv],
+        ["pacman-key", "--lsign-key", "3056513887B78AEB"],
+        ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
+        ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
+    ]
+    for cmd in cmds:
+        run_dmc(cmd)
+        installation.arch_chroot(" ".join(cmd))
+    for path in [Path("/etc/pacman.conf"), installation.target / "etc/pacman.conf"]:
+        with path.open("a") as f:
+            f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
+    run_dmc(["pacman", "-Sy"], check=True)
+    installation.arch_chroot("pacman -Sy")
+
+
+def generate_mpd_tmpfiles(installation: Installer, users: list[User]) -> None:
+    for user in users:
+        base = installation.target / "home"
+        dir_path = base / user.username / ".cache" / "mpd" / "playlists"
+        dir_path.mkdir(parents=True, exist_ok=True)
+        dir_path.chmod(0o755)
+        installation.chown(user.username, str(dir_path))
+        installation.chown(user.username, str(dir_path.parent))
+
+
 def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
     sudoers_content = dedent(
         f"""\
@@ -1184,70 +442,98 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(units: list[UsrSrv], username: str) -> list[str]:
-    chroot_cmds: list[str] = []
-    base_dir = f"/home/{username}/.config/systemd/user"
-    for unit in units:
-        target_dir = f"{base_dir}/{unit.target}.target.wants"
-        chroot_cmds.append(f"mkdir -p {target_dir}")
-        for service in unit.services:
-            chroot_cmds.append(f"ln -sf {unit.source}/{service} {target_dir}/{service}")
-    return chroot_cmds
+def enable_user_serv(
+    installation: Installer, units: list[UsrSrv], users: list[User]
+) -> None:
+    for user in users:
+        base_dir = f"/home/{user.username}/.config/systemd/user"
+        for unit in units:
+            target_dir = f"{base_dir}/{unit.target}.target.wants"
+            installation.arch_chroot(f"mkdir -p {target_dir}")
+            for service in unit.services:
+                installation.arch_chroot(
+                    f"ln -sf {unit.source}/{service} {target_dir}/{service}"
+                )
 
 
 def user_service(
-    mnt_point: Path,
-    username: str,
+    installation: Installer,
+    users: list[User],
     terminal: str,
     user_script="user_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
-) -> list[str]:
+) -> None:
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
-    dir_path = f"home/{username}/.config/systemd/user"
-    run_script = f"/home/{username}/{script_dir}/{user_script}"
-    name = f"{user_script.rsplit('.', 1)[0]}.service"
-    content = dedent(
-        f"""\
-        [Unit]
-        Description=Open {terminal} {run_script} on login
-        After=graphical-session.target
+    for user in users:
+        dir_path = f"home/{user.username}/.config/systemd/user"
+        run_script = f"/home/{user.username}/{script_dir}/{user_script}"
+        name = f"{user_script.rsplit('.', 1)[0]}.service"
+        content = dedent(
+            f"""\
+            [Unit]
+            Description=Open {terminal} {run_script} on login
+            After=graphical-session.target
 
-        [Service]
-        Type=oneshot
-        ExecStart=/usr/bin/{terminal} python {run_script}
-        Restart=no
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/bin/{terminal} python {run_script}
+            Restart=no
 
-        [Install]
-        WantedBy=graphical-session.target
-        """
-    )
-    (mnt_point / dir_path / name).write_text(content)
-    unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
-    chroot_cmds = enable_user_serv([unit], username)
-    return chroot_cmds
+            [Install]
+            WantedBy=graphical-session.target
+            """
+        )
+        (installation.target / dir_path / name).write_text(content)
+        unit = UsrSrv(
+            source=f"/{dir_path}", target="graphical-session", services=[name]
+        )
+    enable_user_serv(installation, [unit], users)
+
+
+def install_icons(installation: Installer):
+    git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
+    installation.arch_chroot(f"git clone {git}")
+    installation.arch_chroot("bash ./WhiteSur-icon-theme/install.sh")
+    icon_path = installation.target / "usr/share/icons"
+    white_sur_light = icon_path / "WhiteSur-light"
+    if white_sur_light.exists():
+        shutil.rmtree(white_sur_light)
+        log.info(f"Removed {white_sur_light}")
+    themes_to_modify = []
+    for folder in icon_path.iterdir():
+        if folder.is_dir() and ("-dark" in folder.name or "WhiteSur" in folder.name):
+            themes_to_modify.append(folder)
+    for theme_dir in themes_to_modify:
+        for svg_file in theme_dir.rglob("*.svg"):
+            if svg_file.is_file():
+                text = svg_file.read_text()
+                if "#ffffff" in text:
+                    svg_file.write_text(text.replace("#ffffff", "#F4F5F6"))
+                    log.info(f"Modified {svg_file}")
 
 
 ###################################
 # User Space
 ###################################
 def copy_keys(
-    mnt_point: Path, usb_key_dir: str, username: str, to_cp: dict[str, tuple[str, ...]]
-) -> list[str]:
-    chown_paths = []
+    installation: Installer,
+    usb_key_dir: str,
+    username: str,
+    to_cp: dict[str, tuple[str, ...]],
+) -> None:
     for folder, files in to_cp.items():
         sys_path = f"home/{username}/{folder}"
-        mnt_dir = mnt_point / sys_path
+        mnt_dir = installation.target / sys_path
         mnt_dir.mkdir(parents=True, exist_ok=True)
         mnt_dir.chmod(0o700)
-        chown_paths.append(f"/{sys_path}")
         for name in files:
             src = Path("/root") / usb_key_dir / name
             dest = mnt_dir / name
             copy_file(src, dest)
             dest.chmod(0o600)
-            chown_paths.append(f"/{sys_path}/{name}")
-    return chown_paths
+            installation.chown(username, f"/{sys_path}/{name}")
+        installation.chown(username, f"/{sys_path}")
 
 
 def set_extensions(mnt_point: Path, browser: str, ext_names: list[str]) -> None:
@@ -1304,6 +590,29 @@ def set_extensions(mnt_point: Path, browser: str, ext_names: list[str]) -> None:
     log.info(f"Policies for {browser} have been set (overwritten).")
 
 
+def hide_apps(installation: Installer, users: list[User], nc: NoahConfig):
+    for user in users:
+        nc.populate_usr_srv(user.username)
+        user_home = f"home/{user.username}"
+        for app in nc.apps_to_hide:
+            file_p = f"{user_home}/.local/share/applications/{app}.desktop"
+            (installation.target / file_p).write_text(
+                "[Desktop Entry]\nNoDisplay=true\n"
+            )
+            installation.chown(user.username, f"/{file_p}")
+
+
+def copy_skel(mountpoint: Path, nc: NoahConfig):
+    tmp = mountpoint / "tmp" / nc.dots_repo
+    tmp.mkdir(exist_ok=True)
+    git = f"https://github.com/{nc.git_user}/{nc.dots_repo}.git"
+    run_dmc(["git", "clone", git, str(tmp)])
+    shutil.rmtree(tmp / ".git")
+    for p in tmp.iterdir():
+        p.rename(p.parent / ("." + p.name))
+    copy_dir(tmp, mountpoint / "etc" / "skel")
+
+
 ###################################
 # Archinstall
 ###################################
@@ -1329,6 +638,7 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
 
 def perform_installation(
     arch_config_handler: ArchConfigHandler,
+    auth_handler: AuthenticationHandler,
     application_handler: ApplicationHandler,
     gfx_drivers: list[GfxDriver],
 ) -> None:
@@ -1340,11 +650,22 @@ def perform_installation(
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
+    run_mkinitcpio = not config.bootloader_config or not config.bootloader_config.uki
     mountpoint = Path("/mnt/arch")
     locale = config.locale_config
-    with Installer(mountpoint, disk_config, kernels=config.kernels) as installation:
+    with Installer(
+        mountpoint,
+        disk_config,
+        kernels=config.kernels,
+        silent=arch_config_handler.args.silent,
+    ) as installation:
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
+        installation.sanity_check(
+            arch_config_handler.args.offline,
+            arch_config_handler.args.skip_ntp,
+            arch_config_handler.args.skip_wkd,
+        )
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             if (
                 disk_config.disk_encryption
@@ -1352,20 +673,26 @@ def perform_installation(
                 != EncryptionType.NO_ENCRYPTION
             ):
                 installation.generate_key_files()
+
         nc = NoahConfig()
-        cmd = [
-            "reflector",
-            *(part for opt in nc.reflector_options for part in opt.split()),
-        ]
-        run_dmc(cmd)
+
+        run_dmc(
+            [
+                "reflector",
+                *(part for opt in nc.reflector_options for part in opt.split()),
+            ]
+        )
         generate_pacman_conf(None, no_extracts=list(nc.no_extracts))
+
         installation.minimal_installation(
-            hostname=config.hostname, locale_config=locale
+            hostname=config.hostname, mkinitcpio=run_mkinitcpio, locale_config=locale
         )
+
         copy_file(
-            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
+            Path("/etc/pacman.d/mirrorlist"),
+            installation.target / "etc/pacman.d/mirrorlist",
         )
-        generate_pacman_conf(mountpoint, list(nc.no_extracts))
+        generate_pacman_conf(installation.target, list(nc.no_extracts))
 
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
@@ -1384,58 +711,50 @@ def perform_installation(
                 else:
                     sysd_plymouth_setup(mountpoint)
 
-        modify_mkinit(mountpoint, list(nc.mkinit_hooks), plymouth=True)
+        modify_mkinit(installation.target, list(nc.mkinit_hooks), plymouth=True)
 
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
 
-        profile_handler.install_greeter(installation, GreeterType.Ly)
-
         if config.network_config:
-            install_network_config(config.network_config, installation, None)
+            install_network_config(
+                config.network_config, installation, config.profile_config
+            )
 
         installation.add_additional_packages("realtime-privileges")
+        copy_skel(installation.target, nc)
 
-        tmp = mountpoint / "tmp" / nc.dots_repo
-        tmp.mkdir(exist_ok=True)
-        git = f"https://github.com/{nc.git_user}/{nc.dots_repo}.git"
-        run_dmc(["git", "clone", git, str(tmp)])
-        shutil.rmtree(tmp / ".git")
-        for p in tmp.iterdir():
-            p.rename(p.parent / ("." + p.name))
-        copy_dir(tmp, mountpoint / "etc" / "skel")
-
+        users = None
         if config.auth_config:
             if config.auth_config.users:
+                users = config.auth_config.users
                 installation.create_users(config.auth_config.users)
+                auth_handler.setup_auth(
+                    installation, config.auth_config, config.hostname
+                )
+
+        if profile_config := config.profile_config:
+            profile_handler.install_profile_config(installation, profile_config)
 
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
 
-        srv = "keyserver.ubuntu.com"
-        web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-        run_dmc(["pacman-key", "--init"])
-        installation.arch_chroot(" ".join(["pacman-key", "--init"]))
-        cmd = ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv]
-        run_dmc(cmd)
-        installation.arch_chroot(" ".join(cmd))
-        cmd = ["pacman-key", "--lsign-key", "3056513887B78AEB"]
-        run_dmc(cmd)
-        installation.arch_chroot(" ".join(cmd))
-        cmd = ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"]
-        run_dmc(cmd)
-        installation.arch_chroot(" ".join(cmd))
-        cmd = ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"]
-        run_dmc(cmd)
-        installation.arch_chroot(" ".join(cmd))
-        for path in [Path("/etc/pacman.conf"), mountpoint / "etc/pacman.conf"]:
-            with path.open("a") as f:
-                f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
-        run_dmc(["pacman", "-Sy"], check=True)
-        installation.arch_chroot("pacman -Sy")
+        chaotic_repo(installation)
 
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
+
+        write_etc_file(mountpoint, nc.etc_files_to_write)
+        reflector_timer_conf = installation.target / "etc/xdg/reflector/reflector.conf"
+        reflector_timer_conf.write_text("\n".join(nc.reflector_options))
+        copy_dir(
+            Path("/root") / nc.wireguard_dir, installation.target / "etc" / "wireguard"
+        )
+        set_extensions(
+            installation.target, nc.firefox_browser, list(nc.firefox_extensions)
+        )
+        sys_dots(installation.target, script_d)
+        install_icons(installation)
 
         if timezone := config.timezone:
             installation.set_timezone(timezone)
@@ -1443,67 +762,35 @@ def perform_installation(
         if config.ntp:
             installation.activate_time_synchronization()
 
-        write_etc_file(mountpoint, nc.etc_files_to_write)
-        copy_dir(Path("/root") / nc.wireguard_dir, mountpoint / "etc" / "wireguard")
-        reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
-        reflector_timer_conf.write_text("\n".join(nc.reflector_options))
-        set_extensions(mountpoint, nc.firefox_browser, list(nc.firefox_extensions))
-        sys_dots(mountpoint, script_d)
+        if config.auth_config and config.auth_config.root_enc_password:
+            root_user = User("root", config.auth_config.root_enc_password, False)
+            installation.set_user_password(root_user)
 
-        git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
-        installation.arch_chroot(f"git clone {git}")
-        installation.arch_chroot("bash ./WhiteSur-icon-theme/install.sh")
-        icon_path = mountpoint / "usr/share/icons"
-        white_sur_light = icon_path / "WhiteSur-light"
-        if white_sur_light.exists():
-            shutil.rmtree(white_sur_light)
-            log.info(f"Removed {white_sur_light}")
-        themes_to_modify = []
-        for folder in icon_path.iterdir():
-            if folder.is_dir() and (
-                "-dark" in folder.name or "WhiteSur" in folder.name
-            ):
-                themes_to_modify.append(folder)
-        for theme_dir in themes_to_modify:
-            for svg_file in theme_dir.rglob("*.svg"):
-                if svg_file.is_file():
-                    text = svg_file.read_text()
-                    if "#ffffff" in text:
-                        svg_file.write_text(text.replace("#ffffff", "#F4F5F6"))
-                        log.info(f"Modified {svg_file}")
+        if (profile_config := config.profile_config) and profile_config.profile:
+            profile_config.profile.post_install(installation)
+            if users:
+                profile_config.profile.provision(installation, users)
 
-        if config.auth_config:
-            if config.auth_config.users:
-                first_user = config.auth_config.users[0].username
-                configure_sudo(mountpoint, first_user, pless=True)
+                generate_mpd_tmpfiles(installation, users)
+                first_user = users[0].username
+                configure_sudo(installation.target, first_user, pless=True)
                 cmd = f"paru -S --noconfirm --needed {' '.join(nc.aur_pkgs)}"
                 installation.arch_chroot(cmd, first_user)
-                configure_sudo(mountpoint, first_user)
-                first_user_home = f"home/{config.auth_config.users[0].username}"
-                copy_dir(script_d, (mountpoint / first_user_home / script_d.name))
-                chown_paths = copy_keys(
-                    mountpoint, nc.usb_key_dir, first_user, nc.to_cp
+                configure_sudo(installation.target, first_user)
+                copy_dir(
+                    script_d,
+                    (installation.target / f"home/{users[0].username}" / script_d.name),
                 )
-                for ch_p in chown_paths:
-                    installation.chown(first_user, ch_p)
-                for user in config.auth_config.users:
+                copy_keys(installation, nc.usb_key_dir, first_user, nc.to_cp)
+                enable_user_serv(installation, list(nc.usr_srv), users)
+                user_service(installation, users, nc.terminal)
+                hide_apps(installation, users, nc)
+                for user in users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
-                    nc.populate_usr_srv(user.username)
-                    chroot_cmds = enable_user_serv(list(nc.usr_srv), user.username)
-                    chroot_cmds += user_service(mountpoint, user.username, nc.terminal)
-                    for cmd in chroot_cmds:
-                        installation.arch_chroot(cmd, user.username)
-                    user_home = f"home/{user.username}"
-                    for app in nc.apps_to_hide:
-                        file_p = f"{user_home}/.local/share/applications/{app}.desktop"
-                        (mountpoint / file_p).write_text(
-                            "[Desktop Entry]\nNoDisplay=true\n"
-                        )
-                    installation.arch_chroot(
-                        f"chown -R {user.username}:{user.username} /{user_home}"
-                    )
 
-        installation.enable_service(config.services)
+        if services := config.services:
+            installation.enable_service(services)
+
         installation.disable_service(list(nc.disable_svcs))
 
         if disk_config.has_default_btrfs_vols():
@@ -1517,6 +804,9 @@ def perform_installation(
                     else None
                 )
                 installation.setup_btrfs_snapshot(snapshot_type, bootloader)
+
+        if cc := config.custom_commands:
+            run_custom_user_commands(cc, installation)
 
         installation.genfstab()
         modify_fstab(mountpoint)
@@ -1539,7 +829,7 @@ def perform_installation(
                         pass
 
 
-def main() -> None:
+def sys_setup() -> None:
     nc = NoahConfig()
     mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
@@ -1559,6 +849,7 @@ def main() -> None:
     )
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
+
     pkgs = list(nc.pkgs["base"] + nc.pkgs["language"] + nc.pkgs["chaotic_repo"])
     if GfxDriver.VMOpenSource not in gfx_drivers:
         pkgs.extend(list(nc.pkgs["extra"] + nc.pkgs["extra_chaos"]))
@@ -1574,14 +865,329 @@ def main() -> None:
             debug("Installation aborted")
             aborted = True
         if aborted:
-            return main()
+            return sys_setup()
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         if not delayed_warning("Starting device modifications in "):
-            return main()
+            return sys_setup()
         fs_handler.perform_filesystem_operations()
-    perform_installation(arch_config_handler, ApplicationHandler(), gfx_drivers)
+    perform_installation(
+        arch_config_handler, AuthenticationHandler(), ApplicationHandler(), gfx_drivers
+    )
+
+
+def iwctl_scan() -> bool:
+    result = run_dmc(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
+    time.sleep(10)
+    if result.returncode == 0:
+        return True
+    return False
+
+
+############################
+# Dotfile Symlink
+############################
+def deploy_dotfiles(
+    HOME: Path,
+    dot_dir: Path,
+    dirs_to_link: list[str],
+    ind_dirs: dict[str, Path],
+    sec_dots_dir: Path,
+):
+    def link_path(src: Path, dst: Path) -> bool:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        rel = src.relative_to(dst.parent, walk_up=True)
+        if dst.is_symlink() and dst.readlink() == rel:
+            return False
+        if dst.exists():
+            if dst.is_dir() and not dst.is_symlink():
+                shutil.rmtree(dst)
+            else:
+                dst.unlink(missing_ok=True)
+            log.info(f"Removed: {dst}")
+        dst.symlink_to(rel, target_is_directory=src.is_dir())
+        log.info(f"Linked: {dst} → {rel}")
+        return True
+
+    linked = 0
+    for src in dot_dir.rglob("*"):
+        if not src.is_file():
+            continue
+        rel = src.relative_to(dot_dir)
+        if rel.parts[0] == ".git":
+            continue
+        if any(rel.is_relative_to(Path(d)) for d in dirs_to_link):
+            continue
+        dst = HOME / ("." + str(rel))
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if link_path(src, dst):
+            linked += 1
+    for d in dirs_to_link:
+        src = dot_dir / d
+        if not src.is_dir():
+            continue
+        dst = HOME / ("." + d)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if link_path(src, dst):
+            linked += 1
+    for src_name, dst_dir in ind_dirs.items():
+        src_dir = sec_dots_dir / src_name
+        if not src_dir.is_dir():
+            continue
+        for src in src_dir.rglob("*"):
+            if not src.is_file():
+                continue
+            dst = dst_dir / src.relative_to(src_dir)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if link_path(src, dst):
+                linked += 1
+    run_dmc(["hyprctl", "reload"])
+    log.info(f"Linked: {linked}")
+
+
+############################
+# Encryption/Keys
+############################
+def import_ssh(key_path: Path) -> None:
+    if not Path(f"/run/user/{os.getuid()}/gcr/ssh").exists():
+        run_dmc(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
+        run_dmc(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
+    run_dmc(["ssh-add", str(key_path)], check=False)
+    log.info(f"SSH key {key_path} added or already present.")
+
+
+def import_gpg(gpg_path: Path) -> None:
+    key_data = gpg_path.read_text()
+    gpg = gnupg.GPG()
+    import_result = gpg.import_keys(
+        key_data, passphrase=ask_pass("GPG Password: ", False, 6)
+    )
+    log.info(import_result.results)
+
+
+def init_gocrypt(enc_dir: Path) -> None:
+    enc_dir.mkdir(parents=True, exist_ok=True)
+    while True:
+        pw1 = getpass("Enter new gocryptfs password: ")
+        pw2 = getpass("Confirm password: ")
+        if pw1 == pw2 and pw1:
+            break
+        log.warning("Passwords do not match or empty. Try again.\n")
+    cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
+    run_dmc(cmd, check=True, input_text=pw1)
+    log.info(f"gocryptfs initialized at {enc_dir}.")
+
+
+############################
+# MariaDB
+############################
+def enable_mariadb(user_name) -> None:
+    while True:
+        p1 = getpass("Mariadb password: ")
+        p2 = getpass("Confirm: ")
+        if p1 == p2:
+            password = p1
+            break
+        print("Passwords do not match, try again.")
+    commands = [
+        [
+            "sudo",
+            "mariadb-install-db",
+            "--user=mysql",
+            "--basedir=/usr",
+            "--datadir=/var/lib/mysql",
+        ],
+        ["sudo", "systemctl", "start", "mariadb"],
+        [
+            "sudo",
+            "/usr/bin/mariadb",
+            "-e",
+            (
+                f"CREATE USER '{user_name}'@'localhost' IDENTIFIED BY '{password}'; "
+                f"GRANT ALL PRIVILEGES ON mydb.* TO '{user_name}'@'localhost'; "
+                "FLUSH PRIVILEGES;"
+            ),
+        ],
+    ]
+    for cmd in commands:
+        result = run_dmc(cmd)
+        if result and result.returncode != 0:
+            log.error(f"Command failed: {cmd}")
+
+
+############################
+# Git/Repos
+############################
+def ensure_github_known_hosts(HOME: Path) -> None:
+    kh = HOME / ".ssh" / "known_hosts"
+    kh.parent.mkdir(parents=True, exist_ok=True)
+    if not kh.exists():
+        kh.touch()
+    content = kh.read_text(errors="ignore")
+    if "github.com" not in content:
+        scan = run_dmc(["ssh-keyscan", "-H", "github.com"])
+        if scan and scan.stdout:
+            kh.write_text(content + scan.stdout)
+            log.info("Added github.com to known_hosts")
+        else:
+            log.warning("Failed to scan github.com for known_hosts")
+
+
+def clone_repos(git_user: str, git_repos: list, dest: Path, ssh: bool) -> None:
+    def url(repo: str) -> str:
+        if ssh:
+            return f"git@github.com:{git_user}/{repo}.git"
+        return f"https://github.com/{git_user}/{repo}.git"
+
+    dest.mkdir(parents=True, exist_ok=True)
+    for repo in git_repos:
+        repo_path = dest / repo
+        if repo_path.exists():
+            log.info(f"{repo_path} exists, skipping.")
+            continue
+        result = run_dmc(["git", "clone", url(repo), str(repo_path)], check=False)
+        if result.returncode == 0:
+            log.info(f"Cloned {repo}")
+        else:
+            log.warning(f"Failed to clone {repo}")
+
+
+def configure_git() -> None:
+    result = run_dmc(["ssh-add", "-l"])
+    lines = result.stdout.strip().splitlines()
+    if not lines:
+        log.warning("No SSH keys found")
+        return
+    parts = lines[0].split()
+    my_email = parts[2]
+    my_name = input("Enter your full real name (git): ").strip()
+    run_dmc(["git", "config", "--global", "user.email", my_email])
+    run_dmc(["git", "config", "--global", "user.name", my_name])
+    log.info(f"Configured git with email={my_email} and name={my_name}")
+
+
+############################
+# Icons/Folders
+############################
+def set_folder_icons(
+    custom_folder_icons: dict[Path, str],
+    icon_dir="/usr/share/icons/WhiteSur-dark/places/scalable",
+) -> None:
+    for folder, icon_name in custom_folder_icons.items():
+        icon = f"{icon_dir}/{icon_name}.svg"
+        folder.mkdir(parents=True, exist_ok=True)
+        if Path(icon).exists():
+            icon_uri = f"file://{icon}"
+            cmd = ["gio", "set", str(folder), "metadata::custom-icon", icon_uri]
+            run_dmc(cmd)
+
+
+############################
+# Launch Apps
+############################
+def pass_and_input(pass_path: Path):
+    password = pass_path.read_text().strip()
+    os.environ["CLIPBOARD_STATE"] = "sensitive"
+    pyperclip.copy(password)
+    log.info("Password copied to clipboard.")
+    cmd = ["firedragon", "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/"]
+    subprocess.Popen(cmd).wait()
+    pyperclip.copy("")
+    log.info("Clipboard cleared.")
+    os.environ.pop("CLIPBOARD_STATE", None)
+
+
+def launch_apps(apps=["floorp", "protonmail-bridge", "betterbird", "steam"]):
+    processes = []
+    for app in apps:
+        processes.append(subprocess.Popen(app))
+    for app, process in zip(apps, processes):
+        process.wait()
+        log.info(f"{app} closed")
+
+
+def scrcpy_setup(port=5555) -> None:
+    answer = yes_no("Is your Android phone connected?")
+    if not answer:
+        log.info("Please connect your device via USB first.")
+        return
+    ip = next(
+        (
+            line.split("src")[-1].strip()
+            for line in run_dmc(["adb", "shell", "ip", "route"]).stdout.splitlines()
+            if "wlan" in line and "src" in line
+        )
+    )
+    if not ip:
+        log.warning("Could not determine device IP.")
+        return
+    target = f"{ip}:{port}"
+    log.info(f"Trying {target}")
+    msg = run_dmc(["adb", "connect", target])
+    log.info((msg.stdout + msg.stderr).lower())
+
+
+############################
+# Main
+############################
+def user_setup():
+    if shutil.which("zsh"):
+        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    if Path("/etc/resolv.conf").is_symlink() and not ping():
+        run_dmc(["sudo", "rm", "/etc/resolv.conf"])
+        run_dmc(["sudo", "resolvconf", "-u"])
+        run_dmc(["sudo", "systemctl", "restart", "iwd"])
+        time.sleep(5)
+        iwctl_scan()
+        time.sleep(5)
+    if shutil.which("tuned"):
+        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
+    uc = NoahConfig()
+    if shutil.which("mariadb"):
+        user = pwd.getpwuid(os.getuid()).pw_name
+        enable_mariadb(user)
+    if uc.ssh_path.exists():
+        import_ssh(uc.ssh_path)
+        configure_git()
+        ensure_github_known_hosts(uc.HOME)
+        clone_repos(uc.git_user, uc.repos + uc.private_repos, uc.GIT_DIR, ssh=True)
+    else:
+        clone_repos(uc.git_user, uc.repos, uc.GIT_DIR, ssh=False)
+    if uc.gpg_path and not uc.gpg_path.exists():
+        import_gpg(uc.gpg_path)
+    if uc.ENCRYPTED and not (uc.ENCRYPTED / "gocryptfs.conf").exists():
+        if shutil.which("gocryptfs"):
+            init_gocrypt(uc.ENCRYPTED)
+    if uc.dirs_icons:
+        set_folder_icons(uc.dirs_icons)
+    for plugin in uc.yazi_plugins:
+        run_dmc(["ya", "pkg", "add", plugin])
+    if any((uc.dots_path).iterdir()):
+        deploy_dotfiles(uc.HOME, uc.dots_path, uc.dirs_to_link, uc.ind_dirs, uc.sec_dir)
+        run_dmc(
+            ["uv", "add", "openmeteo-requests"],
+            cwd=f"{uc.HOME}/.local/bin/weather",
+        )
+    if uc.android:
+        scrcpy_setup()
+    if uc.masterpass_path.is_file():
+        pass_and_input(uc.masterpass_path)
+        launch_apps()
+    run_dmc(
+        ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
+        interactive=True,
+    )
+    for d in [(uc.HOME / "archinstall")]:
+        if d.exists():
+            shutil.rmtree(d)
+    if yes_no("Reboot now?", default=False):
+        run_dmc(["systemctl", "reboot"])
+        log.info("Reboot cancelled.")
+        return
 
 
 if __name__ == "__main__":
-    main()
+    if os.geteuid() == 0:
+        sys_setup()
+    else:
+        user_setup()

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import getpass
+from getpass import getpass
 import os
 from pathlib import Path
 import time
@@ -9,58 +9,95 @@ import subprocess
 import pyperclip
 from utils import log, ping, ask_pass, yes_no, run_dmc
 
-###########################################################
-# CONF
-###########################################################
-user_name = "nick"
-git_user = "acctux"
-android = True
-firewalld = True
-firefox_browser = "floorp"
-###########################################################
-# GIT/DOT FILE
-############################################################
-HOME = Path.home()
-ssh_path = HOME / ".ssh" / "id_ed25519"
-gpg_path = HOME / ".gnupg" / "my_sec_gpg.asc"
-masterpass_path = HOME / ".ssh" / "pass.txt"
-DESKTOP = HOME / "Desktop"
-ENCRYPTED = DESKTOP / "Encrypted"
-GIT_DIR = HOME / "Lit"
-dots_path = GIT_DIR / "polka"
-DOCS = GIT_DIR / "Docs"
-repos = ["noah", "polka"]
-private_repos = ["Docs"]
-dirs_to_link = ["local/bin"]
-secret_dots = DOCS / "base"
-ind_dirs = [
-    ("fonts", (HOME / ".local" / "share")),
-    ("task", (HOME / ".config")),
-    ("zsh", (HOME / ".config")),
-    ("git", (HOME / ".config")),
-    ("gh", (HOME / ".config")),
-]
-###########################################################
-# ICONS
-###########################################################
-dirs_icons = [
-    (DESKTOP / "Games", "folder-games"),
-    (ENCRYPTED, "folder-locked"),
-    (GIT_DIR, "folder-github"),
-    (GIT_DIR / "noah", "folder-root"),
-    (DOCS, "folder-bookmark"),
-    (dots_path, "folder-html"),
-]
-###########################################################
-# YAZI
-###########################################################
-yazi_plugins = [
-    "yazi-rs/plugins:jump-to-char",
-    "uhs-robert/sshfs",
-    "boydaihungst/gvfs",
-    "uhs-robert/recycle-bin",
-    "h-hg/yamb",
-]
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class UserConfig:
+    ###########################################################
+    # USER CONFIG
+    ###########################################################
+    android: bool = True
+    firewalld: bool = True
+    firefox_browser: str = "floorp"
+    ###########################################################
+    # HOME & PATHS
+    ###########################################################
+    HOME: Path = field(default_factory=Path.home)
+    DESKTOP: Path = field(init=False)
+    ENCRYPTED: Path = field(init=False)
+    GIT_DIR: Path = field(init=False)
+    dots_path: Path = field(init=False)
+    DOCS: Path = field(init=False)
+    ssh_path: Path = field(init=False)
+    gpg_path: Path = field(init=False)
+    masterpass_path: Path = field(init=False)
+    ###########################################################
+    # REPOSITORIES
+    ###########################################################
+    repos: list[str] = field(default_factory=lambda: ["noah", "polka"])
+    private_repos: list[str] = field(default_factory=lambda: ["Docs"])
+    ###########################################################
+    # DOTFILES
+    ###########################################################
+    dirs_to_link: list[str] = field(default_factory=lambda: ["local/bin"])
+    sec_dir: Path = field(init=False)
+    ind_dirs: dict[str, Path] = field(init=False)
+    ###########################################################
+    # ICONS
+    ###########################################################
+    dirs_icons: dict[Path, str] = field(init=False)
+    ###########################################################
+    # YAZI PLUGINS
+    ###########################################################
+    yazi_plugins: list[str] = field(
+        default_factory=lambda: [
+            "yazi-rs/plugins:jump-to-char",
+            "uhs-robert/sshfs",
+            "boydaihungst/gvfs",
+            "uhs-robert/recycle-bin",
+            "h-hg/yamb",
+        ]
+    )
+
+    def __post_init__(self):
+        # Dependent paths
+        self.DESKTOP = self.HOME / "Desktop"
+        self.ENCRYPTED = self.DESKTOP / "Encrypted"
+        self.GIT_DIR = self.HOME / "Lit"
+        self.DOTS = self.GIT_DIR / "polka"
+        self.DOCS = self.GIT_DIR / "Docs"
+
+        self.ssh_path = self.HOME / ".ssh" / "id_ed25519"
+        self.gpg_path = self.HOME / ".gnupg" / "my_sec_gpg.asc"
+        self.masterpass_path = self.HOME / ".ssh" / "pass.txt"
+
+        self.sec_dir = self.DOCS / "base"
+        self.ind_dirs = {
+            "fonts": self.HOME / ".local" / "share",
+            "task": self.HOME / ".config",
+            "zsh": self.HOME / ".config",
+            "git": self.HOME / ".config",
+            "gh": self.HOME / ".config",
+        }
+        self.dirs_icons = {
+            self.DESKTOP / "Games": "folder-games",
+            self.ENCRYPTED: "folder-locked",
+            self.GIT_DIR: "folder-github",
+            self.GIT_DIR / "noah": "folder-root",
+            self.DOCS: "folder-bookmark",
+            self.dots_path: "folder-html",
+        }
+
+    ###########################################################
+    # HELPER METHODS
+    ###########################################################
+    def get_ind_dir(self, name: str) -> Path | None:
+        return self.ind_dirs.get(name)
+
+    def repo_path(self, repo_name: str) -> Path:
+        return self.GIT_DIR / repo_name
 
 
 def iwctl_scan() -> bool:
@@ -78,7 +115,7 @@ def deploy_dotfiles(
     HOME: Path,
     dot_dir: Path,
     dirs_to_link: list[str],
-    ind_dirs: list[tuple[str, Path]],
+    ind_dirs: dict[str, Path],
     sec_dots_dir: Path,
 ):
     def link_path(src: Path, dst: Path) -> bool:
@@ -117,7 +154,7 @@ def deploy_dotfiles(
         dst.parent.mkdir(parents=True, exist_ok=True)
         if link_path(src, dst):
             linked += 1
-    for src_name, dst_dir in ind_dirs:
+    for src_name, dst_dir in ind_dirs.items():
         src_dir = sec_dots_dir / src_name
         if not src_dir.is_dir():
             continue
@@ -155,8 +192,8 @@ def import_gpg(gpg_path: Path) -> None:
 def init_gocrypt(enc_dir: Path) -> None:
     enc_dir.mkdir(parents=True, exist_ok=True)
     while True:
-        pw1 = getpass.getpass("Enter new gocryptfs password: ")
-        pw2 = getpass.getpass("Confirm password: ")
+        pw1 = getpass("Enter new gocryptfs password: ")
+        pw2 = getpass("Confirm password: ")
         if pw1 == pw2 and pw1:
             break
         log.warning("Passwords do not match or empty. Try again.\n")
@@ -170,8 +207,8 @@ def init_gocrypt(enc_dir: Path) -> None:
 ############################
 def enable_mariadb(user_name) -> None:
     while True:
-        p1 = getpass.getpass("Mariadb password: ")
-        p2 = getpass.getpass("Confirm: ")
+        p1 = getpass("Mariadb password: ")
+        p2 = getpass("Confirm: ")
         if p1 == p2:
             password = p1
             break
@@ -205,7 +242,8 @@ def enable_mariadb(user_name) -> None:
 ############################
 # Git/Repos
 ############################
-def ensure_github_known_hosts(kh=HOME / ".ssh" / "known_hosts") -> None:
+def ensure_github_known_hosts(HOME: Path) -> None:
+    kh = HOME / ".ssh" / "known_hosts"
     kh.parent.mkdir(parents=True, exist_ok=True)
     if not kh.exists():
         kh.touch()
@@ -256,10 +294,10 @@ def configure_git() -> None:
 # Icons/Folders
 ############################
 def set_folder_icons(
-    custom_folder_icons: list[tuple[Path, str]],
+    custom_folder_icons: dict[Path, str],
     icon_dir="/usr/share/icons/WhiteSur-dark/places/scalable",
 ) -> None:
-    for folder, icon_name in custom_folder_icons:
+    for folder, icon_name in custom_folder_icons.items():
         icon = f"{icon_dir}/{icon_name}.svg"
         folder.mkdir(parents=True, exist_ok=True)
         if Path(icon).exists():
@@ -283,7 +321,7 @@ def pass_and_input(pass_path: Path):
     os.environ.pop("CLIPBOARD_STATE", None)
 
 
-def launch_apps(apps=[firefox_browser, "protonmail-bridge", "betterbird", "steam"]):
+def launch_apps(apps=["floorp", "protonmail-bridge", "betterbird", "steam"]):
     processes = []
     for app in apps:
         processes.append(subprocess.Popen(app))
@@ -316,10 +354,10 @@ def scrcpy_setup(port=5555) -> None:
 ############################
 # Main
 ############################
-def main(HOME=Path.home()):
+def main():
     if shutil.which("zsh"):
         run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    if shutil.which("iwd") and not ping():
+    if Path("/etc/resolv.conf").is_symlink() and not ping():
         run_dmc(["sudo", "rm", "/etc/resolv.conf"])
         run_dmc(["sudo", "resolvconf", "-u"])
         run_dmc(["sudo", "systemctl", "restart", "iwd"])
@@ -328,40 +366,41 @@ def main(HOME=Path.home()):
         time.sleep(5)
     if shutil.which("tuned"):
         run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
+    uc = UserConfig
     if shutil.which("mariadb"):
-        enable_mariadb(user_name)
-    if ssh_path.exists():
-        import_ssh(ssh_path)
+        enable_mariadb(uc.user_name)
+    if uc.ssh_path.exists():
+        import_ssh(uc.ssh_path)
         configure_git()
-        ensure_github_known_hosts()
-        clone_repos(git_user, repos + private_repos, GIT_DIR, ssh=True)
+        ensure_github_known_hosts(uc.HOME)
+        clone_repos(uc.git_user, uc.repos + uc.private_repos, uc.GIT_DIR, ssh=True)
     else:
-        clone_repos(git_user, repos, GIT_DIR, ssh=False)
-    if gpg_path and not gpg_path.exists():
-        import_gpg(gpg_path)
-    if ENCRYPTED and not (ENCRYPTED / "gocryptfs.conf").exists():
+        clone_repos(uc.git_user, uc.repos, uc.GIT_DIR, ssh=False)
+    if uc.gpg_path and not uc.gpg_path.exists():
+        import_gpg(uc.gpg_path)
+    if uc.ENCRYPTED and not (uc.ENCRYPTED / "gocryptfs.conf").exists():
         if shutil.which("gocryptfs"):
-            init_gocrypt(ENCRYPTED)
-    if dirs_icons:
-        set_folder_icons(dirs_icons)
-    for plugin in yazi_plugins:
+            init_gocrypt(uc.ENCRYPTED)
+    if uc.dirs_icons:
+        set_folder_icons(uc.dirs_icons)
+    for plugin in uc.yazi_plugins:
         run_dmc(["ya", "pkg", "add", plugin])
-    if any((dots_path).iterdir()):
-        deploy_dotfiles(HOME, dots_path, dirs_to_link, ind_dirs, secret_dots)
+    if any((uc.dots_path).iterdir()):
+        deploy_dotfiles(uc.HOME, uc.dots_path, uc.dirs_to_link, uc.ind_dirs, uc.sec_dir)
         run_dmc(
             ["uv", "add", "openmeteo-requests"],
-            cwd=f"/home/{user_name}/.local/bin/weather",
+            cwd=f"/home/{uc.user_name}/.local/bin/weather",
         )
-    if android:
+    if uc.android:
         scrcpy_setup()
-    if masterpass_path.is_file():
-        pass_and_input(masterpass_path)
+    if uc.masterpass_path.is_file():
+        pass_and_input(uc.masterpass_path)
         launch_apps()
     run_dmc(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
         interactive=True,
     )
-    for d in [(HOME / "archinstall")]:
+    for d in [(uc.HOME / "archinstall")]:
         if d.exists():
             shutil.rmtree(d)
     if yes_no("Reboot now?", default=False):

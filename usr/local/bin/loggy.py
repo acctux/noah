@@ -8,15 +8,30 @@ import subprocess
 import time
 from systemd import journal
 
-DEVICE_MAC = "D8_AD_27_39_6D_05"
-DEVICE_PATH = f"/org/bluez/hci0/dev_{DEVICE_MAC.replace(':', '_')}"
+mouse_name = "MX Master 3S"
 FLAGFILE = Path("/tmp/mouse_connected.flag")
+logi_mac_file = Path("/") / "usr" / "local" / "bin" / "logi_mouse_mac"
 
 
 def run_cmd(cmd, check=False) -> str:
     return subprocess.run(
         cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check
     ).stdout.strip()
+
+
+def find_device_mac(name: str, mac_file: Path):
+    data = run_cmd(["bluetoothctl", "devices"])
+    mac_id = None
+    for line in data.splitlines():
+        if name in line:
+            mac_id = line.split()[1]
+            print(f"Found MAC: {mac_id}")
+            break
+    if mac_id:
+        mac_file.write_text(mac_id + "\n")
+        print(f"MAC saved to {mac_file}")
+    else:
+        print(f"No device named '{name}' found.")
 
 
 def logid_failed(check_str="[WARN] Failed") -> bool:
@@ -49,12 +64,12 @@ def restart_logid():
         print("No warnings detected in logs after restart.")
 
 
-async def get_device_property(prop: str):
+async def get_device_property(prop: str, device_path: str):
     try:
         bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
         msg = Message(
             destination="org.bluez",
-            path=DEVICE_PATH,
+            path=device_path,
             interface="org.freedesktop.DBus.Properties",
             member="Get",
             signature="ss",
@@ -69,8 +84,8 @@ async def get_device_property(prop: str):
         return None
 
 
-def handle_signal(msg):
-    if msg.path != DEVICE_PATH:
+def handle_signal(msg, device_path: str):
+    if msg.path != device_path:
         return
     if msg.member != "PropertiesChanged" or len(msg.body) < 2:
         return
@@ -100,17 +115,22 @@ async def add_match(bus, rule):
 
 
 async def main():
-    connected = await get_device_property("Connected")
-    resolved = await get_device_property("ServicesResolved")
-    if connected and resolved:
-        print("Mouse already fully connected on startup → running logid_nuclear")
-        restart_logid()
-    bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
-    bus.add_message_handler(handle_signal)
-    rule = "type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',arg0='org.bluez.Device1'"
-    await add_match(bus, rule)
-    print(f"Monitoring {DEVICE_MAC} for ServicesResolved...")
-    await asyncio.Future()
+    if not logi_mac_file.is_file():
+        find_device_mac(mouse_name, logi_mac_file)
+    if logi_mac_file.is_file():
+        dev_mac = logi_mac_file.read_text().strip().upper()
+        dev_path = f"/org/bluez/hci0/dev_{dev_mac.replace(':', '_')}"
+        connected = await get_device_property("Connected", dev_path)
+        resolved = await get_device_property("ServicesResolved", dev_path)
+        if connected and resolved:
+            print("Mouse already fully connected on startup → running logid_nuclear")
+            restart_logid()
+        bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+        bus.add_message_handler(lambda msg: handle_signal(msg, dev_path))
+        rule = "type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',arg0='org.bluez.Device1'"
+        await add_match(bus, rule)
+        print(f"Monitoring {dev_path} for ServicesResolved...")
+        await asyncio.Future()
 
 
 if __name__ == "__main__":
