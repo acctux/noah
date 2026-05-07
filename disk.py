@@ -26,7 +26,10 @@ def create_disk_config():
         for part in disk.partition_infos:
             if not part.fs_type:
                 continue
-            if part.fs_type.name == "FAT32":
+            elif part.fs_type.name == "virtblk":
+                target_disk = disk
+                break
+            elif part.fs_type.name == "FAT32":
                 target_disk = disk
                 break
             elif part.btrfs_subvol_infos != []:
