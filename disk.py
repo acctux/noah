@@ -19,6 +19,7 @@ from pathlib import Path
 #########################
 def create_disk_config():
     devices = device_handler.devices
+    device_handler.umount_all_existing(Path("/mnt"))
     target_disk = ""
     for disk in devices:
         print(f"Checking disk: {disk.device_info.path}")
