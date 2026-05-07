@@ -240,29 +240,43 @@ def mnt_cp_keys(
 ) -> None:
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         run_dmc(["umount", str(usb_mnt)])
+        run_dmc(["udevadm", "settle"])
+        time.sleep(1)
+
     missing = []
     if key_dir and key_files:
         missing += [k for k in key_files if not (home / key_dir / k).exists()]
     if wireguard_dir and not (home / wireguard_dir).is_dir():
         missing.append(wireguard_dir)
+
     if not missing:
         log.info("All required files present.")
         return
+
     if not yes_no(f"Mount USB to copy {', '.join(missing)}"):
         return
+
     selected = get_device()
+    run_dmc(["udevadm", "settle"])  # ensure kernel recognizes the device
+
     usb_mnt.mkdir(parents=True, exist_ok=True)
     run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
-    time.sleep(2)
+
+    time.sleep(2)  # let the filesystem stabilize
+
     if key_dir and key_files:
         (home / key_dir).mkdir(parents=True, exist_ok=True)
         for k in key_files:
             copy_file(usb_mnt / key_dir / k, home / key_dir / k)
+
     if wireguard_dir:
         copy_dir(usb_mnt / wireguard_dir, home / wireguard_dir)
+
     time.sleep(1)
+
     if yes_no("Files copied, unmount?"):
         run_dmc(["umount", str(usb_mnt)])
+        run_dmc(["udevadm", "settle"])
         time.sleep(1)
 
 
