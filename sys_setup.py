@@ -705,10 +705,9 @@ def perform_installation(
         )
 
         copy_file(
-            Path("/etc/pacman.d/mirrorlist"),
-            installation.target / "etc/pacman.d/mirrorlist",
+            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        generate_pacman_conf(installation.target, list(nc.no_extracts))
+        generate_pacman_conf(mountpoint, list(nc.no_extracts))
 
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
@@ -727,7 +726,7 @@ def perform_installation(
                 else:
                     sysd_plymouth_setup(mountpoint)
 
-        modify_mkinit(installation.target, list(nc.mkinit_hooks), plymouth=True)
+        modify_mkinit(mountpoint, list(nc.mkinit_hooks), plymouth=True)
 
         for driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, driver)
@@ -738,14 +737,14 @@ def perform_installation(
             )
 
         installation.add_additional_packages("realtime-privileges")
-        copy_skel(installation.target, nc)
+        copy_skel(mountpoint, nc)
 
         users = None
         if config.auth_config:
             if config.auth_config.users:
                 users = config.auth_config.users
                 installation.create_users(config.auth_config.users)
-                configure_sudo(installation.target, users[0].username, pless=True)
+                configure_sudo(mountpoint, users[0].username, pless=True)
 
         for gfx_driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, gfx_driver)
@@ -760,15 +759,11 @@ def perform_installation(
             installation.add_additional_packages(config.packages)
 
         write_etc_file(mountpoint, nc.etc_files_to_write)
-        reflector_timer_conf = installation.target / "etc/xdg/reflector/reflector.conf"
+        reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
         reflector_timer_conf.write_text("\n".join(nc.reflector_options))
-        copy_dir(
-            Path("/root") / nc.wireguard_dir, installation.target / "etc" / "wireguard"
-        )
-        set_extensions(
-            installation.target, nc.firefox_browser, list(nc.firefox_extensions)
-        )
-        sys_dots(installation.target, script_d)
+        copy_dir(Path("/root") / nc.wireguard_dir, mountpoint / "etc" / "wireguard")
+        set_extensions(mountpoint, nc.firefox_browser, list(nc.firefox_extensions))
+        sys_dots(mountpoint, script_d)
         install_icons(installation)
         if config.auth_config:
             if users:
@@ -783,7 +778,7 @@ def perform_installation(
                 configure_sudo(mountpoint, users[0].username)
                 copy_dir(
                     script_d,
-                    (installation.target / f"home/{users[0].username}" / script_d.name),
+                    (mountpoint / f"home/{users[0].username}" / script_d.name),
                 )
                 copy_keys(installation, nc.usb_key_dir, users[0].username, nc.to_cp)
                 user_service(installation, users, nc.terminal)
