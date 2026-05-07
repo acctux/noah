@@ -813,6 +813,7 @@ pkgs: dict[str, list[str]] = {
         "qt6-wayland",
         "satty",
         "seahorse",
+        "scdoc",
         "snixembed",
         "swaync",
         "swayosd",
