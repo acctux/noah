@@ -18,7 +18,7 @@ from archinstall.lib.general.general_menu import (
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, run_custom_user_commands
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.models import Bootloader, ProfileConfiguration
+from archinstall.lib.models import Bootloader
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
@@ -630,13 +630,13 @@ def perform_installation(
     script_d = Path(__file__).resolve().parent
     start_time = time.monotonic()
     info("Starting installation...")
+    mountpoint = arch_config_handler.args.mountpoint
     config = arch_config_handler.config
     if not config.disk_config:
         error("No disk configuration provided")
         return
     disk_config = config.disk_config
     run_mkinitcpio = not config.bootloader_config or not config.bootloader_config.uki
-    mountpoint = Path("/mnt/arch")
     locale = config.locale_config
     with Installer(
         mountpoint,
