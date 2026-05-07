@@ -29,6 +29,7 @@ from archinstall.lib.models import (
     PartitionFlag,
     DeviceModification,
     DiskLayoutConfiguration,
+    SubvolumeModification,
 )
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
@@ -200,7 +201,7 @@ def create_disk_config():
                 flags=[],
                 mountpoint=None,
                 mount_options=["compress=zstd"],
-                fs_type=fs_type,
+                fs_type=FilesystemType.BTRFS,
             )
             device_modification.add_partition(root_partition)
             return DiskLayoutConfiguration(
