@@ -747,7 +747,7 @@ class NoahConfig:
             self.GIT_DIR: "folder-github",
             self.GIT_DIR / "noah": "folder-root",
             self.DOCS: "folder-bookmark",
-            self.dots_path: "folder-html",
+            self.DOTS: "folder-html",
         }
 
 
@@ -962,3 +962,4 @@ pkgs: dict[str, list[str]] = field(
     }
 )
 aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
+
