@@ -727,22 +727,6 @@ def perform_installation(
                     installation, config.auth_config, config.hostname
                 )
 
-                for user in users:
-                    usr_srv = nc.populate_usr_srv(user.username)
-                    installation.arch_chroot("xdg-user-dirs-update", user.username)
-                    enable_user_serv(installation, usr_srv, user.username)
-                generate_mpd_tmpfiles(installation, users)
-                configure_sudo(installation.target, users[0].username, pless=True)
-                cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
-                installation.arch_chroot(cmd, users[0].username)
-                configure_sudo(installation.target, users[0].username)
-                copy_dir(
-                    script_d,
-                    (installation.target / f"home/{users[0].username}" / script_d.name),
-                )
-                copy_keys(installation, nc.usb_key_dir, users[0].username, nc.to_cp)
-                user_service(installation, users, nc.terminal)
-                hide_apps(installation, users, nc)
         for gfx_driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, gfx_driver)
         profile_handler.install_greeter(installation, GreeterType.Ly)
@@ -766,6 +750,23 @@ def perform_installation(
         )
         sys_dots(installation.target, script_d)
         install_icons(installation)
+        if users:
+            for user in users:
+                usr_srv = nc.populate_usr_srv(user.username)
+                installation.arch_chroot("xdg-user-dirs-update", user.username)
+                enable_user_serv(installation, usr_srv, user.username)
+            generate_mpd_tmpfiles(installation, users)
+            configure_sudo(installation.target, users[0].username, pless=True)
+            cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
+            installation.arch_chroot(cmd, users[0].username)
+            configure_sudo(installation.target, users[0].username)
+            copy_dir(
+                script_d,
+                (installation.target / f"home/{users[0].username}" / script_d.name),
+            )
+            copy_keys(installation, nc.usb_key_dir, users[0].username, nc.to_cp)
+            user_service(installation, users, nc.terminal)
+            hide_apps(installation, users, nc)
 
         if timezone := config.timezone:
             installation.set_timezone(timezone)
