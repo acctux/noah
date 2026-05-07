@@ -147,7 +147,6 @@ def load_users_json(json_file: Path) -> dict:
     if not json_file.exists():
         log.error(f"JSON file {json_file} does not exist.")
         return {"users": []}
-
     try:
         with json_file.open() as f:
             data = json.load(f)
@@ -759,9 +758,9 @@ def perform_installation(
             installation.set_user_password(root_user)
             users = config.auth_config.users
             for user in users:
-                nc.populate_usr_srv(user.username)
+                usr_srv = nc.populate_usr_srv(user.username)
                 installation.arch_chroot("xdg-user-dirs-update", user.username)
-                enable_user_serv(installation, list(nc.usr_srv), user.username)
+                enable_user_serv(installation, usr_srv, user.username)
             generate_mpd_tmpfiles(installation, users)
             configure_sudo(installation.target, users[0].username, pless=True)
             cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
