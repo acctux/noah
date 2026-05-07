@@ -830,15 +830,14 @@ def sys_setup() -> None:
     arch_config_handler = ArchConfigHandler()
     users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
     if users_list := users_json.get("users", []):
-        first_user = users_list[0]
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
             None,
             [
                 User(
-                    first_user["username"],
-                    Password(enc_password=first_user["enc_password"]),
-                    first_user.get("sudo", True),
-                    first_user.get("groups", list(nc.groups)),
+                    users_list[0]["username"],
+                    Password(enc_password=users_list[0]["password"]),
+                    True,
+                    list(nc.groups),
                 )
             ],
             None,
