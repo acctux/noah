@@ -158,18 +158,21 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
-def src_pass_file(usb_key_dir: str, pass_file: str) -> str:
-    key_path = Path("/root") / usb_key_dir / pass_file
-    pw = ""
-    if key_path.exists():
-        try:
-            pw = key_path.read_text().strip()
-            log.info(f"{key_path} loaded ")
-            return pw
-        except Exception as e:
-            log.error(f"{e}")
-    log.warning(f"{key_path} not found.")
-    return pw
+def load_users_json(json_file: Path) -> dict:
+    if not json_file.exists():
+        log.error(f"JSON file {json_file} does not exist.")
+        return {"users": []}
+
+    try:
+        with json_file.open() as f:
+            data = json.load(f)
+            users = data.get("users", [])
+            if not users:
+                log.warning(f"No users found in {json_file}")
+            return {"users": users}
+    except Exception as e:
+        log.error(f"Failed to read JSON: {e}")
+        return {"users": []}
 
 
 def copy_file(src: Path, dest: Path) -> None:
@@ -830,9 +833,11 @@ def sys_setup() -> None:
     nc = NoahConfig()
     mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    if pw := src_pass_file(nc.usb_key_dir, nc.my_pass):
+    if users := load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass):
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            None, [User(nc.username, Password(pw), True, list(nc.groups))], None
+            None,
+            [User(users[0].username, users[0].password, True, list(nc.groups))],
+            None,
         )
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp

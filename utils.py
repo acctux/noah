@@ -130,13 +130,12 @@ class NoahConfig:
             ),
         )
 
-    username: str = "nick"
     groups: tuple[str, ...] = ("adm", "games", "realtime", "storage", "video")
     dots_repo: str = "polka"
     git_user: str = "acctux"
     usb_key_dir: str = "keys"
     wireguard_dir: str = "wireguard"
-    my_pass: str = "pass.py"
+    my_pass: str = "users.json"
     parallel_downloads: int = 10
     multilib: bool = True
     terminal: str = "kitty"
@@ -724,7 +723,6 @@ class NoahConfig:
     )
 
     def __post_init__(self):
-        # Dependent paths
         self.DESKTOP = self.HOME / "Desktop"
         self.ENCRYPTED = self.DESKTOP / "Encrypted"
         self.GIT_DIR = self.HOME / "Lit"
@@ -887,6 +885,7 @@ pkgs: dict[str, list[str]] = {
         "unrar",  # File roller
         "gocryptfs",
         "zathura-pdf-mupdf",
+        "zoxide",
     ],
     "language": [
         "hunspell-en_us",
@@ -910,7 +909,6 @@ pkgs: dict[str, list[str]] = {
         "nvtop",
         "jolt",
         "ugrep",
-        "zoxide",
         "anki",
         "authenticator",
         "baobab",
