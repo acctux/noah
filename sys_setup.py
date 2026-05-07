@@ -157,7 +157,6 @@ def ping(host: str = "google.com") -> bool:
 # UTILS
 #########################
 def create_disk_config():
-    device_handler.load_devices()
     devices = device_handler.devices
     target_disk = ""
     for disk in devices:
