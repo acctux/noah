@@ -157,7 +157,7 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
-def create_disk_config(devices: list[BDevice]):
+def create_disk_config(devices: list[BDevice]) -> DiskLayoutConfiguration | None:
     target_disk = ""
     for disk in devices:
         if disk.partition_infos == "virtblk":
@@ -172,40 +172,38 @@ def create_disk_config(devices: list[BDevice]):
                     target_disk = disk
                 log.info(f"Found partition: {part.path}")
     if target_disk:
-        device = device_handler.get_device(target_disk.device_info.path)
-        if device:
-            device_modification = DeviceModification(device, wipe=True)
-            boot_partition = PartitionModification(
-                status=ModificationStatus.CREATE,
-                type=PartitionType.PRIMARY,
-                start=Size(1, Unit.MiB, target_disk.device_info.sector_size),
-                length=Size(512, Unit.MiB, target_disk.device_info.sector_size),
-                mountpoint=Path("/boot"),
-                fs_type=FilesystemType.FAT32,
-                flags=[PartitionFlag.BOOT, PartitionFlag.ESP],
-            )
-            device_modification.add_partition(boot_partition)
-            start_root = boot_partition.length
-            length_root = device.device_info.total_size - start_root
-            root_partition = PartitionModification(
-                status=ModificationStatus.CREATE,
-                type=PartitionType.PRIMARY,
-                start=start_root,
-                length=length_root,
-                btrfs_subvols=[
-                    SubvolumeModification(Path("@"), Path("/")),
-                    SubvolumeModification(Path("@home"), Path("/home")),
-                ],
-                flags=[],
-                mountpoint=None,
-                mount_options=["compress=zstd"],
-                fs_type=FilesystemType.BTRFS,
-            )
-            device_modification.add_partition(root_partition)
-            return DiskLayoutConfiguration(
-                config_type=DiskLayoutType.Default,
-                device_modifications=[device_modification],
-            )
+        device_modification = DeviceModification(target_disk, wipe=True)
+        boot_partition = PartitionModification(
+            status=ModificationStatus.CREATE,
+            type=PartitionType.PRIMARY,
+            start=Size(1, Unit.MiB, target_disk.device_info.sector_size),
+            length=Size(512, Unit.MiB, target_disk.device_info.sector_size),
+            mountpoint=Path("/boot"),
+            fs_type=FilesystemType.FAT32,
+            flags=[PartitionFlag.BOOT, PartitionFlag.ESP],
+        )
+        device_modification.add_partition(boot_partition)
+        start_root = boot_partition.length
+        length_root = target_disk.device_info.total_size - start_root
+        root_partition = PartitionModification(
+            status=ModificationStatus.CREATE,
+            type=PartitionType.PRIMARY,
+            start=start_root,
+            length=length_root,
+            btrfs_subvols=[
+                SubvolumeModification(Path("@"), Path("/")),
+                SubvolumeModification(Path("@home"), Path("/home")),
+            ],
+            flags=[],
+            mountpoint=None,
+            mount_options=["compress=zstd"],
+            fs_type=FilesystemType.BTRFS,
+        )
+        device_modification.add_partition(root_partition)
+        return DiskLayoutConfiguration(
+            config_type=DiskLayoutType.Default,
+            device_modifications=[device_modification],
+        )
 
 
 def load_users_json(json_file: Path) -> dict:
@@ -917,7 +915,8 @@ def sys_setup() -> None:
     if GfxDriver.VMOpenSource not in gfx_drivers:
         base_pkgs.extend(pkgs["extra"] + pkgs["extra_chaos"])
     arch_config_handler.config.packages = base_pkgs
-    disk_config = create_disk_config()
+    devices = device_handler.devices
+    disk_config = create_disk_config(devices)
     arch_config_handler.config.disk_config = disk_config
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
