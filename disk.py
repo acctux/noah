@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Get all devices from archinstall
 devices = device_handler.devices
-
+print(devices)
 fs_type = FilesystemType("ext4")
 
 
@@ -83,4 +83,4 @@ disk_config = DiskLayoutConfiguration(
     config_type=DiskLayoutType.Default,
     device_modifications=[device_modification],
 )
-
+print(disk_config)
