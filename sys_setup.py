@@ -157,33 +157,16 @@ def ping(host: str = "google.com") -> bool:
 # UTILS
 #########################
 def create_disk_config():
-    devices = device_handler.devices
-    target_disk = None
-    for disk in devices:
-        print(f"Checking disk: {disk.device_info.path}")
-        if disk.device_info.type == "virtblk":
-            target_disk = disk
-            break
-        for part in disk.partition_infos:
-            if not part.fs_type:
-                continue
-            elif part.fs_type.name == "FAT32":
-                target_disk = disk
-                break
-            elif part.btrfs_subvol_infos != []:
-                target_disk = disk
-            print(f"Found partition: {part.path}")
-    if not target_disk:
-        print(devices)
-        return
-    device = device_handler.get_device(target_disk.device_info.path)
+    device = device_handler.get_device(Path("/dev/vda")) or device_handler.get_device(
+        Path("/dev/nvme0n1")
+    )
     if device:
         device_modification = DeviceModification(device, wipe=True)
         boot_partition = PartitionModification(
             status=ModificationStatus.CREATE,
             type=PartitionType.PRIMARY,
-            start=Size(1, Unit.MiB, target_disk.device_info.sector_size),
-            length=Size(512, Unit.MiB, target_disk.device_info.sector_size),
+            start=Size(1, Unit.MiB, device.device_info.sector_size),
+            length=Size(512, Unit.MiB, device.device_info.sector_size),
             mountpoint=Path("/boot"),
             fs_type=FilesystemType.FAT32,
             flags=[PartitionFlag.BOOT, PartitionFlag.ESP],
