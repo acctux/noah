@@ -918,7 +918,7 @@ def sys_setup() -> None:
             ],
             None,
         )
-    from disk import disk_config
+    disk_config = create_disk_config()
 
     arch_config_handler.config.disk_config = disk_config
     arch_config_handler.config.hostname = arch_config.hostname
