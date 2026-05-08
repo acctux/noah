@@ -791,13 +791,13 @@ def sys_setup() -> None:
     if users_list := users_json.get("users", []):
         user = User(
             username=users_list[0]["username"],
-            password=Password(users_list[0]["enc_password"]),
+            password=Password(enc_password=users_list[0]["enc_password"]),
             sudo=True,
             groups=list(nc.groups),
         )
-    arch_config_handler.config.auth_config = AuthenticationConfiguration(
-        None, [user], None
-    )
+        arch_config_handler.config.auth_config = AuthenticationConfiguration(
+            None, [user], None
+        )
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
