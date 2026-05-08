@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Any
 from pathlib import Path
 import sys
 import time
@@ -8,7 +9,7 @@ import re
 import shutil
 import pwd
 import os
-from utils import UsrSrv, NoahConfig, arch_config, pkgs, aur_pkgs
+import extraconfig as ec
 from getpass import getpass
 import logging
 from textwrap import dedent
@@ -403,7 +404,7 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 # USR_SVC
 ###################################
 def enable_user_serv(
-    installation: Installer, units: list[UsrSrv], username: str
+    installation: Installer, units: list[ec.UsrSrv], username: str
 ) -> None:
     base_dir = f"home/{username}/.config/systemd/user"
     for unit in units:
@@ -449,7 +450,7 @@ def user_service(
             """
         )
         (installation.target / dir_path / name).write_text(content)
-        unit = UsrSrv(
+        unit = ec.UsrSrv(
             source=f"/{dir_path}", target="graphical-session", services=[name]
         )
     for user in users:
@@ -502,48 +503,8 @@ def copy_keys(
         installation.chown(username, f"/{sys_path}")
 
 
-def set_extensions(mnt_point: Path, browser: str, ext_names: list[str]) -> None:
+def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) -> None:
     file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
-    uninstall_names = ["google", "bing", "amazondotcom", "ebay", "twitter"]
-    new_policies = {
-        "DisableAppUpdate": True,
-        "DisableDeveloperTools": False,
-        "DisableFeedbackCommands": True,
-        "DisableFirefoxStudies": True,
-        "DisablePocket": True,
-        "DisableProfileImport": False,
-        "DisableSetDesktopBackground": False,
-        "DisableTelemetry": True,
-        "OverrideFirstRunPage": "about:welcome",
-        "OverridePostUpdatePage": "",
-        "DNSOverHTTPS": {"Enabled": False, "ProviderURL": "", "Locked": False},
-        "HardwareAcceleration": True,
-        "WebsiteFilter": {
-            "Block": ["https://localhost/*"],
-            "Exceptions": ["https://localhost/*"],
-        },
-        "Extensions": {
-            "Install": [
-                f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
-                for ext in ext_names
-            ],
-            "Uninstall": [f"{name}@search.mozilla.org" for name in uninstall_names],
-        },
-        "3rdparty": {
-            "Extensions": {
-                "uBlock0@raymondhill.net": {
-                    "adminSettings": {
-                        "assetsBootstrapLocation": "https://codeberg.org/librewolf/source/raw/branch/main/assets/uBOAssets.json"
-                    }
-                }
-            }
-        },
-        "SearchEngines": {
-            "PreventInstalls": False,
-            "Default": "DuckDuckGo",
-            "Remove": ["Bing", "Amazon.com", "eBay", "Twitter"],
-        },
-    }
     data = {}
     if file_path.exists():
         try:
@@ -556,7 +517,7 @@ def set_extensions(mnt_point: Path, browser: str, ext_names: list[str]) -> None:
     log.info(f"Policies for {browser} have been set (overwritten).")
 
 
-def hide_apps(installation: Installer, users: list[User], nc: NoahConfig):
+def hide_apps(installation: Installer, users: list[User], nc: ec.NoahConfig):
     for user in users:
         nc.populate_usr_srv(user.username)
         user_home = f"home/{user.username}"
@@ -568,7 +529,7 @@ def hide_apps(installation: Installer, users: list[User], nc: NoahConfig):
             installation.chown(user.username, f"/{file_p}")
 
 
-def copy_skel(mountpoint: Path, nc: NoahConfig):
+def copy_skel(mountpoint: Path, nc: ec.NoahConfig):
     tmp = mountpoint / "tmp" / nc.dots_repo
     tmp.mkdir(exist_ok=True)
     git = f"https://github.com/{nc.git_user}/{nc.dots_repo}.git"
@@ -606,7 +567,7 @@ def perform_installation(
     arch_config_handler: ArchConfigHandler,
     auth_handler: AuthenticationHandler,
     application_handler: ApplicationHandler,
-    nc: NoahConfig,
+    nc: ec.NoahConfig,
     gfx_drivers: list[GfxDriver],
 ) -> None:
     script_d = Path(__file__).resolve().parent
@@ -707,7 +668,7 @@ def perform_installation(
         reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
         reflector_timer_conf.write_text("\n".join(nc.reflector_options))
         copy_dir(Path("/root") / nc.wireguard_dir, mountpoint / "etc" / "wireguard")
-        set_extensions(mountpoint, nc.firefox_browser, list(nc.firefox_extensions))
+        set_extensions(mountpoint, nc.firefox_browser, ec.new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
         if config.auth_config:
@@ -718,7 +679,7 @@ def perform_installation(
                     enable_user_serv(installation, usr_srv, user.username)
                 mpd_tmpfiles(installation, users)
                 configure_sudo(mountpoint, users[0].username, pless=True)
-                cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
+                cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
                 installation.arch_chroot(cmd, users[0].username)
                 configure_sudo(mountpoint, users[0].username)
                 copy_dir(
@@ -783,36 +744,39 @@ def perform_installation(
 
 
 def sys_setup() -> None:
-    nc = NoahConfig()
+    nc = ec.NoahConfig()
     mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
     users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
-    if users_list := users_json.get("users", []):
-        user = User(
-            username=users_list[0]["username"],
-            password=Password(enc_password=users_list[0]["enc_password"]),
-            sudo=True,
-            groups=list(nc.groups),
-        )
+    if user_list := users_json.get("users", []):
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            None, [user], None
+            None,
+            [
+                User(
+                    username=user_list[0]["username"],
+                    password=Password(enc_password=user_list[0]["enc_password"]),
+                    sudo=True,
+                    groups=list(nc.groups),
+                )
+            ],
+            None,
         )
-    arch_config_handler.config.hostname = arch_config.hostname
-    arch_config_handler.config.ntp = arch_config.ntp
-    arch_config_handler.config.swap = arch_config.swap
-    arch_config_handler.config.profile_config = arch_config.profile_config
-    arch_config_handler.config.timezone = arch_config.timezone
-    arch_config_handler.config.bootloader_config = arch_config.bootloader_config
+    arch_config_handler.config.hostname = ec.arch_config.hostname
+    arch_config_handler.config.ntp = ec.arch_config.ntp
+    arch_config_handler.config.swap = ec.arch_config.swap
+    arch_config_handler.config.profile_config = ec.arch_config.profile_config
+    arch_config_handler.config.timezone = ec.arch_config.timezone
+    arch_config_handler.config.bootloader_config = ec.arch_config.bootloader_config
     arch_config_handler.config.ntp = True
-    arch_config_handler.config.kernels = arch_config.kernels
-    arch_config_handler.config.services = arch_config.services + list(
+    arch_config_handler.config.kernels = ec.arch_config.kernels
+    arch_config_handler.config.services = ec.arch_config.services + list(
         nc.custom_services
     )
-    arch_config_handler.config.app_config = arch_config.app_config
+    arch_config_handler.config.app_config = ec.arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
-    base_pkgs = pkgs["base"] + pkgs["language"] + pkgs["chaotic_repo"]
+    base_pkgs = ec.pkgs["base"] + ec.pkgs["language"] + ec.pkgs["chaotic_repo"]
     if GfxDriver.VMOpenSource not in gfx_drivers:
-        base_pkgs.extend(pkgs["extra"] + pkgs["extra_chaos"])
+        base_pkgs.extend(ec.pkgs["extra"] + ec.pkgs["extra_chaos"])
     arch_config_handler.config.packages = base_pkgs
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
@@ -1053,7 +1017,6 @@ def set_folder_icons(
 # Launch Apps
 ############################
 def pass_and_input(pass_path: Path):
-
     password = pass_path.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
@@ -1110,7 +1073,7 @@ def user_setup():
         time.sleep(5)
     if shutil.which("tuned"):
         run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
-    uc = NoahConfig()
+    uc = ec.NoahConfig()
     if shutil.which("mariadb"):
         user = pwd.getpwuid(os.getuid()).pw_name
         enable_mariadb(user)

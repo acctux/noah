@@ -1,29 +1,32 @@
+import os
 from pathlib import Path
 from textwrap import dedent
-from archinstall.lib.models.bootloader import BootloaderConfiguration
-from archinstall.lib.models.application import (
-    PowerManagementConfiguration,
-    PowerManagement,
-    Firewall,
-    FirewallConfiguration,
-    FontPackage,
-    FontsConfiguration,
-    ZramConfiguration,
-)
-from archinstall.lib.models import (
-    ApplicationConfiguration,
-    BluetoothConfiguration,
-    AudioConfiguration,
-    PrintServiceConfiguration,
-    Audio,
-    LocaleConfiguration,
-    NetworkConfiguration,
-    NicType,
-    Bootloader,
-)
-from archinstall.lib.args import ArchConfig
 from pydantic import BaseModel
 from dataclasses import dataclass, field
+
+if os.geteuid() == 0:
+    from archinstall.lib.models.bootloader import BootloaderConfiguration
+    from archinstall.lib.models.application import (
+        PowerManagementConfiguration,
+        PowerManagement,
+        Firewall,
+        FirewallConfiguration,
+        FontPackage,
+        FontsConfiguration,
+        ZramConfiguration,
+    )
+    from archinstall.lib.models import (
+        ApplicationConfiguration,
+        BluetoothConfiguration,
+        AudioConfiguration,
+        PrintServiceConfiguration,
+        Audio,
+        LocaleConfiguration,
+        NetworkConfiguration,
+        NicType,
+        Bootloader,
+    )
+    from archinstall.lib.args import ArchConfig
 
 
 class UsrSrv(BaseModel):
@@ -79,12 +82,17 @@ class NoahConfig:
             UsrSrv(
                 source="/usr/lib/systemd/user",
                 target="default",
-                services=["psd.service"],
+                services=[
+                    "psd.service",
+                ],
             ),
             UsrSrv(
                 source="/usr/lib/systemd/user",
                 target="sockets",
-                services=["gcr-ssh-agent.socket", "mpd.socket"],
+                services=[
+                    "gcr-ssh-agent.socket",
+                    "mpd.socket",
+                ],
             ),
             UsrSrv(
                 source="/usr/lib/systemd/user",
@@ -125,7 +133,13 @@ class NoahConfig:
         )
         return list(self.usr_srv)
 
-    groups: tuple[str, ...] = ("adm", "games", "realtime", "storage", "video")
+    groups: tuple[str, ...] = (
+        "adm",
+        "games",
+        "realtime",
+        "storage",
+        "video",
+    )
     dots_repo: str = "polka"
     git_user: str = "acctux"
     usb_key_dir: str = "keys"
@@ -151,15 +165,6 @@ class NoahConfig:
         }
     )
     firefox_browser: str = "floorp"
-    firefox_extensions: tuple[str, ...] = (
-        "return-youtube-dislikes",
-        "leechblock-ng",
-        "proton-pass",
-        "firefox-color",
-        "darkreader",
-        "flagfox",
-        "ublock-origin",
-    )
     mkinit_hooks: tuple[str, ...] = (
         "base",
         "systemd",
@@ -402,7 +407,9 @@ class NoahConfig:
             "etc/udisks2/mount_options.conf": dedent(
                 """\
                 [defaults]
-                defaults=noatime
+                # 'ntfs' signature, the new 'ntfs3' kernel driver
+                ntfs:ntfs3_defaults=uid=$UID,gid=$GID
+                ntfs:ntfs3_allow=uid=$UID,gid=$GID,umask,dmask,fmask,iocharset,discard,nodiscard,sparse,nosparse,hidden,nohidden,sys_immutable,showmeta,noshowmeta,prealloc,noprealloc,hide_dot_files,nohide_dot_files,windows_names,nocase,case
                 """
             ),
             "etc/udev/rules.d/99-thunderbolt.rules": dedent(
@@ -952,7 +959,61 @@ pkgs: dict[str, list[str]] = {
         "eden-git",
     ],
 }
-
 aur_pkgs: list[str] = [
     "wvkbd-deskintl",
 ]
+new_policies = {
+    "DisableAppUpdate": True,
+    "DisableDeveloperTools": False,
+    "DisableFeedbackCommands": True,
+    "DisableFirefoxStudies": True,
+    "DisablePocket": True,
+    "DisableProfileImport": False,
+    "DisableSetDesktopBackground": False,
+    "DisableTelemetry": True,
+    "OverrideFirstRunPage": "about:welcome",
+    "OverridePostUpdatePage": "",
+    "DNSOverHTTPS": {"Enabled": False, "ProviderURL": "", "Locked": False},
+    "HardwareAcceleration": True,
+    "WebsiteFilter": {
+        "Block": ["https://localhost/*"],
+        "Exceptions": ["https://localhost/*"],
+    },
+    "Extensions": {
+        "Install": [
+            "https://addons.mozilla.org/firefox/downloads/latest/return-youtube-dislikes/latest.xpi",
+            "https://addons.mozilla.org/firefox/downloads/latest/leechblock-ng/latest.xpi",
+            "https://addons.mozilla.org/firefox/downloads/latest/proton-pass/latest.xpi",
+            "https://addons.mozilla.org/firefox/downloads/latest/firefox-color/latest.xpi",
+            "https://addons.mozilla.org/firefox/downloads/latest/darkreader/latest.xpi",
+            "https://addons.mozilla.org/firefox/downloads/latest/flagfox/latest.xpi",
+            "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi",
+        ],
+        "Uninstall": [
+            "google",
+            "bing",
+            "amazondotcom",
+            "ebay",
+            "twitter",
+        ],
+    },
+    "3rdparty": {
+        "Extensions": {
+            "uBlock0@raymondhill.net": {
+                "adminSettings": {
+                    "assetsBootstrapLocation": "https://codeberg.org/librewolf/source/raw/branch/main/assets/uBOAssets.json"
+                }
+            }
+        }
+    },
+    "SearchEngines": {
+        "PreventInstalls": False,
+        "Default": "DuckDuckGo",
+        "Remove": [
+            "Bing",
+            "Amazon.com",
+            "eBay",
+            "Twitter",
+        ],
+    },
+}
