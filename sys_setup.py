@@ -746,10 +746,6 @@ def perform_installation(
                 installation.create_users(config.auth_config.users)
                 configure_sudo(mountpoint, users[0].username, pless=True)
 
-        for gfx_driver in gfx_drivers:
-            profile_handler.install_gfx_driver(installation, gfx_driver)
-        profile_handler.install_greeter(installation, GreeterType.Ly)
-
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
 
@@ -758,6 +754,36 @@ def perform_installation(
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
 
+        if timezone := config.timezone:
+            installation.set_timezone(timezone)
+
+        if config.ntp:
+            installation.activate_time_synchronization()
+
+        if config.auth_config and config.auth_config.root_enc_password:
+            root_user = User("root", config.auth_config.root_enc_password, False)
+            installation.set_user_password(root_user)
+
+        for gfx_driver in gfx_drivers:
+            profile_handler.install_gfx_driver(installation, gfx_driver)
+        profile_handler.install_greeter(installation, GreeterType.Ly)
+
+        if services := config.services:
+            installation.enable_service(services)
+
+        installation.disable_service(list(nc.disable_svcs))
+
+        if disk_config.has_default_btrfs_vols():
+            btrfs_options = disk_config.btrfs_options
+            snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
+            snapshot_type = snapshot_config.snapshot_type if snapshot_config else None
+            if snapshot_type:
+                bootloader = (
+                    config.bootloader_config.bootloader
+                    if config.bootloader_config
+                    else None
+                )
+                installation.setup_btrfs_snapshot(snapshot_type, bootloader)
         write_etc_file(mountpoint, nc.etc_files_to_write)
         reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
         reflector_timer_conf.write_text("\n".join(nc.reflector_options))
@@ -786,39 +812,6 @@ def perform_installation(
                 auth_handler.setup_auth(
                     installation, config.auth_config, config.hostname
                 )
-
-        if timezone := config.timezone:
-            installation.set_timezone(timezone)
-
-        if config.ntp:
-            installation.activate_time_synchronization()
-
-        if config.auth_config and config.auth_config.root_enc_password:
-            root_user = User("root", config.auth_config.root_enc_password, False)
-            installation.set_user_password(root_user)
-
-        if (profile_config := config.profile_config) and profile_config.profile:
-            profile_config.profile.post_install(installation)
-            if users:
-                profile_config.profile.provision(installation, users)
-
-        if services := config.services:
-            installation.enable_service(services)
-
-        installation.disable_service(list(nc.disable_svcs))
-
-        if disk_config.has_default_btrfs_vols():
-            btrfs_options = disk_config.btrfs_options
-            snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
-            snapshot_type = snapshot_config.snapshot_type if snapshot_config else None
-            if snapshot_type:
-                bootloader = (
-                    config.bootloader_config.bootloader
-                    if config.bootloader_config
-                    else None
-                )
-                installation.setup_btrfs_snapshot(snapshot_type, bootloader)
-
         if cc := config.custom_commands:
             run_custom_user_commands(cc, installation)
 
