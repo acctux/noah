@@ -411,14 +411,10 @@ def enable_user_serv(
         target_dir = f"{base_dir}/{unit.target}.target.wants"
         full_target_dir = installation.target / target_dir
         full_target_dir.mkdir(parents=True, exist_ok=True)
-        installation.arch_chroot(f"chown {username}:{username} /{target_dir}")
         for service in unit.services:
             source_path = Path(unit.source) / service
             symlink_path = full_target_dir / service
             symlink_path.symlink_to(source_path)
-            installation.arch_chroot(
-                f"chown {username}:{username} /{target_dir}/{service}"
-            )
 
 
 def user_service(
@@ -719,6 +715,8 @@ def perform_installation(
                     enable_user_serv(installation, usr_srv, user.username)
                 generate_mpd_tmpfiles(installation, users)
                 configure_sudo(mountpoint, users[0].username, pless=True)
+                cmd = f"chown -R {users[0].username}:{users[0].username} /home/{users[0].username}"
+                installation.arch_chroot(cmd)
                 cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
                 installation.arch_chroot(cmd, users[0].username)
                 configure_sudo(mountpoint, users[0].username)
