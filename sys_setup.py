@@ -784,6 +784,10 @@ def perform_installation(
                 configure_sudo(mountpoint, users[0].username, pless=True)
                 cmd = [f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"]
                 run_chroot(cmd, mountpoint, users[0].username)
+                conf_path = mountpoint / "paru" / "paru.conf"
+
+                with conf_path.open("a") as f:
+                    f.write("\nSkipReview\n")
                 configure_sudo(mountpoint, users[0].username)
                 copy_dir(
                     script_d,
