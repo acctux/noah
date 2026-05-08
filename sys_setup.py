@@ -383,9 +383,7 @@ def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
         Defaults    editor=/usr/sbin/nvim, !env_editor
         """
     )
-    sudoers_file = mnt_point / f"etc/sudoers.d/00_{user_name}"
-    sudoers_file.write_text(sudoers_content)
-    sudoers_file.chmod(0o440)
+    (mnt_point / f"etc/sudoers.d/00_{user_name}").write_text(sudoers_content)
     log.info(f"{'Removed' if pless else 'Created'} pass requirement for {user_name}")
 
 
@@ -784,10 +782,6 @@ def perform_installation(
                 configure_sudo(mountpoint, users[0].username, pless=True)
                 cmd = [f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"]
                 run_chroot(cmd, mountpoint, users[0].username)
-                conf_path = mountpoint / "paru" / "paru.conf"
-
-                with conf_path.open("a") as f:
-                    f.write("\nSkipReview\n")
                 configure_sudo(mountpoint, users[0].username)
                 copy_dir(
                     script_d,
