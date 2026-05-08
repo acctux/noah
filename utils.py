@@ -953,4 +953,6 @@ pkgs: dict[str, list[str]] = {
     ],
 }
 
-aur_pkgs: tuple[str, ...] = ("wvkbd-deskintl",)
+aur_pkgs: list[str] = [
+    "wvkbd-deskintl",
+]

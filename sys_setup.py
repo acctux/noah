@@ -767,23 +767,6 @@ def perform_installation(
         for gfx_driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, gfx_driver)
         profile_handler.install_greeter(installation, GreeterType.Ly)
-
-        if services := config.services:
-            installation.enable_service(services)
-
-        installation.disable_service(list(nc.disable_svcs))
-
-        if disk_config.has_default_btrfs_vols():
-            btrfs_options = disk_config.btrfs_options
-            snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
-            snapshot_type = snapshot_config.snapshot_type if snapshot_config else None
-            if snapshot_type:
-                bootloader = (
-                    config.bootloader_config.bootloader
-                    if config.bootloader_config
-                    else None
-                )
-                installation.setup_btrfs_snapshot(snapshot_type, bootloader)
         write_etc_file(mountpoint, nc.etc_files_to_write)
         reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
         reflector_timer_conf.write_text("\n".join(nc.reflector_options))
@@ -812,6 +795,23 @@ def perform_installation(
                 auth_handler.setup_auth(
                     installation, config.auth_config, config.hostname
                 )
+        if services := config.services:
+            installation.enable_service(services)
+
+        installation.disable_service(list(nc.disable_svcs))
+
+        if disk_config.has_default_btrfs_vols():
+            btrfs_options = disk_config.btrfs_options
+            snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
+            snapshot_type = snapshot_config.snapshot_type if snapshot_config else None
+            if snapshot_type:
+                bootloader = (
+                    config.bootloader_config.bootloader
+                    if config.bootloader_config
+                    else None
+                )
+                installation.setup_btrfs_snapshot(snapshot_type, bootloader)
+
         if cc := config.custom_commands:
             run_custom_user_commands(cc, installation)
 
@@ -840,17 +840,17 @@ def sys_setup() -> None:
     nc = NoahConfig()
     mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
-    if users_list := users_json.get("users", []):
-        user = User(
-            users_list[0]["username"],
-            Password(plaintext=users_list[0]["password"]),
-            True,
-            list(nc.groups),
-        )
-        arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            None, [user], None
-        )
+    # users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
+    # if users_list := users_json.get("users", []):
+    user = User(
+        username="nick",
+        password=Password(plaintext="password"),
+        sudo=True,
+        groups=list(nc.groups),
+    )
+    arch_config_handler.config.auth_config = AuthenticationConfiguration(
+        None, [user], None
+    )
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
