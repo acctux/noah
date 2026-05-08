@@ -411,6 +411,7 @@ def enable_user_serv(
         target_dir = f"{base_dir}/{unit.target}.target.wants"
         full_target_dir = installation.target / target_dir
         full_target_dir.mkdir(parents=True, exist_ok=True)
+        installation.arch_chroot(f"chown {username}:{username} /{target_dir}")
         for service in unit.services:
             source_path = Path(unit.source) / service
             symlink_path = full_target_dir / service
@@ -645,11 +646,9 @@ def perform_installation(
             ]
         )
         generate_pacman_conf(None, no_extracts=list(nc.no_extracts))
-
         installation.minimal_installation(
             hostname=config.hostname, mkinitcpio=run_mkinitcpio, locale_config=locale
         )
-
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
@@ -666,16 +665,6 @@ def perform_installation(
                 config.bootloader_config.uki,
                 config.bootloader_config.removable,
             )
-            if config.bootloader_config.bootloader == Bootloader.Systemd:
-                if config.bootloader_config.uki:
-                    print("Nope")
-                else:
-                    sysd_plymouth_setup(mountpoint)
-
-        modify_mkinit(mountpoint, list(nc.mkinit_hooks), plymouth=True)
-
-        for driver in gfx_drivers:
-            profile_handler.install_gfx_driver(installation, driver)
 
         if config.network_config:
             install_network_config(
@@ -742,6 +731,16 @@ def perform_installation(
                 auth_handler.setup_auth(
                     installation, config.auth_config, config.hostname
                 )
+        if (
+            config.bootloader_config
+            and config.bootloader_config.bootloader == Bootloader.Systemd
+        ):
+            if config.bootloader_config.uki:
+                print("Nope")
+            else:
+                sysd_plymouth_setup(mountpoint)
+        modify_mkinit(mountpoint, list(nc.mkinit_hooks), plymouth=True)
+
         if services := config.services:
             installation.enable_service(services)
 
@@ -925,7 +924,6 @@ def import_ssh(key_path: Path) -> None:
 
 
 def import_gpg(gpg_path: Path) -> None:
-    import gnupg
 
     key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
@@ -1055,7 +1053,6 @@ def set_folder_icons(
 # Launch Apps
 ############################
 def pass_and_input(pass_path: Path):
-    import pyperclip
 
     password = pass_path.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
@@ -1192,3 +1189,5 @@ if __name__ == "__main__":
         sys_setup()
     else:
         user_setup()
+        import gnupg
+        import pyperclip
