@@ -310,14 +310,13 @@ def chaotic_repo(installation: Installer) -> None:
     installation.arch_chroot("pacman -Sy")
 
 
-def generate_mpd_tmpfiles(installation: Installer, users: list[User]) -> None:
+def mpd_tmpfiles(installation: Installer, users: list[User]) -> None:
     for user in users:
-        base = installation.target / "home"
-        dir_path = base / user.username / ".cache" / "mpd" / "playlists"
+        cache = f"home/{user.username}/.cache/"
+        dir_path = installation.target / cache / "mpd/playlists"
         dir_path.mkdir(parents=True, exist_ok=True)
         dir_path.chmod(0o755)
-        installation.chown(user.username, str(dir_path))
-        installation.chown(user.username, str(dir_path.parent))
+        installation.arch_chroot(f"chown -R {user.username}:{user.username} /{cache}")
 
 
 def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
@@ -411,10 +410,14 @@ def enable_user_serv(
         target_dir = f"{base_dir}/{unit.target}.target.wants"
         full_target_dir = installation.target / target_dir
         full_target_dir.mkdir(parents=True, exist_ok=True)
+        installation.arch_chroot(f"chown {username}:{username} /{target_dir}")
         for service in unit.services:
             source_path = Path(unit.source) / service
             symlink_path = full_target_dir / service
             symlink_path.symlink_to(source_path)
+            installation.arch_chroot(
+                f"chown {username}:{username} /{target_dir}/{service}"
+            )
 
 
 def user_service(
@@ -713,10 +716,8 @@ def perform_installation(
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
                     usr_srv = nc.populate_usr_srv(user.username)
                     enable_user_serv(installation, usr_srv, user.username)
-                generate_mpd_tmpfiles(installation, users)
+                mpd_tmpfiles(installation, users)
                 configure_sudo(mountpoint, users[0].username, pless=True)
-                cmd = f"chown -R {users[0].username}:{users[0].username} /home/{users[0].username}"
-                installation.arch_chroot(cmd)
                 cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
                 installation.arch_chroot(cmd, users[0].username)
                 configure_sudo(mountpoint, users[0].username)
