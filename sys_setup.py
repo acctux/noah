@@ -416,6 +416,9 @@ def enable_user_serv(
             source_path = Path(unit.source) / service
             symlink_path = full_target_dir / service
             symlink_path.symlink_to(source_path)
+            installation.arch_chroot(
+                f"chown {username}:{username} /{target_dir}/{service}"
+            )
 
 
 def user_service(
