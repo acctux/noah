@@ -145,27 +145,6 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
-def run_chroot(
-    commands: list[str], mnt_point: Path, username: str | None = None, peek=True
-) -> None:
-    script_path = "var/tmp/user-commands.sh"
-    chroot_path = mnt_point / script_path
-    chroot_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(chroot_path, "w") as script:
-        script.write("#!/bin/bash\n")
-        if peek:
-            script.write("set -e\n")
-        for cmd in commands:
-            if username:
-                log.info(f"Will run as {username}: {cmd}")
-                cmd = f"su - {username} -c {shlex.quote(cmd)}"
-            log.info(f"Chroot run: {cmd}")
-            script.write(cmd + "\n")
-    chroot_path.chmod(0o755)
-    SysCommand(f"arch-chroot -S {mnt_point} /{script_path}")
-    chroot_path.unlink()
-
-
 def load_users_json(json_file: Path) -> dict:
     if not json_file.exists():
         log.error(f"JSON file {json_file} does not exist.")
@@ -461,7 +440,7 @@ def enable_user_serv(
         target_dir = f"{base_dir}/{unit.target}.target.wants"
         full_target_dir = installation.target / target_dir
         full_target_dir.mkdir(parents=True, exist_ok=True)
-        installation.chown(username, f"/{target_dir}")
+        installation.arch_chroot(username, f"/{target_dir}")
         for service in unit.services:
             source_path = Path(unit.source) / service
             symlink_path = full_target_dir / service
@@ -776,16 +755,14 @@ def perform_installation(
             if users:
                 for user in users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
-                #     usr_srv = nc.populate_usr_srv(user.username)
-                #     enable_user_serv(installation, usr_srv, user.username)
-                # generate_mpd_tmpfiles(installation, users)
+                    usr_srv = nc.populate_usr_srv(user.username)
+                    enable_user_serv(installation, usr_srv, user.username)
+                generate_mpd_tmpfiles(installation, users)
                 configure_sudo(mountpoint, users[0].username, pless=True)
-                cmd = [
-                    f"chown -R {users[0].username}:{users[0].username} /home/{users[0].username}"
-                ]
-                run_chroot(cmd, mountpoint, users[0].username)
-                cmd = [f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"]
-                run_chroot(cmd, mountpoint, users[0].username)
+                cmd = f"chown -R {users[0].username}:{users[0].username} /home/{users[0].username}"
+                installation.arch_chroot(cmd)
+                cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
+                installation.arch_chroot(cmd, users[0].username)
                 configure_sudo(mountpoint, users[0].username)
                 copy_dir(
                     script_d,
