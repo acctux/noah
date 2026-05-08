@@ -780,11 +780,11 @@ def perform_installation(
                     enable_user_serv(installation, usr_srv, user.username)
                 generate_mpd_tmpfiles(installation, users)
                 configure_sudo(mountpoint, users[0].username, pless=True)
-                cmd = [f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"]
-                run_chroot(cmd, mountpoint, users[0].username)
                 cmd = [
                     f"chown -R {users[0].username}:{users[0].username} /home/{users[0].username}"
                 ]
+                run_chroot(cmd, mountpoint, users[0].username)
+                cmd = [f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"]
                 run_chroot(cmd, mountpoint, users[0].username)
                 configure_sudo(mountpoint, users[0].username)
                 copy_dir(
