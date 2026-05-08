@@ -776,9 +776,9 @@ def perform_installation(
             if users:
                 for user in users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
-                    usr_srv = nc.populate_usr_srv(user.username)
-                    enable_user_serv(installation, usr_srv, user.username)
-                generate_mpd_tmpfiles(installation, users)
+                #     usr_srv = nc.populate_usr_srv(user.username)
+                #     enable_user_serv(installation, usr_srv, user.username)
+                # generate_mpd_tmpfiles(installation, users)
                 configure_sudo(mountpoint, users[0].username, pless=True)
                 cmd = [
                     f"chown -R {users[0].username}:{users[0].username} /home/{users[0].username}"
