@@ -1,32 +1,4 @@
 #!/usr/bin/env python3
-from archinstall.lib.command import SysCommand
-import shlex
-from archinstall.default_profiles.profile import GreeterType
-from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
-from archinstall.lib.applications.application_handler import ApplicationHandler
-from archinstall.lib.hardware import _sys_info, GfxDriver
-from archinstall.lib.args import (
-    ArchConfig,
-    ArchConfigHandler,
-    AuthenticationConfiguration,
-)
-from archinstall.lib.configuration import ConfigurationOutput
-from archinstall.lib.disk.filesystem import FilesystemHandler
-from archinstall.lib.disk.utils import disk_layouts
-from archinstall.lib.general.general_menu import (
-    PostInstallationAction,
-    select_post_installation,
-)
-from archinstall.lib.global_menu import GlobalMenu
-from archinstall.lib.installer import Installer, run_custom_user_commands
-from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.models import Bootloader
-from archinstall.lib.models.device import DiskLayoutType, EncryptionType
-from archinstall.lib.models.users import User
-from archinstall.lib.output import debug, error, info
-from archinstall.tui.ui.components import tui
-from archinstall.lib.models.users import Password
-from archinstall.lib.network.network_handler import install_network_config
 from pathlib import Path
 import sys
 import time
@@ -40,7 +12,6 @@ from utils import UsrSrv, NoahConfig, arch_config, pkgs, aur_pkgs
 from getpass import getpass
 import logging
 from textwrap import dedent
-from archinstall.lib.profile.profiles_handler import profile_handler
 
 
 #########################
@@ -719,7 +690,6 @@ def perform_installation(
             if config.auth_config.users:
                 users = config.auth_config.users
                 installation.create_users(config.auth_config.users)
-                configure_sudo(mountpoint, users[0].username, pless=True)
 
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
@@ -817,14 +787,14 @@ def sys_setup() -> None:
     nc = NoahConfig()
     mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    # users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
-    # if users_list := users_json.get("users", []):
-    user = User(
-        username="nick",
-        password=Password(plaintext="password"),
-        sudo=True,
-        groups=list(nc.groups),
-    )
+    users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
+    if users_list := users_json.get("users", []):
+        user = User(
+            username=users_list[0]["username"],
+            password=Password(users_list[0]["enc_password"]),
+            sudo=True,
+            groups=list(nc.groups),
+        )
     arch_config_handler.config.auth_config = AuthenticationConfiguration(
         None, [user], None
     )
@@ -1189,6 +1159,36 @@ def user_setup():
 
 if __name__ == "__main__":
     if os.geteuid() == 0:
+        from archinstall.default_profiles.profile import GreeterType
+        from archinstall.lib.authentication.authentication_handler import (
+            AuthenticationHandler,
+        )
+        from archinstall.lib.applications.application_handler import ApplicationHandler
+        from archinstall.lib.hardware import _sys_info, GfxDriver
+        from archinstall.lib.args import (
+            ArchConfig,
+            ArchConfigHandler,
+            AuthenticationConfiguration,
+        )
+        from archinstall.lib.configuration import ConfigurationOutput
+        from archinstall.lib.disk.filesystem import FilesystemHandler
+        from archinstall.lib.disk.utils import disk_layouts
+        from archinstall.lib.general.general_menu import (
+            PostInstallationAction,
+            select_post_installation,
+        )
+        from archinstall.lib.global_menu import GlobalMenu
+        from archinstall.lib.installer import Installer, run_custom_user_commands
+        from archinstall.lib.menu.util import delayed_warning
+        from archinstall.lib.models import Bootloader
+        from archinstall.lib.models.device import DiskLayoutType, EncryptionType
+        from archinstall.lib.models.users import User
+        from archinstall.lib.output import debug, error, info
+        from archinstall.tui.ui.components import tui
+        from archinstall.lib.models.users import Password
+        from archinstall.lib.network.network_handler import install_network_config
+        from archinstall.lib.profile.profiles_handler import profile_handler
+
         sys_setup()
     else:
         user_setup()
