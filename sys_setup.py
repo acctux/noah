@@ -440,12 +440,10 @@ def enable_user_serv(
         target_dir = f"{base_dir}/{unit.target}.target.wants"
         full_target_dir = installation.target / target_dir
         full_target_dir.mkdir(parents=True, exist_ok=True)
-        installation.arch_chroot(username, f"/{target_dir}")
         for service in unit.services:
             source_path = Path(unit.source) / service
             symlink_path = full_target_dir / service
             symlink_path.symlink_to(source_path)
-            installation.chown(username, f"/{target_dir}")
 
 
 def user_service(
