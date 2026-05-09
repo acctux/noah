@@ -700,7 +700,7 @@ def copy_keys(installation: Installer, username: str, groups: list[CopyGroup]) -
             target_dir.chmod(0o700)
             installation.chown(username, str(sys_path))  # chown the directory
             for name in copy_item.files:
-                src = root_home / group.source / name
+                src = root_home / copy_item.target_dir / name
                 dest = target_dir / name
                 copy_file(src, dest)
                 dest.chmod(0o600)
