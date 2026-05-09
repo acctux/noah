@@ -948,7 +948,7 @@ def sys_setup() -> None:
     nc = NoahConfig.from_config(ec.json_config)
     mnt_cp_keys(nc.to_cp, nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    users_json = load_users_json(Path("/root") / nc.to_cp[1][0] / nc.my_pass)
+    users_json = load_users_json(Path("/root") / nc.to_cp[0][0] / nc.my_pass)
     if user_list := users_json.get("users", []):
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
             None,
