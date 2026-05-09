@@ -160,7 +160,7 @@ json_config = {
     ],
     "to_cp": [
         {
-            "source": "noahinstall/keys",
+            "source": "noahinstall",
             "destinations": {
                 ".ssh": [
                     "id_ed25519",
