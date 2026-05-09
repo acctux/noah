@@ -946,7 +946,7 @@ def perform_installation(
 
 
 def sys_setup() -> None:
-    nc = NoahConfig()
+    nc = NoahConfig.from_config(ec.json_config)
     mnt_cp_keys(nc.to_cp, nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
     users_json = load_users_json(Path("/root") / nc.to_cp[0].source / nc.my_pass)
