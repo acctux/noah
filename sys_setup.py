@@ -185,7 +185,7 @@ class NoahConfig:
         data = data or {}
         return cls(
             terminal=data.get("terminal", "kitty"),
-            firefox_browser=data.get("firefox_browser", "floorp"),
+            firefox_browser=data.get("firefox_browser", ""),
             dots_repo=data.get("dots_repo", ""),
             git_user=data.get("git_user", ""),
             encrypted_dir=data.get("encrypted_dir", "Desktop/Encrypted"),
@@ -606,18 +606,19 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 # USR_SVC
 ###################################
 def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
-    user_base = f"home/{username}/.config/systemd/user"
     for unit in units:
         chown_cmds = False
-        target_dir = f"/{user_base}/{unit.target}.target.wants"
-        mnt_target_dir = installation.target / target_dir
-        mnt_target_dir.mkdir(parents=True, exist_ok=True)
         source_dir = unit.source
         if unit.source == "/.config/systemd/user":
             source_dir = f"/home/{username}{unit.source}"
             chown_cmds = True
         for service in unit.services:
-            source_path = Path(source_dir) / service
+            target_dir = (
+                f"home/{username}/.config/systemd/user/{unit.target}.target.wants"
+            )
+            mnt_target_dir = installation.target / target_dir
+            mnt_target_dir.mkdir(parents=True, exist_ok=True)
+            source_path = f"{source_dir}/{service}"
             link_path = mnt_target_dir / service
             if not link_path.exists():
                 link_path.symlink_to(source_path)
