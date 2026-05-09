@@ -297,9 +297,13 @@ def ping(host: str = "google.com") -> bool:
 #########################
 # UTILS
 #########################
-def load_users_json(json_file: Path) -> dict:
-    if not json_file.exists():
-        log.error(f"JSON file {json_file} does not exist.")
+def load_users_json(nc: NoahConfig) -> dict:
+    json_file = (
+        Path("/root")
+        / nc.to_cp[0].to_cp_list[0].target_dir
+        / nc.to_cp[0].to_cp_list[0].files[0]
+    )
+    if not (json_file).exists():
         return {"users": []}
     try:
         with json_file.open() as f:
@@ -948,7 +952,7 @@ def sys_setup() -> None:
     nc = NoahConfig.from_config(ec.json_config)
     mnt_cp_keys(nc.to_cp, nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    users_json = load_users_json(Path("/root") / nc.to_cp[0][0] / nc.my_pass)
+    users_json = load_users_json(nc)
     if user_list := users_json.get("users", []):
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
             None,
