@@ -175,9 +175,6 @@ json_config = {
     ],
     "user_services": {
         "/usr/lib/systemd/user": {
-            "default": [
-                "psd.service",
-            ],
             "sockets": [
                 "gcr-ssh-agent.socket",
                 "mpd.socket",

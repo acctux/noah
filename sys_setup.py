@@ -890,6 +890,7 @@ def perform_installation(
                 cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
                 installation.arch_chroot(cmd, user_1)
                 copy_keys(installation, user_1, nc.to_cp)
+
         if config.bootloader_config:
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 if config.bootloader_config.uki:
