@@ -13,6 +13,8 @@ import extraconfig as ec
 from getpass import getpass
 import logging
 from textwrap import dedent
+from dataclasses import dataclass, field
+from typing import Any
 
 
 #########################
@@ -53,6 +55,134 @@ def get_logger(log_name: str | None = None, level=logging.INFO):
 
 
 log = get_logger("Noah")
+
+
+# =========================
+# Helpers
+# =========================
+def list_of(cls, items):
+    return [cls.parse_arg(x) for x in (items or [])]
+
+
+def expand_user_services(raw: dict[str, Any], username: str) -> list[UsrSrv]:
+    base_user = f"/home/{username}/.config/systemd/user"
+
+    return [
+        UsrSrv(
+            source="/usr/lib/systemd/user",
+            target=target,
+            services=services,
+        )
+        for target, services in raw.get("root_owned", {}).items()
+    ] + [
+        UsrSrv(
+            source=base_user,
+            target=target,
+            services=services,
+        )
+        for target, services in raw.get("user_owned", {}).items()
+    ]
+
+
+# =========================
+# Core models
+# =========================
+@dataclass(frozen=True)
+class GitRepos:
+    user: str
+    repos: dict[str, str]
+
+    @classmethod
+    def parse_arg(cls, arg: dict[str, Any]) -> "GitRepos":
+        return cls(**arg)
+
+
+@dataclass(frozen=True)
+class CopyGroup:
+    source: str
+    target_dir: str
+    files: list[str]
+
+    @classmethod
+    def parse_arg(cls, d: dict[str, Any]) -> "CopyGroup":
+        return cls(**d)
+
+
+@dataclass(frozen=True)
+class UsrSrv:
+    source: str
+    target: str
+    services: list[str]
+
+    @classmethod
+    def parse_arg(cls, d: dict[str, Any]) -> "UsrSrv":
+        return cls(**d)
+
+
+# =========================
+# Main config
+# =========================
+@dataclass
+class NoahConfig:
+    parallel_downloads: int = 0
+    terminal: str = "kitty"
+    firefox_browser: str = "firefox"
+    dots_repo: str = ""
+    git_user: str = ""
+    encrypted_dir: str = ""
+    ssh_key_file: str = ""
+    gpg_key_file: str = ""
+    master_pass_file: str = ""
+    my_pass: str = ""
+    wireguard_dir: str = ""
+    git_users: list[GitRepos] = field(default_factory=list)
+    groups: list[str] = field(default_factory=list)
+    mkinit_hooks: list[str] = field(default_factory=list)
+    reflector_options: list[str] = field(default_factory=list)
+    custom_services: list[str] = field(default_factory=list)
+    disable_svcs: list[str] = field(default_factory=list)
+    apps_to_hide: list[str] = field(default_factory=list)
+    no_extracts: list[str] = field(default_factory=list)
+    to_cp: list[CopyGroup] = field(default_factory=list)
+    user_services: list[UsrSrv] = field(default_factory=list)
+    ind_dirs: dict[str, str] = field(default_factory=dict)
+    dirs_icons: dict[str, str] = field(default_factory=dict)
+    yazi_plugins: list[str] = field(default_factory=list)
+
+    # PARSER
+    @classmethod
+    def from_config(cls, args_config: dict[str, Any]) -> "NoahConfig":
+        cfg = cls()
+        cfg.parallel_downloads = args_config.get("parallel_downloads", 0)
+        cfg.terminal = args_config.get("terminal", "kitty")
+        cfg.firefox_browser = args_config.get("firefox_browser", "firefox")
+        cfg.dots_repo = args_config.get("dots_repo", "")
+        cfg.git_user = args_config.get("git_user", "")
+        cfg.encrypted_dir = args_config.get("encrypted_dir", "")
+        cfg.ssh_key_file = args_config.get("ssh_key_file", "")
+        cfg.gpg_key_file = args_config.get("gpg_key_file", "")
+        cfg.master_pass_file = args_config.get("master_pass_file", "")
+        cfg.my_pass = args_config.get("my_pass", "")
+        cfg.wireguard_dir = args_config.get("wireguard_dir", "")
+        cfg.git_users = list_of(GitRepos, args_config.get("git_users"))
+        cfg.groups = args_config.get("groups", [])
+        cfg.mkinit_hooks = args_config.get("mkinit_hooks", [])
+        cfg.reflector_options = args_config.get("reflector_options", [])
+        cfg.custom_services = args_config.get("custom_services", [])
+        cfg.disable_svcs = args_config.get("disable_svcs", [])
+        cfg.apps_to_hide = args_config.get("apps_to_hide", [])
+        cfg.no_extracts = args_config.get("no_extracts", [])
+        cfg.to_cp = list_of(CopyGroup, args_config.get("to_cp"))
+        if raw := args_config.get("user_services"):
+            usernames = [g["user"] for g in args_config.get("git_users", [])]
+            cfg.user_services = [
+                srv for user in usernames for srv in expand_user_services(raw, user)
+            ]
+        cfg.ind_dirs = args_config.get("ind_dirs", {})
+        cfg.dirs_icons = args_config.get("dirs_icons", {})
+        cfg.yazi_plugins = args_config.get("yazi_plugins", [])
+
+        return cfg
 
 
 def run_dmc(
@@ -403,19 +533,24 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(
-    installation: Installer, units: list[ec.UsrSrv], username: str
-) -> None:
-    base_dir = f"home/{username}/.config/systemd/user"
+
+
+def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
+    base_dir = Path(f"home/{username}/.config/systemd/user")
+
     for unit in units:
-        target_dir = f"{base_dir}/{unit.target}.target.wants"
-        full_target_dir = installation.target / target_dir
-        full_target_dir.mkdir(parents=True, exist_ok=True)
+        target_dir = base_dir / f"{unit.target}.target.wants"
+        target_dir.mkdir(parents=True, exist_ok=True)
+
         installation.arch_chroot(f"chown {username}:{username} /{target_dir}")
+
         for service in unit.services:
             source_path = Path(unit.source) / service
-            symlink_path = full_target_dir / service
-            symlink_path.symlink_to(source_path)
+            link_path = target_dir / service
+
+            if not link_path.exists():
+                link_path.symlink_to(source_path)
+
             installation.arch_chroot(
                 f"chown {username}:{username} /{target_dir}/{service}"
             )
@@ -450,7 +585,7 @@ def user_service(
             """
         )
         (installation.target / dir_path / name).write_text(content)
-        unit = ec.UsrSrv(
+        unit = UsrSrv(
             source=f"/{dir_path}", target="graphical-session", services=[name]
         )
     for user in users:
@@ -517,19 +652,15 @@ def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) 
     log.info(f"Policies for {browser} have been set (overwritten).")
 
 
-def hide_apps(installation: Installer, users: list[User], nc: ec.NoahConfig):
-    for user in users:
-        nc.populate_usr_srv(user.username)
-        user_home = f"home/{user.username}"
-        for app in nc.apps_to_hide:
-            file_p = f"{user_home}/.local/share/applications/{app}.desktop"
-            (installation.target / file_p).write_text(
-                "[Desktop Entry]\nNoDisplay=true\n"
-            )
-            installation.chown(user.username, f"/{file_p}")
+def hide_apps(installation: Installer, user: str, apps_to_hide: list[str]):
+    user_home = f"home/{user}"
+    for app in apps_to_hide:
+        file_p = f"{user_home}/.local/share/applications/{app}.desktop"
+        (installation.target / file_p).write_text("[Desktop Entry]\nNoDisplay=true\n")
+        installation.chown(user, f"/{file_p}")
 
 
-def copy_skel(mountpoint: Path, nc: ec.NoahConfig):
+def copy_skel(mountpoint: Path, nc: NoahConfig):
     tmp = mountpoint / "tmp" / nc.dots_repo
     tmp.mkdir(exist_ok=True)
     git = f"https://github.com/{nc.git_user}/{nc.dots_repo}.git"
@@ -567,7 +698,7 @@ def perform_installation(
     arch_config_handler: ArchConfigHandler,
     auth_handler: AuthenticationHandler,
     application_handler: ApplicationHandler,
-    nc: ec.NoahConfig,
+    nc: NoahConfig,
     gfx_drivers: list[GfxDriver],
 ) -> None:
     script_d = Path(__file__).resolve().parent
@@ -584,6 +715,7 @@ def perform_installation(
     with Installer(
         mountpoint,
         disk_config,
+        base_packages=[],
         kernels=config.kernels,
         silent=arch_config_handler.args.silent,
     ) as installation:
@@ -610,12 +742,19 @@ def perform_installation(
         )
         generate_pacman_conf(None, no_extracts=list(nc.no_extracts))
         installation.minimal_installation(
-            hostname=config.hostname, mkinitcpio=run_mkinitcpio, locale_config=locale
+            optional_repositories=[],
+            mkinitcpio=run_mkinitcpio,
+            hostname=config.hostname,
+            locale_config=locale,
+            pacman_config=None,
         )
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
         generate_pacman_conf(mountpoint, list(nc.no_extracts))
+        installation.add_additional_packages("realtime-privileges")
+        copy_skel(mountpoint, nc)
+        chaotic_repo(installation)
 
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
@@ -634,19 +773,17 @@ def perform_installation(
                 config.network_config, installation, config.profile_config
             )
 
-        installation.add_additional_packages("realtime-privileges")
-        copy_skel(mountpoint, nc)
-
         users = None
         if config.auth_config:
             if config.auth_config.users:
                 users = config.auth_config.users
                 installation.create_users(config.auth_config.users)
+                auth_handler.setup_auth(
+                    installation, config.auth_config, config.hostname
+                )
 
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
-
-        chaotic_repo(installation)
 
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
@@ -664,43 +801,38 @@ def perform_installation(
         for gfx_driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, gfx_driver)
         profile_handler.install_greeter(installation, GreeterType.Ly)
-        write_etc_file(mountpoint, nc.etc_files_to_write)
+        write_etc_file(mountpoint, ec.etc_files_to_write)
         reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
         reflector_timer_conf.write_text("\n".join(nc.reflector_options))
         copy_dir(Path("/root") / nc.wireguard_dir, mountpoint / "etc" / "wireguard")
         set_extensions(mountpoint, nc.firefox_browser, ec.new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
+        modify_mkinit(mountpoint, list(nc.mkinit_hooks), plymouth=True)
         if config.auth_config:
             if users:
                 for user in users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
                     usr_srv = nc.populate_usr_srv(user.username)
                     enable_user_serv(installation, usr_srv, user.username)
+                user_1 = users[0].username
                 mpd_tmpfiles(installation, users)
-                configure_sudo(mountpoint, users[0].username, pless=True)
+                configure_sudo(mountpoint, user_1, pless=True)
                 cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
-                installation.arch_chroot(cmd, users[0].username)
-                configure_sudo(mountpoint, users[0].username)
-                copy_dir(
-                    script_d,
-                    (mountpoint / f"home/{users[0].username}" / script_d.name),
-                )
-                copy_keys(installation, nc.usb_key_dir, users[0].username, nc.to_cp)
+                installation.arch_chroot(cmd, user_1)
+                configure_sudo(mountpoint, user_1)
+                copy_dir(script_d, (mountpoint / f"home/{user_1}" / script_d.name))
+                cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
+                installation.arch_chroot(cmd, user_1)
+                copy_keys(installation, nc.usb_key_dir, user_1, nc.to_cp)
                 user_service(installation, users, nc.terminal)
                 hide_apps(installation, users, nc)
-                auth_handler.setup_auth(
-                    installation, config.auth_config, config.hostname
-                )
-        if (
-            config.bootloader_config
-            and config.bootloader_config.bootloader == Bootloader.Systemd
-        ):
-            if config.bootloader_config.uki:
-                print("Nope")
-            else:
-                sysd_plymouth_setup(mountpoint)
-        modify_mkinit(mountpoint, list(nc.mkinit_hooks), plymouth=True)
+        if config.bootloader_config:
+            if config.bootloader_config.bootloader == Bootloader.Systemd:
+                if config.bootloader_config.uki:
+                    print("Nope")
+                else:
+                    sysd_plymouth_setup(mountpoint)
 
         if services := config.services:
             installation.enable_service(services)
@@ -744,7 +876,7 @@ def perform_installation(
 
 
 def sys_setup() -> None:
-    nc = ec.NoahConfig()
+    nc = NoahConfig()
     mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
     users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
@@ -1073,7 +1205,7 @@ def user_setup():
         time.sleep(5)
     if shutil.which("tuned"):
         run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
-    uc = ec.NoahConfig()
+    uc = NoahConfig()
     if shutil.which("mariadb"):
         user = pwd.getpwuid(os.getuid()).pw_name
         enable_mariadb(user)
@@ -1093,13 +1225,13 @@ def user_setup():
         set_folder_icons(uc.dirs_icons)
     for plugin in uc.yazi_plugins:
         run_dmc(["ya", "pkg", "add", plugin])
-    if any((uc.dots_path).iterdir()):
-        deploy_dotfiles(uc.HOME, uc.dots_path, uc.dirs_to_link, uc.ind_dirs, uc.sec_dir)
+    if any((uc.DOTS).iterdir()):
+        deploy_dotfiles(uc.HOME, uc.DOTS, uc.dirs_to_link, uc.ind_dirs, uc.sec_dir)
         run_dmc(
             ["uv", "add", "openmeteo-requests"],
             cwd=f"{uc.HOME}/.local/bin/weather",
         )
-    if uc.android:
+    if shutil.which("scrcpy"):
         scrcpy_setup()
     if uc.masterpass_path.is_file():
         pass_and_input(uc.masterpass_path)
