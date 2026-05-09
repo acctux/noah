@@ -390,19 +390,18 @@ def collect_missing_paths(
     missing_paths: list[tuple[Path, Path]] = []
     root_home = Path("/root")
     for group in groups:
+        source_d = group.source
         for copy_item in group.to_cp_list:
             target_dir = root_home / copy_item.target_dir
             for file_name in copy_item.files:
                 dest_file = target_dir / file_name
                 if not dest_file.exists():
-                    missing_paths.append(
-                        (Path(copy_item.target_dir) / file_name, dest_file)
-                    )
+                    missing_paths.append((Path(source_d) / file_name, dest_file))
 
     if wireguard_dir:
         dest_dir = root_home / wireguard_dir
         if not dest_dir.is_dir():
-            missing_paths.append((Path(wireguard_dir), dest_dir))
+            missing_paths.append((Path(source_d) / wireguard_dir, dest_dir))
 
     return missing_paths
 
