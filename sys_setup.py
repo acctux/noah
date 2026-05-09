@@ -872,8 +872,12 @@ def perform_installation(
             if users:
                 for user in users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
-                    enable_user_serv(installation, nc.user_services, user.username)
-                    enable_user_serv(installation, nc.user_services, user.username)
+                    enable_user_serv(
+                        installation, nc.user_services.services, user.username
+                    )
+                    enable_user_serv(
+                        installation, nc.user_services.services, user.username
+                    )
                     hide_apps(installation, user.username, nc.apps_to_hide)
                     user_service(installation, user, nc.terminal)
                 user_1 = users[0].username
