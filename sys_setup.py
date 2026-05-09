@@ -607,11 +607,11 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 ###################################
 def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
     for unit in units:
-        chown_cmds = False
+        chown_cmds = True
         source_dir = unit.source
         if unit.source == "/.config/systemd/user":
             source_dir = f"/home/{username}{unit.source}"
-            chown_cmds = True
+            chown_cmds = False
         for service in unit.services:
             target_dir = (
                 f"home/{username}/.config/systemd/user/{unit.target}.target.wants"
@@ -620,15 +620,14 @@ def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
             mnt_target_dir.mkdir(parents=True, exist_ok=True)
             source_path = f"{source_dir}/{service}"
             link_path = mnt_target_dir / service
-            if not link_path.exists():
-                link_path.symlink_to(source_path)
-                log.info(f"{link_path}->{source_path}")
+            link_path.symlink_to(source_path)
+            log.info(f"{link_path}->{source_path}")
             if chown_cmds:
                 installation.arch_chroot(
-                    f"chown {username}:{username} {target_dir}/{service}"
+                    f"chown {username}:{username} /{target_dir}/{service}"
                 )
         if chown_cmds:
-            installation.arch_chroot(f"chown {username}:{username} {target_dir}")
+            installation.arch_chroot(f"chown {username}:{username} /{target_dir}")
 
 
 def user_service(
