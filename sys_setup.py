@@ -112,30 +112,22 @@ class UsrSrv:
 
 @dataclass(slots=True)
 class UserServices:
-    root_owned: list[UsrSrv] = field(default_factory=list)
-    user_owned: list[UsrSrv] = field(default_factory=list)
+    services: list[UsrSrv] = field(default_factory=list)
 
     @classmethod
-    def parse_arg(cls, data):
+    def parse_arg(cls, data=None):
         data = data or {}
 
         return cls(
-            root_owned=[
+            services=[
                 UsrSrv(
-                    source="root",
+                    source=source,
                     target=target,
                     services=services,
                 )
-                for target, services in data.get("root_owned", {}).items()
-            ],
-            user_owned=[
-                UsrSrv(
-                    source="user",
-                    target=target,
-                    services=services,
-                )
-                for target, services in data.get("user_owned", {}).items()
-            ],
+                for source, targets in data.items()
+                for target, services in targets.items()
+            ]
         )
 
 
@@ -606,28 +598,28 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 # USR_SVC
 ###################################
 def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
+    home = Path(f"/home/{username}")
     for unit in units:
-        chown_cmds = True
-        source_dir = unit.source
+        source_dir = Path(unit.source)
+        do_chown = True
         if unit.source == "/.config/systemd/user":
-            source_dir = f"/home/{username}{unit.source}"
-            chown_cmds = False
+            source_dir = home / ".config/systemd/user"
+            do_chown = False
         for service in unit.services:
-            target_dir = (
-                f"home/{username}/.config/systemd/user/{unit.target}.target.wants"
-            )
-            mnt_target_dir = installation.target / target_dir
+            target_dir = home / ".config/systemd/user" / f"{unit.target}.target.wants"
+            mnt_target_dir = installation.target / target_dir.relative_to("/")
             mnt_target_dir.mkdir(parents=True, exist_ok=True)
-            source_path = f"{source_dir}/{service}"
+            source_path = source_dir / service
             link_path = mnt_target_dir / service
-            link_path.symlink_to(source_path)
-            log.info(f"{link_path}->{source_path}")
-            if chown_cmds:
+            if not link_path.exists():
+                link_path.symlink_to(source_path)
+                log.info(f"{link_path} -> {source_path}")
+            if do_chown:
                 installation.arch_chroot(
-                    f"chown {username}:{username} /{target_dir}/{service}"
+                    f"chown {username}:{username} {target_dir}/{service}"
                 )
-        if chown_cmds:
-            installation.arch_chroot(f"chown {username}:{username} /{target_dir}")
+        if do_chown:
+            installation.arch_chroot(f"chown {username}:{username} {target_dir}")
 
 
 def user_service(
@@ -880,12 +872,8 @@ def perform_installation(
             if users:
                 for user in users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
-                    enable_user_serv(
-                        installation, nc.user_services.root_owned, user.username
-                    )
-                    enable_user_serv(
-                        installation, nc.user_services.user_owned, user.username
-                    )
+                    enable_user_serv(installation, nc.user_services, user.username)
+                    enable_user_serv(installation, nc.user_services, user.username)
                     hide_apps(installation, user.username, nc.apps_to_hide)
                     user_service(installation, user, nc.terminal)
                 user_1 = users[0].username
