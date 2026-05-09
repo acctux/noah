@@ -76,7 +76,10 @@ json_config = {
     "master_pass_file": "pass.txt",
     "my_pass": "users.json",
     "wireguard_dir": "wireguard",
-    "git_users": [
+    "dirs_to_link": [
+        "local/bin",
+    ],
+    "git_repos": [
         {
             "user": "acctux",
             "repos": {
@@ -157,24 +160,21 @@ json_config = {
     ],
     "to_cp": [
         {
-            "source": "keys",
-            "target_dir": ".ssh",
-            "files": [
-                "id_ed25519",
-                "pass.txt",
-                "users.json",
-            ],
-        },
-        {
-            "source": "keys",
-            "target_dir": ".gnupg",
-            "files": [
-                "my_sec_gpg.asc",
-            ],
+            "source": "noahinstall/keys",
+            "destinations": {
+                ".ssh": [
+                    "id_ed25519",
+                    "pass.txt",
+                    "users.json",
+                ],
+                ".gnupg": [
+                    "my_sec_gpg.asc",
+                ],
+            },
         },
     ],
     "user_services": {
-        "root_owned": {
+        "/usr/lib/systemd/user": {
             "default": [
                 "psd.service",
             ],
@@ -190,7 +190,7 @@ json_config = {
                 "waybar.service",
             ],
         },
-        "user_owned": {
+        "/.config/systemd/user": {
             "graphical-session": [
                 "ayugram.service",
                 "clip-persist.service",

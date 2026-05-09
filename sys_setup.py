@@ -14,7 +14,6 @@ from getpass import getpass
 import logging
 from textwrap import dedent
 from dataclasses import dataclass, field
-from typing import Any
 
 
 #########################
@@ -57,132 +56,183 @@ def get_logger(log_name: str | None = None, level=logging.INFO):
 log = get_logger("Noah")
 
 
-# =========================
-# Helpers
-# =========================
-def list_of(cls, items):
-    return [cls.parse_arg(x) for x in (items or [])]
+def parse_list(cls, values):
+    return [cls.parse_arg(v) for v in (values or [])]
 
 
-def expand_user_services(raw: dict[str, Any], username: str) -> list[UsrSrv]:
-    base_user = f"/home/{username}/.config/systemd/user"
-
-    return [
-        UsrSrv(
-            source="/usr/lib/systemd/user",
-            target=target,
-            services=services,
-        )
-        for target, services in raw.get("root_owned", {}).items()
-    ] + [
-        UsrSrv(
-            source=base_user,
-            target=target,
-            services=services,
-        )
-        for target, services in raw.get("user_owned", {}).items()
-    ]
-
-
-# =========================
-# Core models
-# =========================
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class GitRepos:
-    user: str
-    repos: dict[str, str]
+    user: str = ""
+    repos: dict = field(default_factory=dict)
 
     @classmethod
-    def parse_arg(cls, arg: dict[str, Any]) -> "GitRepos":
-        return cls(**arg)
+    def parse_arg(cls, data):
+        return cls(
+            user=data.get("user", ""),
+            repos=data.get("repos", {}),
+        )
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
+class UsbFileCopy:
+    target_dir: str = ""
+    files: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class CopyGroup:
-    source: str
-    target_dir: str
-    files: list[str]
+    source: str = ""
+    to_cp_list: list[UsbFileCopy] = field(default_factory=list)
 
     @classmethod
-    def parse_arg(cls, d: dict[str, Any]) -> "CopyGroup":
-        return cls(**d)
+    def parse_arg(cls, data: dict):
+        data = data or {}
+
+        return cls(
+            source=data.get("source", ""),
+            to_cp_list=[
+                UsbFileCopy(
+                    target_dir=target_dir,
+                    files=files,
+                )
+                for target_dir, files in data.get(
+                    "destinations",
+                    {},
+                ).items()
+            ],
+        )
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class UsrSrv:
-    source: str
-    target: str
-    services: list[str]
+    source: str = ""
+    target: str = ""
+    services: list = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class UserServices:
+    root_owned: list[UsrSrv] = field(default_factory=list)
+    user_owned: list[UsrSrv] = field(default_factory=list)
 
     @classmethod
-    def parse_arg(cls, d: dict[str, Any]) -> "UsrSrv":
-        return cls(**d)
+    def parse_arg(cls, data):
+        data = data or {}
+
+        return cls(
+            root_owned=[
+                UsrSrv(
+                    source="root",
+                    target=target,
+                    services=services,
+                )
+                for target, services in data.get("root_owned", {}).items()
+            ],
+            user_owned=[
+                UsrSrv(
+                    source="user",
+                    target=target,
+                    services=services,
+                )
+                for target, services in data.get("user_owned", {}).items()
+            ],
+        )
 
 
-# =========================
+# =========================================================
 # Main config
-# =========================
-@dataclass
+# =========================================================
+@dataclass(slots=True)
 class NoahConfig:
-    parallel_downloads: int = 0
+    home: Path = Path.home()
+    dots_dir: Path = field(default_factory=lambda: Path.home() / "Lit" / "polka")
+    secdots_dir: Path = field(
+        default_factory=lambda: Path.home() / "Lit" / "Docs" / "secdots"
+    )
+    dirs_to_link: list[str] = field(default_factory=lambda: ["local/bin"])
+
     terminal: str = "kitty"
-    firefox_browser: str = "firefox"
+    firefox_browser: str = "floorp"
     dots_repo: str = ""
     git_user: str = ""
-    encrypted_dir: str = ""
-    ssh_key_file: str = ""
-    gpg_key_file: str = ""
-    master_pass_file: str = ""
-    my_pass: str = ""
-    wireguard_dir: str = ""
-    git_users: list[GitRepos] = field(default_factory=list)
+    encrypted_dir: str = "Desktop/Encrypted"
+
+    ssh_key_file: str = "id_ed25519"
+    gpg_key_file: str = "my_sec_gpg.asc"
+    master_pass_file: str = "pass.txt"
+    my_pass: str = "users.json"
+
+    wireguard_dir: str = "wireguard"
+    parallel_downloads: int = 10
+
     groups: list[str] = field(default_factory=list)
+    dirs_icons: dict[str, str] = field(default_factory=dict)
     mkinit_hooks: list[str] = field(default_factory=list)
     reflector_options: list[str] = field(default_factory=list)
     custom_services: list[str] = field(default_factory=list)
     disable_svcs: list[str] = field(default_factory=list)
     apps_to_hide: list[str] = field(default_factory=list)
     no_extracts: list[str] = field(default_factory=list)
-    to_cp: list[CopyGroup] = field(default_factory=list)
-    user_services: list[UsrSrv] = field(default_factory=list)
-    ind_dirs: dict[str, str] = field(default_factory=dict)
-    dirs_icons: dict[str, str] = field(default_factory=dict)
     yazi_plugins: list[str] = field(default_factory=list)
+    git_users: list[str] = field(default_factory=list)
 
-    # PARSER
+    git_repos: list[GitRepos] = field(default_factory=list)
+    to_cp: list[CopyGroup] = field(default_factory=list)
+    user_services: UserServices = field(default_factory=UserServices)
+
     @classmethod
-    def from_config(cls, args_config: dict[str, Any]) -> "NoahConfig":
-        cfg = cls()
-        cfg.parallel_downloads = args_config.get("parallel_downloads", 0)
-        cfg.terminal = args_config.get("terminal", "kitty")
-        cfg.firefox_browser = args_config.get("firefox_browser", "firefox")
-        cfg.dots_repo = args_config.get("dots_repo", "")
-        cfg.git_user = args_config.get("git_user", "")
-        cfg.encrypted_dir = args_config.get("encrypted_dir", "")
-        cfg.ssh_key_file = args_config.get("ssh_key_file", "")
-        cfg.gpg_key_file = args_config.get("gpg_key_file", "")
-        cfg.master_pass_file = args_config.get("master_pass_file", "")
-        cfg.my_pass = args_config.get("my_pass", "")
-        cfg.wireguard_dir = args_config.get("wireguard_dir", "")
-        cfg.git_users = list_of(GitRepos, args_config.get("git_users"))
-        cfg.groups = args_config.get("groups", [])
-        cfg.mkinit_hooks = args_config.get("mkinit_hooks", [])
-        cfg.reflector_options = args_config.get("reflector_options", [])
-        cfg.custom_services = args_config.get("custom_services", [])
-        cfg.disable_svcs = args_config.get("disable_svcs", [])
-        cfg.apps_to_hide = args_config.get("apps_to_hide", [])
-        cfg.no_extracts = args_config.get("no_extracts", [])
-        cfg.to_cp = list_of(CopyGroup, args_config.get("to_cp"))
-        if raw := args_config.get("user_services"):
-            usernames = [g["user"] for g in args_config.get("git_users", [])]
-            cfg.user_services = [
-                srv for user in usernames for srv in expand_user_services(raw, user)
-            ]
-        cfg.ind_dirs = args_config.get("ind_dirs", {})
-        cfg.dirs_icons = args_config.get("dirs_icons", {})
-        cfg.yazi_plugins = args_config.get("yazi_plugins", [])
+    def from_config(cls, data):
+        data = data or {}
+        return cls(
+            terminal=data.get("terminal", "kitty"),
+            firefox_browser=data.get("firefox_browser", "floorp"),
+            dots_repo=data.get("dots_repo", ""),
+            git_user=data.get("git_user", ""),
+            encrypted_dir=data.get("encrypted_dir", "Desktop/Encrypted"),
+            ssh_key_file=data.get("ssh_key_file", "id_ed25519"),
+            gpg_key_file=data.get("gpg_key_file", "my_sec_gpg.asc"),
+            master_pass_file=data.get("master_pass_file", "pass.txt"),
+            my_pass=data.get("my_pass", "users.json"),
+            wireguard_dir=data.get("wireguard_dir", "wireguard"),
+            parallel_downloads=data.get("parallel_downloads", 10),
+            groups=data.get("groups", []),
+            mkinit_hooks=data.get("mkinit_hooks", []),
+            reflector_options=data.get("reflector_options", []),
+            custom_services=data.get("custom_services", []),
+            disable_svcs=data.get("disable_svcs", []),
+            apps_to_hide=data.get("apps_to_hide", []),
+            no_extracts=data.get("no_extracts", []),
+            yazi_plugins=data.get("yazi_plugins", []),
+            git_users=data.get("git_users", []),
+            dirs_to_link=data.get("dirs_to_link", ["local/bin"]),
+            git_repos=parse_list(GitRepos, data.get("git_repos")),
+            to_cp=parse_list(CopyGroup, data.get("to_cp")),
+            dirs_icons=data.get("dirs_icons", {}),
+            user_services=UserServices.parse_arg(data.get("user_services")),
+        )
 
-        return cfg
+
+@dataclass(slots=True)
+class NoahUserProcessor:
+    data: NoahConfig
+    username: str | None = None
+    HOME: Path = field(init=False)
+
+    def __post_init__(self):
+        self.HOME = (
+            Path("/root") if self.username is None else Path("/home") / self.username
+        )
+        self.ENCRYPTED = self.HOME / self.data.encrypted_dir
+        self.GIT_DIR = self.HOME / "Lit"
+        self.DOTS = self.GIT_DIR / self.data.dots_repo
+        self.ssh_path = self.HOME / ".ssh" / self.data.ssh_key_file
+        self.gpg_path = self.HOME / ".gnupg" / self.data.gpg_key_file
+        self.masterpass_path = self.HOME / ".ssh" / self.data.master_pass_file
+        self.sec_dir = self.GIT_DIR / "Docs" / "base"
+        self.dirs_to_link = [self.HOME / path for _, path in self.data.dirs_to_link]
+        self.dirs_icons = {
+            self.HOME / path: icon for path, icon in self.data.dirs_icons.items()
+        }
 
 
 def run_dmc(
@@ -334,38 +384,57 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
     return selected_path
 
 
+def collect_missing_paths(
+    groups: list[CopyGroup], wireguard_dir: str = ""
+) -> list[tuple[Path, Path]]:
+    missing_paths: list[tuple[Path, Path]] = []
+    root_home = Path("/root")
+    for group in groups:
+        for copy_item in group.to_cp_list:
+            target_dir = root_home / copy_item.target_dir
+            for file_name in copy_item.files:
+                dest_file = target_dir / file_name
+                if not dest_file.exists():
+                    missing_paths.append(
+                        (Path(copy_item.target_dir) / file_name, dest_file)
+                    )
+
+    if wireguard_dir:
+        dest_dir = root_home / wireguard_dir
+        if not dest_dir.is_dir():
+            missing_paths.append((Path(wireguard_dir), dest_dir))
+
+    return missing_paths
+
+
 def mnt_cp_keys(
-    key_dir: str | None = None,
-    key_files: list[str] | None = None,
-    wireguard_dir: str | None = None,
-    usb_mnt: Path = Path("/mnt/usb"),
-    home: Path = Path.home(),
+    groups: list[CopyGroup], wireguard_dir: str = "", usb_mnt: Path = Path("/mnt/usb")
 ) -> None:
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         run_dmc(["umount", str(usb_mnt)])
         run_dmc(["udevadm", "settle"])
         time.sleep(1)
-    missing = []
-    if key_dir and key_files:
-        missing += [k for k in key_files if not (home / key_dir / k).exists()]
-    if wireguard_dir and not (home / wireguard_dir).is_dir():
-        missing.append(wireguard_dir)
-    if not missing:
+    missing_paths = collect_missing_paths(groups, wireguard_dir)
+    if not missing_paths:
         log.info("All required files present.")
         return
-    if not yes_no(f"Mount USB to copy {', '.join(missing)}"):
+    if not yes_no(
+        f"Mount USB to copy {', '.join(str(dest_path) for _, dest_path in missing_paths)}"
+    ):
         return
     selected = get_device()
     run_dmc(["udevadm", "settle"])
     usb_mnt.mkdir(parents=True, exist_ok=True)
     run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
     time.sleep(2)
-    if key_dir and key_files:
-        (home / key_dir).mkdir(parents=True, exist_ok=True)
-        for k in key_files:
-            copy_file(usb_mnt / key_dir / k, home / key_dir / k)
-    if wireguard_dir:
-        copy_dir(usb_mnt / wireguard_dir, home / wireguard_dir)
+    for src_path, dest_path in missing_paths:
+        src = usb_mnt / src_path
+        if src.is_file():
+            copy_file(src, dest_path)
+        elif src.is_dir():
+            copy_dir(src, dest_path)
+        else:
+            log.error(f"{src} does not exist on USB")
     time.sleep(1)
     if yes_no("Files copied, unmount?"):
         run_dmc(["umount", str(usb_mnt)])
@@ -533,27 +602,27 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 ###################################
 # USR_SVC
 ###################################
-
-
 def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
-    base_dir = Path(f"home/{username}/.config/systemd/user")
-
+    user_base = f"home/{username}/.config/systemd/user"
     for unit in units:
-        target_dir = base_dir / f"{unit.target}.target.wants"
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-        installation.arch_chroot(f"chown {username}:{username} /{target_dir}")
-
+        target_dir = f"/{user_base}/{unit.target}.target.wants"
+        mnt_target_dir = installation.target / target_dir
+        mnt_target_dir.mkdir(parents=True, exist_ok=True)
+        source_dir = unit.source
+        if unit.source == "/.config/systemd/user":
+            source_dir = f"/home/{username}{unit.source}"
+            chown_cmds = True
         for service in unit.services:
-            source_path = Path(unit.source) / service
-            link_path = target_dir / service
-
+            source_path = Path(source_dir) / service
+            link_path = mnt_target_dir / service
             if not link_path.exists():
                 link_path.symlink_to(source_path)
-
-            installation.arch_chroot(
-                f"chown {username}:{username} /{target_dir}/{service}"
-            )
+            if chown_cmds:
+                installation.arch_chroot(
+                    f"chown {username}:{username} {target_dir}/{service}"
+                )
+        if chown_cmds:
+            installation.arch_chroot(f"chown {username}:{username} {target_dir}")
 
 
 def user_service(
@@ -618,24 +687,21 @@ def install_icons(installation: Installer):
 ###################################
 # User Space
 ###################################
-def copy_keys(
-    installation: Installer,
-    usb_key_dir: str,
-    username: str,
-    to_cp: dict[str, tuple[str, ...]],
-) -> None:
-    for folder, files in to_cp.items():
-        sys_path = f"home/{username}/{folder}"
-        mnt_dir = installation.target / sys_path
-        mnt_dir.mkdir(parents=True, exist_ok=True)
-        mnt_dir.chmod(0o700)
-        for name in files:
-            src = Path("/root") / usb_key_dir / name
-            dest = mnt_dir / name
-            copy_file(src, dest)
-            dest.chmod(0o600)
-            installation.chown(username, f"/{sys_path}/{name}")
-        installation.chown(username, f"/{sys_path}")
+def copy_keys(installation: Installer, username: str, groups: list[CopyGroup]) -> None:
+    root_home = Path("/root")
+    for group in groups:
+        for copy_item in group.to_cp_list:
+            sys_path = Path("home") / username / copy_item.target_dir
+            target_dir = installation.target / sys_path
+            target_dir.mkdir(parents=True, exist_ok=True)
+            target_dir.chmod(0o700)
+            installation.chown(username, str(sys_path))  # chown the directory
+            for name in copy_item.files:
+                src = root_home / group.source / name
+                dest = target_dir / name
+                copy_file(src, dest)
+                dest.chmod(0o600)
+                installation.chown(username, str(sys_path / name))
 
 
 def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) -> None:
@@ -813,8 +879,13 @@ def perform_installation(
             if users:
                 for user in users:
                     installation.arch_chroot("xdg-user-dirs-update", user.username)
-                    usr_srv = nc.populate_usr_srv(user.username)
-                    enable_user_serv(installation, usr_srv, user.username)
+                    enable_user_serv(
+                        installation, nc.user_services.root_owned, user.username
+                    )
+                    enable_user_serv(
+                        installation, nc.user_services.user_owned, user.username
+                    )
+                    hide_apps(installation, user.username, nc.apps_to_hide)
                 user_1 = users[0].username
                 mpd_tmpfiles(installation, users)
                 configure_sudo(mountpoint, user_1, pless=True)
@@ -824,9 +895,8 @@ def perform_installation(
                 copy_dir(script_d, (mountpoint / f"home/{user_1}" / script_d.name))
                 cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
                 installation.arch_chroot(cmd, user_1)
-                copy_keys(installation, nc.usb_key_dir, user_1, nc.to_cp)
+                copy_keys(installation, user_1, nc.to_cp)
                 user_service(installation, users, nc.terminal)
-                hide_apps(installation, users, nc)
         if config.bootloader_config:
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 if config.bootloader_config.uki:
@@ -877,9 +947,9 @@ def perform_installation(
 
 def sys_setup() -> None:
     nc = NoahConfig()
-    mnt_cp_keys(nc.usb_key_dir, list(nc.usb_cp_files), nc.wireguard_dir)
+    mnt_cp_keys(nc.to_cp, nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    users_json = load_users_json(Path("/root") / nc.usb_key_dir / nc.my_pass)
+    users_json = load_users_json(Path("/root") / nc.to_cp[0].source / nc.my_pass)
     if user_list := users_json.get("users", []):
         arch_config_handler.config.auth_config = AuthenticationConfiguration(
             None,
@@ -947,65 +1017,74 @@ def iwctl_scan() -> bool:
     return False
 
 
-############################
-# Dotfile Symlink
-############################
-def deploy_dotfiles(
-    HOME: Path,
-    dot_dir: Path,
-    dirs_to_link: list[str],
-    ind_dirs: dict[str, Path],
-    sec_dots_dir: Path,
-):
-    def link_path(src: Path, dst: Path) -> bool:
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        rel = src.relative_to(dst.parent, walk_up=True)
-        if dst.is_symlink() and dst.readlink() == rel:
-            return False
-        if dst.exists():
-            if dst.is_dir() and not dst.is_symlink():
-                shutil.rmtree(dst)
-            else:
-                dst.unlink(missing_ok=True)
-            log.info(f"Removed: {dst}")
-        dst.symlink_to(rel, target_is_directory=src.is_dir())
-        log.info(f"Linked: {dst} → {rel}")
-        return True
+##########################################
+# HELPERS
+##########################################
+def link_path(src: Path, dst: Path) -> bool:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    rel = os.path.relpath(src, dst.parent)
+    if dst.is_symlink() and os.readlink(dst) == rel:
+        return False
+    if dst.exists() or dst.is_symlink():
+        if dst.is_dir() and not dst.is_symlink():
+            shutil.rmtree(dst)
+        else:
+            dst.unlink()
+        log.info(f"Removed: {dst}")
+    dst.symlink_to(rel, target_is_directory=src.is_dir())
+    log.info(f"Linked: {dst} → {rel}")
+    return True
 
-    linked = 0
-    for src in dot_dir.rglob("*"):
+
+def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
+    parts = src.relative_to(source_dir).parts
+    return target_dir / Path("." + parts[0], *parts[1:])
+
+
+def collect_candidates(
+    base_dir: Path, home: Path, dirs_to_skip: list[str]
+) -> list[tuple[Path, Path]]:
+    """Return list of (src, dst) tuples for all files in base_dir, skipping certain dirs."""
+    candidates = []
+    for src in base_dir.rglob("*"):
         if not src.is_file():
             continue
-        rel = src.relative_to(dot_dir)
+        rel = src.relative_to(base_dir)
         if rel.parts[0] == ".git":
             continue
-        if any(rel.is_relative_to(Path(d)) for d in dirs_to_link):
+        if any(rel.parts[0] == d.split("/")[0] for d in dirs_to_skip):
             continue
-        dst = HOME / ("." + str(rel))
-        dst.parent.mkdir(parents=True, exist_ok=True)
+        candidates.append((src, dotted_destination(src, base_dir, home)))
+    return candidates
+
+
+def file_candidates(nc: NoahConfig, nu: NoahUserProcessor) -> list[tuple[Path, Path]]:
+    """Return list of (src, dst) tuples to link."""
+    candidates = []
+    candidates.extend(collect_candidates(nc.dots_dir, nu.HOME, nc.dirs_to_link))
+    candidates.extend(collect_candidates(nc.secdots_dir, nu.HOME, nc.dirs_to_link))
+    for d in nc.dirs_to_link:
+        src = nu.HOME / nc.dots_dir / d
+        if src.is_dir():
+            candidates.append((src, dotted_destination(src, nc.dots_dir, nu.HOME)))
+    return candidates
+
+
+##########################################
+# MAIN
+##########################################
+def deploy_dotfiles(nc: NoahConfig, nu: NoahUserProcessor):
+    if not (nu.HOME / nc.dots_dir).is_dir():
+        log.error(f"Dotfiles directory not found: {nu.HOME / nc.dots_dir}")
+        return
+    linked = 0
+    for src, dst in file_candidates(nc, nu):
         if link_path(src, dst):
             linked += 1
-    for d in dirs_to_link:
-        src = dot_dir / d
-        if not src.is_dir():
-            continue
-        dst = HOME / ("." + d)
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        if link_path(src, dst):
-            linked += 1
-    for src_name, dst_dir in ind_dirs.items():
-        src_dir = sec_dots_dir / src_name
-        if not src_dir.is_dir():
-            continue
-        for src in src_dir.rglob("*"):
-            if not src.is_file():
-                continue
-            dst = dst_dir / src.relative_to(src_dir)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            if link_path(src, dst):
-                linked += 1
-    run_dmc(["hyprctl", "reload"])
-    log.info(f"Linked: {linked}")
+    if shutil.which("hyprctl"):
+        subprocess.run(["hyprctl", "reload"], check=False)
+        log.info("Hyprland reloaded")
+    log.info(f"Total linked:\033[0m {linked}")
 
 
 ############################
@@ -1096,23 +1175,37 @@ def ensure_github_known_hosts(HOME: Path) -> None:
             log.warning("Failed to scan github.com for known_hosts")
 
 
-def clone_repos(git_user: str, git_repos: list, dest: Path, ssh: bool) -> None:
-    def url(repo: str) -> str:
+def clone_repos(
+    git_repos: list[GitRepos],
+    dest: Path,
+    ssh: bool,
+) -> None:
+    def url(user: str, repo: str) -> str:
         if ssh:
-            return f"git@github.com:{git_user}/{repo}.git"
-        return f"https://github.com/{git_user}/{repo}.git"
+            return f"git@github.com:{user}/{repo}.git"
+        return f"https://github.com/{user}/{repo}.git"
 
     dest.mkdir(parents=True, exist_ok=True)
-    for repo in git_repos:
-        repo_path = dest / repo
-        if repo_path.exists():
-            log.info(f"{repo_path} exists, skipping.")
-            continue
-        result = run_dmc(["git", "clone", url(repo), str(repo_path)], check=False)
-        if result.returncode == 0:
-            log.info(f"Cloned {repo}")
-        else:
-            log.warning(f"Failed to clone {repo}")
+
+    for git_user in git_repos:
+        for remote_repo, local_dir in git_user.repos.items():
+            repo_path = dest / Path(local_dir).name
+            if repo_path.exists():
+                log.info(f"{repo_path} exists, skipping.")
+                continue
+
+            result = subprocess.run(
+                ["git", "clone", url(git_user.user, remote_repo), str(repo_path)],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0:
+                log.info(f"Cloned {remote_repo} to {repo_path}")
+            else:
+                log.warning(
+                    f"Failed to clone {remote_repo}. Error: {result.stderr.strip()}"
+                )
 
 
 def configure_git() -> None:
@@ -1205,42 +1298,43 @@ def user_setup():
         time.sleep(5)
     if shutil.which("tuned"):
         run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
-    uc = NoahConfig()
+    nc = NoahConfig()
+    nu = NoahUserProcessor(nc)
     if shutil.which("mariadb"):
         user = pwd.getpwuid(os.getuid()).pw_name
         enable_mariadb(user)
-    if uc.ssh_path.exists():
-        import_ssh(uc.ssh_path)
+    if nu.ssh_path.exists():
+        import_ssh(nu.ssh_path)
         configure_git()
-        ensure_github_known_hosts(uc.HOME)
-        clone_repos(uc.git_user, uc.repos + uc.private_repos, uc.GIT_DIR, ssh=True)
+        ensure_github_known_hosts(nu.HOME)
+        clone_repos(nc.git_repos, nu.HOME, ssh=False)
     else:
-        clone_repos(uc.git_user, uc.repos, uc.GIT_DIR, ssh=False)
-    if uc.gpg_path and not uc.gpg_path.exists():
-        import_gpg(uc.gpg_path)
-    if uc.ENCRYPTED and not (uc.ENCRYPTED / "gocryptfs.conf").exists():
+        clone_repos(nc.git_repos, nu.HOME, ssh=False)
+    if nu.gpg_path and not nu.gpg_path.exists():
+        import_gpg(nu.gpg_path)
+    if nu.ENCRYPTED and not (nu.ENCRYPTED / "gocryptfs.conf").exists():
         if shutil.which("gocryptfs"):
-            init_gocrypt(uc.ENCRYPTED)
-    if uc.dirs_icons:
-        set_folder_icons(uc.dirs_icons)
-    for plugin in uc.yazi_plugins:
+            init_gocrypt(nu.ENCRYPTED)
+    if nu.dirs_icons:
+        set_folder_icons(nu.dirs_icons)
+    for plugin in nc.yazi_plugins:
         run_dmc(["ya", "pkg", "add", plugin])
-    if any((uc.DOTS).iterdir()):
-        deploy_dotfiles(uc.HOME, uc.DOTS, uc.dirs_to_link, uc.ind_dirs, uc.sec_dir)
+    if any((nu.DOTS).iterdir()):
+        deploy_dotfiles(nc, nu)
         run_dmc(
             ["uv", "add", "openmeteo-requests"],
-            cwd=f"{uc.HOME}/.local/bin/weather",
+            cwd=f"{nu.HOME}/.local/bin/weather",
         )
     if shutil.which("scrcpy"):
         scrcpy_setup()
-    if uc.masterpass_path.is_file():
-        pass_and_input(uc.masterpass_path)
+    if nu.masterpass_path.is_file():
+        pass_and_input(nu.masterpass_path)
         launch_apps()
     run_dmc(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
         interactive=True,
     )
-    for d in [(uc.HOME / "archinstall")]:
+    for d in [(nu.HOME / "archinstall")]:
         if d.exists():
             shutil.rmtree(d)
     if yes_no("Reboot now?", default=False):
