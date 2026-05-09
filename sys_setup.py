@@ -608,6 +608,7 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
     user_base = f"home/{username}/.config/systemd/user"
     for unit in units:
+        chown_cmds = False
         target_dir = f"/{user_base}/{unit.target}.target.wants"
         mnt_target_dir = installation.target / target_dir
         mnt_target_dir.mkdir(parents=True, exist_ok=True)
