@@ -621,6 +621,7 @@ def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
             link_path = mnt_target_dir / service
             if not link_path.exists():
                 link_path.symlink_to(source_path)
+                log.info(f"{link_path}->{source_path}")
             if chown_cmds:
                 installation.arch_chroot(
                     f"chown {username}:{username} {target_dir}/{service}"
@@ -631,19 +632,18 @@ def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
 
 def user_service(
     installation: Installer,
-    users: list[User],
+    user: User,
     terminal: str,
     user_script="sys_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
 ) -> None:
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
-    for user in users:
-        dir_path = f"home/{user.username}/.config/systemd/user"
-        run_script = f"/home/{user.username}/{script_dir}/{user_script}"
-        name = f"{user_script.rsplit('.', 1)[0]}.service"
-        content = dedent(
-            f"""\
+    dir_path = f"home/{user.username}/.config/systemd/user"
+    run_script = f"/home/{user.username}/{script_dir}/{user_script}"
+    name = f"{user_script.rsplit('.', 1)[0]}.service"
+    content = dedent(
+        f"""\
             [Unit]
             Description=Open {terminal} {run_script} on login
             After=graphical-session.target
@@ -656,13 +656,10 @@ def user_service(
             [Install]
             WantedBy=graphical-session.target
             """
-        )
-        (installation.target / dir_path / name).write_text(content)
-        unit = UsrSrv(
-            source=f"/{dir_path}", target="graphical-session", services=[name]
-        )
-    for user in users:
-        enable_user_serv(installation, [unit], user.username)
+    )
+    (installation.target / dir_path / name).write_text(content)
+    unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
+    enable_user_serv(installation, [unit], user.username)
 
 
 def install_icons(installation: Installer):
@@ -890,6 +887,7 @@ def perform_installation(
                         installation, nc.user_services.user_owned, user.username
                     )
                     hide_apps(installation, user.username, nc.apps_to_hide)
+                    user_service(installation, user, nc.terminal)
                 user_1 = users[0].username
                 mpd_tmpfiles(installation, users)
                 configure_sudo(mountpoint, user_1, pless=True)
@@ -900,7 +898,6 @@ def perform_installation(
                 cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
                 installation.arch_chroot(cmd, user_1)
                 copy_keys(installation, user_1, nc.to_cp)
-                user_service(installation, users, nc.terminal)
         if config.bootloader_config:
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 if config.bootloader_config.uki:
