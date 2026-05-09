@@ -176,7 +176,6 @@ json_config = {
     "user_services": {
         "/usr/lib/systemd/user": {
             "sockets": [
-                "gcr-ssh-agent.socket",
                 "mpd.socket",
             ],
             "graphical-session": [
