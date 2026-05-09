@@ -163,9 +163,9 @@ json_config = {
             "source": "noahinstall",
             "destinations": {
                 ".ssh": [
+                    "users.json",
                     "id_ed25519",
                     "pass.txt",
-                    "users.json",
                 ],
                 ".gnupg": [
                     "my_sec_gpg.asc",
