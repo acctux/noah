@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+from utils import log, run_dmc, yes_no
+import pwd
+from extraconfig import json_config
+from noah_processor import NoahConfig, GitRepos
 from getpass import getpass
 import os
 from pathlib import Path
@@ -6,100 +10,13 @@ import time
 import gnupg
 import shutil
 import subprocess
-import pyperclip
-from utils import log, ping, ask_pass, yes_no, run_dmc
-
-
 from dataclasses import dataclass, field
+import pyperclip
 
 
-@dataclass
-class UserConfig:
-    ###########################################################
-    # USER CONFIG
-    ###########################################################
-    android: bool = True
-    firewalld: bool = True
-    firefox_browser: str = "floorp"
-    ###########################################################
-    # HOME & PATHS
-    ###########################################################
-    HOME: Path = field(default_factory=Path.home)
-    DESKTOP: Path = field(init=False)
-    ENCRYPTED: Path = field(init=False)
-    GIT_DIR: Path = field(init=False)
-    dots_path: Path = field(init=False)
-    DOCS: Path = field(init=False)
-    ssh_path: Path = field(init=False)
-    gpg_path: Path = field(init=False)
-    masterpass_path: Path = field(init=False)
-    ###########################################################
-    # REPOSITORIES
-    ###########################################################
-    repos: list[str] = field(default_factory=lambda: ["noah", "polka"])
-    private_repos: list[str] = field(default_factory=lambda: ["Docs"])
-    ###########################################################
-    # DOTFILES
-    ###########################################################
-    dirs_to_link: list[str] = field(default_factory=lambda: ["local/bin"])
-    sec_dir: Path = field(init=False)
-    ind_dirs: dict[str, Path] = field(init=False)
-    ###########################################################
-    # ICONS
-    ###########################################################
-    dirs_icons: dict[Path, str] = field(init=False)
-    ###########################################################
-    # YAZI PLUGINS
-    ###########################################################
-    yazi_plugins: list[str] = field(
-        default_factory=lambda: [
-            "yazi-rs/plugins:jump-to-char",
-            "uhs-robert/sshfs",
-            "boydaihungst/gvfs",
-            "uhs-robert/recycle-bin",
-            "h-hg/yamb",
-        ]
-    )
-
-    def __post_init__(self):
-        # Dependent paths
-        self.DESKTOP = self.HOME / "Desktop"
-        self.ENCRYPTED = self.DESKTOP / "Encrypted"
-        self.GIT_DIR = self.HOME / "Lit"
-        self.DOTS = self.GIT_DIR / "polka"
-        self.DOCS = self.GIT_DIR / "Docs"
-
-        self.ssh_path = self.HOME / ".ssh" / "id_ed25519"
-        self.gpg_path = self.HOME / ".gnupg" / "my_sec_gpg.asc"
-        self.masterpass_path = self.HOME / ".ssh" / "pass.txt"
-
-        self.sec_dir = self.DOCS / "base"
-        self.ind_dirs = {
-            "fonts": self.HOME / ".local" / "share",
-            "task": self.HOME / ".config",
-            "zsh": self.HOME / ".config",
-            "git": self.HOME / ".config",
-            "gh": self.HOME / ".config",
-        }
-        self.dirs_icons = {
-            self.DESKTOP / "Games": "folder-games",
-            self.ENCRYPTED: "folder-locked",
-            self.GIT_DIR: "folder-github",
-            self.GIT_DIR / "noah": "folder-root",
-            self.DOCS: "folder-bookmark",
-            self.dots_path: "folder-html",
-        }
-
-    ###########################################################
-    # HELPER METHODS
-    ###########################################################
-    def get_ind_dir(self, name: str) -> Path | None:
-        return self.ind_dirs.get(name)
-
-    def repo_path(self, repo_name: str) -> Path:
-        return self.GIT_DIR / repo_name
-
-
+############################
+# USER SETUP
+############################
 def iwctl_scan() -> bool:
     result = run_dmc(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
     time.sleep(10)
@@ -108,65 +25,106 @@ def iwctl_scan() -> bool:
     return False
 
 
-############################
-# Dotfile Symlink
-############################
-def deploy_dotfiles(
-    HOME: Path,
-    dot_dir: Path,
-    dirs_to_link: list[str],
-    ind_dirs: dict[str, Path],
-    sec_dots_dir: Path,
-):
-    def link_path(src: Path, dst: Path) -> bool:
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        rel = src.relative_to(dst.parent, walk_up=True)
-        if dst.is_symlink() and dst.readlink() == rel:
-            return False
-        if dst.exists():
-            if dst.is_dir() and not dst.is_symlink():
-                shutil.rmtree(dst)
-            else:
-                dst.unlink(missing_ok=True)
-            log.info(f"Removed: {dst}")
-        dst.symlink_to(rel, target_is_directory=src.is_dir())
-        log.info(f"Linked: {dst} → {rel}")
-        return True
+def ping(host: str = "google.com") -> bool:
+    cmd = ["ping", "-c", "1", host]
+    return (
+        subprocess.run(
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ).returncode
+        == 0
+    )
 
-    linked = 0
-    for src in dot_dir.rglob("*"):
+
+@dataclass(slots=True)
+class NoahUserProcessor:
+    data: NoahConfig
+    username: str | None = None
+    HOME: Path = field(init=False)
+
+    def __post_init__(self):
+        self.HOME = (
+            Path.home() if self.username is None else Path("/home") / self.username
+        )
+        self.ENCRYPTED = self.HOME / self.data.encrypted_dir
+        self.DOTS = self.HOME / "Lit" / self.data.dots_repo
+        self.ssh_path = self.HOME / ".ssh" / self.data.ssh_key_file
+        self.gpg_path = self.HOME / ".gnupg" / self.data.gpg_key_file
+        self.masterpass_path = self.HOME / ".ssh" / self.data.master_pass_file
+        self.SEC_DOTS = self.HOME / "Lit" / "Docs" / "secdots"
+        self.dirs_to_link = [self.HOME / path for _, path in self.data.dirs_to_link]
+        self.dirs_icons = {
+            self.HOME / path: icon for path, icon in self.data.dirs_icons.items()
+        }
+
+
+##########################################
+# HELPERS
+##########################################
+def link_path(src: Path, dst: Path) -> bool:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    rel = os.path.relpath(src, dst.parent)
+    if dst.is_symlink() and os.readlink(dst) == rel:
+        return False
+    if dst.exists() or dst.is_symlink():
+        if dst.is_dir() and not dst.is_symlink():
+            shutil.rmtree(dst)
+        else:
+            dst.unlink()
+        log.info(f"Removed: {dst}")
+    dst.symlink_to(rel, target_is_directory=src.is_dir())
+    log.info(f"Linked: {dst} → {rel}")
+    return True
+
+
+def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
+    parts = src.relative_to(source_dir).parts
+    return target_dir / Path("." + parts[0], *parts[1:])
+
+
+def collect_candidates(
+    base_dir: Path, home: Path, dirs_to_skip: list[str]
+) -> list[tuple[Path, Path]]:
+    """Return list of (src, dst) tuples for all files in base_dir, skipping certain dirs."""
+    candidates = []
+    for src in base_dir.rglob("*"):
         if not src.is_file():
             continue
-        rel = src.relative_to(dot_dir)
+        rel = src.relative_to(base_dir)
         if rel.parts[0] == ".git":
             continue
-        if any(rel.is_relative_to(Path(d)) for d in dirs_to_link):
+        if any(rel.parts[0] == d.split("/")[0] for d in dirs_to_skip):
             continue
-        dst = HOME / ("." + str(rel))
-        dst.parent.mkdir(parents=True, exist_ok=True)
+        candidates.append((src, dotted_destination(src, base_dir, home)))
+    return candidates
+
+
+def file_candidates(nc: NoahConfig, nu: NoahUserProcessor) -> list[tuple[Path, Path]]:
+    """Return list of (src, dst) tuples to link."""
+    candidates = []
+    candidates.extend(collect_candidates(nu.DOTS, nu.HOME, nc.dirs_to_link))
+    candidates.extend(collect_candidates(nu.SEC_DOTS, nu.HOME, nc.dirs_to_link))
+    for d in nc.dirs_to_link:
+        src = nu.HOME / nu.DOTS / d
+        if src.is_dir():
+            candidates.append((src, dotted_destination(src, nu.DOTS, nu.HOME)))
+    return candidates
+
+
+##########################################
+# MAIN
+##########################################
+def deploy_dotfiles(nc: NoahConfig, nu: NoahUserProcessor):
+    if not nu.DOTS.is_dir():
+        log.error(f"Dotfiles directory not found: {nu.DOTS}")
+        return
+    linked = 0
+    for src, dst in file_candidates(nc, nu):
         if link_path(src, dst):
             linked += 1
-    for d in dirs_to_link:
-        src = dot_dir / d
-        if not src.is_dir():
-            continue
-        dst = HOME / ("." + d)
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        if link_path(src, dst):
-            linked += 1
-    for src_name, dst_dir in ind_dirs.items():
-        src_dir = sec_dots_dir / src_name
-        if not src_dir.is_dir():
-            continue
-        for src in src_dir.rglob("*"):
-            if not src.is_file():
-                continue
-            dst = dst_dir / src.relative_to(src_dir)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            if link_path(src, dst):
-                linked += 1
-    run_dmc(["hyprctl", "reload"])
-    log.info(f"Linked: {linked}")
+    if shutil.which("hyprctl"):
+        subprocess.run(["hyprctl", "reload"], check=False)
+        log.info("Hyprland reloaded")
+    log.info(f"Total linked:\033[0m {linked}")
 
 
 ############################
@@ -181,11 +139,11 @@ def import_ssh(key_path: Path) -> None:
 
 
 def import_gpg(gpg_path: Path) -> None:
+
     key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
-    import_result = gpg.import_keys(
-        key_data, passphrase=ask_pass("GPG Password: ", False, 6)
-    )
+    pwd = getpass("Enter GPG Password:")
+    import_result = gpg.import_keys(key_data, pwd)
     log.info(import_result.results)
 
 
@@ -257,23 +215,30 @@ def ensure_github_known_hosts(HOME: Path) -> None:
             log.warning("Failed to scan github.com for known_hosts")
 
 
-def clone_repos(git_user: str, git_repos: list, dest: Path, ssh: bool) -> None:
-    def url(repo: str) -> str:
+def clone_repos(git_repos: list[GitRepos], dest: Path, ssh: bool) -> None:
+    def url(user: str, repo: str) -> str:
         if ssh:
-            return f"git@github.com:{git_user}/{repo}.git"
-        return f"https://github.com/{git_user}/{repo}.git"
+            return f"git@github.com:{user}/{repo}.git"
+        return f"https://github.com/{user}/{repo}.git"
 
     dest.mkdir(parents=True, exist_ok=True)
-    for repo in git_repos:
-        repo_path = dest / repo
-        if repo_path.exists():
-            log.info(f"{repo_path} exists, skipping.")
-            continue
-        result = run_dmc(["git", "clone", url(repo), str(repo_path)], check=False)
-        if result.returncode == 0:
-            log.info(f"Cloned {repo}")
-        else:
-            log.warning(f"Failed to clone {repo}")
+    for git_user in git_repos:
+        for remote_repo, local_dir in git_user.repos.items():
+            repo_path = dest / Path(local_dir).name
+            if repo_path.exists():
+                log.info(f"{repo_path} exists, skipping.")
+                continue
+            result = subprocess.run(
+                ["git", "clone", url(git_user.user, remote_repo), str(repo_path)],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                log.info(f"Cloned {remote_repo} to {repo_path}")
+            else:
+                log.warning(
+                    f"Failed to clone {remote_repo}. Error: {result.stderr.strip()}"
+                )
 
 
 def configure_git() -> None:
@@ -354,7 +319,7 @@ def scrcpy_setup(port=5555) -> None:
 ############################
 # Main
 ############################
-def main():
+def user_setup():
     if shutil.which("zsh"):
         run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
     if Path("/etc/resolv.conf").is_symlink() and not ping():
@@ -366,48 +331,46 @@ def main():
         time.sleep(5)
     if shutil.which("tuned"):
         run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
-    uc = UserConfig
+    nc = NoahConfig.from_config(json_config)
+    nu = NoahUserProcessor(nc)
     if shutil.which("mariadb"):
-        enable_mariadb(uc.user_name)
-    if uc.ssh_path.exists():
-        import_ssh(uc.ssh_path)
+        user = pwd.getpwuid(os.getuid()).pw_name
+        enable_mariadb(user)
+    if nu.ssh_path.exists():
+        import_ssh(nu.ssh_path)
         configure_git()
-        ensure_github_known_hosts(uc.HOME)
-        clone_repos(uc.git_user, uc.repos + uc.private_repos, uc.GIT_DIR, ssh=True)
+        ensure_github_known_hosts(nu.HOME)
+        clone_repos(nc.git_repos, nu.HOME, ssh=False)
     else:
-        clone_repos(uc.git_user, uc.repos, uc.GIT_DIR, ssh=False)
-    if uc.gpg_path and not uc.gpg_path.exists():
-        import_gpg(uc.gpg_path)
-    if uc.ENCRYPTED and not (uc.ENCRYPTED / "gocryptfs.conf").exists():
+        clone_repos(nc.git_repos, nu.HOME, ssh=False)
+    if nu.gpg_path and not nu.gpg_path.exists():
+        import_gpg(nu.gpg_path)
+    if nu.ENCRYPTED and not (nu.ENCRYPTED / "gocryptfs.conf").exists():
         if shutil.which("gocryptfs"):
-            init_gocrypt(uc.ENCRYPTED)
-    if uc.dirs_icons:
-        set_folder_icons(uc.dirs_icons)
-    for plugin in uc.yazi_plugins:
+            init_gocrypt(nu.ENCRYPTED)
+    if nu.dirs_icons:
+        set_folder_icons(nu.dirs_icons)
+    for plugin in nc.yazi_plugins:
         run_dmc(["ya", "pkg", "add", plugin])
-    if any((uc.dots_path).iterdir()):
-        deploy_dotfiles(uc.HOME, uc.dots_path, uc.dirs_to_link, uc.ind_dirs, uc.sec_dir)
+    if any((nu.DOTS).iterdir()):
+        deploy_dotfiles(nc, nu)
         run_dmc(
             ["uv", "add", "openmeteo-requests"],
-            cwd=f"/home/{uc.user_name}/.local/bin/weather",
+            cwd=f"{nu.HOME}/.local/bin/weather",
         )
-    if uc.android:
+    if shutil.which("scrcpy"):
         scrcpy_setup()
-    if uc.masterpass_path.is_file():
-        pass_and_input(uc.masterpass_path)
+    if nu.masterpass_path.is_file():
+        pass_and_input(nu.masterpass_path)
         launch_apps()
     run_dmc(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
         interactive=True,
     )
-    for d in [(uc.HOME / "archinstall")]:
+    for d in [(nu.HOME / "archinstall")]:
         if d.exists():
             shutil.rmtree(d)
     if yes_no("Reboot now?", default=False):
         run_dmc(["systemctl", "reboot"])
         log.info("Reboot cancelled.")
         return
-
-
-if __name__ == "__main__":
-    main()

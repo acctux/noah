@@ -1,4 +1,35 @@
 #!/usr/bin/env python3
+from archinstall.default_profiles.profile import GreeterType
+from archinstall.lib.authentication.authentication_handler import (
+    AuthenticationHandler,
+)
+from archinstall.lib.applications.application_handler import ApplicationHandler
+from archinstall.lib.hardware import _sys_info, GfxDriver
+from archinstall.lib.args import (
+    ArchConfig,
+    ArchConfigHandler,
+    AuthenticationConfiguration,
+)
+from archinstall.lib.configuration import ConfigurationOutput
+from archinstall.lib.disk.filesystem import FilesystemHandler
+from archinstall.lib.disk.utils import disk_layouts
+from archinstall.lib.general.general_menu import (
+    PostInstallationAction,
+    select_post_installation,
+)
+from archinstall.lib.global_menu import GlobalMenu
+from archinstall.lib.installer import Installer, run_custom_user_commands
+from archinstall.lib.menu.util import delayed_warning
+from archinstall.lib.models import Bootloader
+from archinstall.lib.models.device import DiskLayoutType, EncryptionType
+from archinstall.lib.models.users import User
+from archinstall.lib.output import debug, error, info
+from archinstall.tui.ui.components import tui
+from archinstall.lib.models.users import Password
+from archinstall.lib.network.network_handler import install_network_config
+from archinstall.lib.profile.profiles_handler import profile_handler
+from utils import log, run_dmc, yes_no
+from noah_processor import NoahConfig, CopyGroup, UsrSrv
 from typing import Any
 from pathlib import Path
 import sys
@@ -7,294 +38,16 @@ import subprocess
 import json
 import re
 import shutil
-import pwd
-import os
 import extraconfig as ec
-from getpass import getpass
-import logging
 from textwrap import dedent
-from dataclasses import dataclass, field
-
-
-#########################
-# LOG
-#########################
-class ColorFormatter(logging.Formatter):
-    COLORS = {
-        logging.DEBUG: "\033[36m",  # cyan
-        logging.INFO: "\033[34m",  # blue
-        logging.WARNING: "\033[93m",  # yellow
-        logging.ERROR: "\033[31m",  # red
-        logging.CRITICAL: "\033[41m",  # red background
-    }
-    RESET = "\033[0m"
-    UNDERLINE = "\033[4m"
-    NAME_COLOR = "\033[93m"  # yellow
-
-    def format(self, record):
-        colored_name = f"{self.NAME_COLOR}{record.name}{self.RESET}"
-        level_color = self.COLORS.get(record.levelno, "")
-        colored_message = f"{level_color}{record.getMessage()}{self.RESET}"
-        message = f"{colored_name}: {colored_message}"
-        if record.levelno == logging.CRITICAL:
-            message = f"{self.UNDERLINE}{message}{self.RESET}"
-        return message
-
-
-def get_logger(log_name: str | None = None, level=logging.INFO):
-    logger = logging.getLogger(log_name)
-    if logger.handlers:
-        return logger
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(ColorFormatter())
-    logger.addHandler(handler)
-    logger.setLevel(level)
-    logger.propagate = False
-    return logger
-
-
-log = get_logger("Noah")
-
-
-def parse_list(cls, values):
-    return [cls.parse_arg(v) for v in (values or [])]
-
-
-@dataclass(slots=True)
-class GitRepos:
-    user: str = ""
-    repos: dict = field(default_factory=dict)
-
-    @classmethod
-    def parse_arg(cls, data):
-        return cls(
-            user=data.get("user", ""),
-            repos=data.get("repos", {}),
-        )
-
-
-@dataclass(slots=True)
-class UsbFileCopy:
-    target_dir: str = ""
-    files: list[str] = field(default_factory=list)
-
-
-@dataclass(slots=True)
-class CopyGroup:
-    source: str = ""
-    to_cp_list: list[UsbFileCopy] = field(default_factory=list)
-
-    @classmethod
-    def parse_arg(cls, data: dict):
-        data = data or {}
-
-        return cls(
-            source=data.get("source", ""),
-            to_cp_list=[
-                UsbFileCopy(
-                    target_dir=target_dir,
-                    files=files,
-                )
-                for target_dir, files in data.get(
-                    "destinations",
-                    {},
-                ).items()
-            ],
-        )
-
-
-@dataclass(slots=True)
-class UsrSrv:
-    source: str = ""
-    target: str = ""
-    services: list = field(default_factory=list)
-
-
-@dataclass(slots=True)
-class UserServices:
-    services: list[UsrSrv] = field(default_factory=list)
-
-    @classmethod
-    def parse_arg(cls, data=None):
-        data = data or {}
-
-        return cls(
-            services=[
-                UsrSrv(
-                    source=source,
-                    target=target,
-                    services=services,
-                )
-                for source, targets in data.items()
-                for target, services in targets.items()
-            ]
-        )
-
-
-# =========================================================
-# Main config
-# =========================================================
-@dataclass(slots=True)
-class NoahConfig:
-    home: Path = Path.home()
-    dots_dir: Path = field(default_factory=lambda: Path.home() / "Lit" / "polka")
-    secdots_dir: Path = field(
-        default_factory=lambda: Path.home() / "Lit" / "Docs" / "secdots"
-    )
-    dirs_to_link: list[str] = field(default_factory=lambda: ["local/bin"])
-
-    terminal: str = "kitty"
-    firefox_browser: str = "floorp"
-    dots_repo: str = ""
-    git_user: str = ""
-    encrypted_dir: str = "Desktop/Encrypted"
-
-    ssh_key_file: str = "id_ed25519"
-    gpg_key_file: str = "my_sec_gpg.asc"
-    master_pass_file: str = "pass.txt"
-    my_pass: str = "users.json"
-
-    wireguard_dir: str = "wireguard"
-    parallel_downloads: int = 10
-
-    groups: list[str] = field(default_factory=list)
-    dirs_icons: dict[str, str] = field(default_factory=dict)
-    mkinit_hooks: list[str] = field(default_factory=list)
-    reflector_options: list[str] = field(default_factory=list)
-    custom_services: list[str] = field(default_factory=list)
-    disable_svcs: list[str] = field(default_factory=list)
-    apps_to_hide: list[str] = field(default_factory=list)
-    no_extracts: list[str] = field(default_factory=list)
-    yazi_plugins: list[str] = field(default_factory=list)
-    git_users: list[str] = field(default_factory=list)
-
-    git_repos: list[GitRepos] = field(default_factory=list)
-    to_cp: list[CopyGroup] = field(default_factory=list)
-    user_services: UserServices = field(default_factory=UserServices)
-
-    @classmethod
-    def from_config(cls, data):
-        data = data or {}
-        return cls(
-            terminal=data.get("terminal", "kitty"),
-            firefox_browser=data.get("firefox_browser", ""),
-            dots_repo=data.get("dots_repo", ""),
-            git_user=data.get("git_user", ""),
-            encrypted_dir=data.get("encrypted_dir", "Desktop/Encrypted"),
-            ssh_key_file=data.get("ssh_key_file", "id_ed25519"),
-            gpg_key_file=data.get("gpg_key_file", "my_sec_gpg.asc"),
-            master_pass_file=data.get("master_pass_file", "pass.txt"),
-            my_pass=data.get("my_pass", "users.json"),
-            wireguard_dir=data.get("wireguard_dir", "wireguard"),
-            parallel_downloads=data.get("parallel_downloads", 10),
-            groups=data.get("groups", []),
-            mkinit_hooks=data.get("mkinit_hooks", []),
-            reflector_options=data.get("reflector_options", []),
-            custom_services=data.get("custom_services", []),
-            disable_svcs=data.get("disable_svcs", []),
-            apps_to_hide=data.get("apps_to_hide", []),
-            no_extracts=data.get("no_extracts", []),
-            yazi_plugins=data.get("yazi_plugins", []),
-            git_users=data.get("git_users", []),
-            dirs_to_link=data.get("dirs_to_link", ["local/bin"]),
-            git_repos=parse_list(GitRepos, data.get("git_repos")),
-            to_cp=parse_list(CopyGroup, data.get("to_cp")),
-            dirs_icons=data.get("dirs_icons", {}),
-            user_services=UserServices.parse_arg(data.get("user_services")),
-        )
-
-
-@dataclass(slots=True)
-class NoahUserProcessor:
-    data: NoahConfig
-    username: str | None = None
-    HOME: Path = field(init=False)
-
-    def __post_init__(self):
-        self.HOME = (
-            Path("/root") if self.username is None else Path("/home") / self.username
-        )
-        self.ENCRYPTED = self.HOME / self.data.encrypted_dir
-        self.GIT_DIR = self.HOME / "Lit"
-        self.DOTS = self.GIT_DIR / self.data.dots_repo
-        self.ssh_path = self.HOME / ".ssh" / self.data.ssh_key_file
-        self.gpg_path = self.HOME / ".gnupg" / self.data.gpg_key_file
-        self.masterpass_path = self.HOME / ".ssh" / self.data.master_pass_file
-        self.sec_dir = self.GIT_DIR / "Docs" / "base"
-        self.dirs_to_link = [self.HOME / path for _, path in self.data.dirs_to_link]
-        self.dirs_icons = {
-            self.HOME / path: icon for path, icon in self.data.dirs_icons.items()
-        }
-
-
-def run_dmc(
-    cmd: list[str],
-    check: bool = False,
-    input_text: str = "",
-    shell: bool = False,
-    cwd=None,
-    interactive=False,
-):
-    if interactive:
-        return subprocess.Popen(cmd).wait()
-    log = get_logger("Run CMD")
-    try:
-        log.info(" ".join(cmd))
-        result = subprocess.run(
-            cmd,
-            text=True,
-            check=check,
-            capture_output=True,
-            input=input_text,
-            shell=shell,
-            cwd=cwd,
-        )
-        if result.stdout:
-            log.info(f"stdout: {result.stdout.strip()}")
-        return result
-    except subprocess.CalledProcessError as e:
-        log.error(f"Command failed: {' '.join(cmd)} (exit {e.returncode})")
-        if e.stdout:
-            log.info(f"stdout: {e.stdout.strip()}")
-        if e.stderr:
-            log.error(f"stderr: {e.stderr.strip()}")
-        return e
-
-
-def yes_no(prompt: str, default: bool = True) -> bool:
-    while True:
-        r = (
-            input(f"\033[92m{prompt} {'(Y/n)' if default else '(y/N)'}: \033[0m")
-            .strip()
-            .lower()
-        )
-        if r == "":
-            return default
-        if r in ("y"):
-            return True
-        if r in ("n"):
-            return False
-
-
-def ping(host: str = "google.com") -> bool:
-    cmd = ["ping", "-c", "1", host]
-    return (
-        subprocess.run(
-            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        ).returncode
-        == 0
-    )
 
 
 #########################
 # UTILS
 #########################
 def load_users_json(nc: NoahConfig) -> dict:
-    json_file = (
-        Path("/root")
-        / nc.to_cp[0].to_cp_list[0].target_dir
-        / nc.to_cp[0].to_cp_list[0].files[0]
-    )
+    ssh_dir = nc.to_cp[0].to_cp_list[0].target_dir
+    json_file = Path("/root") / ssh_dir / nc.to_cp[0].to_cp_list[0].files[0]
     if not (json_file).exists():
         return {"users": []}
     try:
@@ -393,7 +146,6 @@ def collect_missing_paths(
                 dest_file = target_dir / file_name
                 if not dest_file.exists():
                     missing_paths.append((Path(source_d) / file_name, dest_file))
-
     if wireguard_dir:
         dest_dir = root_home / wireguard_dir
         if not dest_dir.is_dir():
@@ -414,7 +166,7 @@ def mnt_cp_keys(
         log.info("All required files present.")
         return
     if not yes_no(
-        f"Missing: {', '.join(dest_path.name for _, dest_path in missing_paths)}\nMount USB?"
+        f"Missing: {', '.join(path.name for _, path in missing_paths)}\nMount USB?"
     ):
         return
     selected = get_device()
@@ -606,10 +358,9 @@ def enable_user_serv(
             source_dir = home / ".config/systemd/user"
         for service in unit.services:
             target_dir = home / ".config/systemd/user" / f"{unit.target}.target.wants"
-            mnt_target_dir = installation.target / target_dir.relative_to("/")
             source_path = source_dir / service
             installation.arch_chroot(f"mkdir -p {target_dir}", username)
-            link_path = mnt_target_dir / service
+            link_path = installation.target / target_dir.relative_to("/") / service
             if not link_path.exists():
                 installation.arch_chroot(
                     f"ln -sf {source_path} {target_dir}/{service}", username
@@ -809,7 +560,8 @@ def perform_installation(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
         generate_pacman_conf(mountpoint, list(nc.no_extracts))
-        installation.add_additional_packages("realtime-privileges")
+        if "realtime" in nc.groups:
+            installation.add_additional_packages("realtime-privileges")
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)
 
@@ -888,12 +640,9 @@ def perform_installation(
                 cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
                 installation.arch_chroot(cmd, user_1)
                 copy_keys(installation, user_1, nc.to_cp)
-
         if config.bootloader_config:
             if config.bootloader_config.bootloader == Bootloader.Systemd:
-                if config.bootloader_config.uki:
-                    print("Nope")
-                else:
+                if not config.bootloader_config.uki:
                     sysd_plymouth_setup(mountpoint)
 
         if services := config.services:
@@ -990,385 +739,13 @@ def sys_setup() -> None:
             return sys_setup()
         fs_handler.perform_filesystem_operations()
     perform_installation(
-        arch_config_handler,
-        AuthenticationHandler(),
-        ApplicationHandler(),
-        nc,
-        gfx_drivers,
+        arch_config_handler=arch_config_handler,
+        auth_handler=AuthenticationHandler(),
+        application_handler=ApplicationHandler(),
+        nc=nc,
+        gfx_drivers=gfx_drivers,
     )
-
-
-############################
-# USER SETUP
-############################
-def iwctl_scan() -> bool:
-    result = run_dmc(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
-    time.sleep(10)
-    if result.returncode == 0:
-        return True
-    return False
-
-
-##########################################
-# HELPERS
-##########################################
-def link_path(src: Path, dst: Path) -> bool:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    rel = os.path.relpath(src, dst.parent)
-    if dst.is_symlink() and os.readlink(dst) == rel:
-        return False
-    if dst.exists() or dst.is_symlink():
-        if dst.is_dir() and not dst.is_symlink():
-            shutil.rmtree(dst)
-        else:
-            dst.unlink()
-        log.info(f"Removed: {dst}")
-    dst.symlink_to(rel, target_is_directory=src.is_dir())
-    log.info(f"Linked: {dst} → {rel}")
-    return True
-
-
-def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
-    parts = src.relative_to(source_dir).parts
-    return target_dir / Path("." + parts[0], *parts[1:])
-
-
-def collect_candidates(
-    base_dir: Path, home: Path, dirs_to_skip: list[str]
-) -> list[tuple[Path, Path]]:
-    """Return list of (src, dst) tuples for all files in base_dir, skipping certain dirs."""
-    candidates = []
-    for src in base_dir.rglob("*"):
-        if not src.is_file():
-            continue
-        rel = src.relative_to(base_dir)
-        if rel.parts[0] == ".git":
-            continue
-        if any(rel.parts[0] == d.split("/")[0] for d in dirs_to_skip):
-            continue
-        candidates.append((src, dotted_destination(src, base_dir, home)))
-    return candidates
-
-
-def file_candidates(nc: NoahConfig, nu: NoahUserProcessor) -> list[tuple[Path, Path]]:
-    """Return list of (src, dst) tuples to link."""
-    candidates = []
-    candidates.extend(collect_candidates(nc.dots_dir, nu.HOME, nc.dirs_to_link))
-    candidates.extend(collect_candidates(nc.secdots_dir, nu.HOME, nc.dirs_to_link))
-    for d in nc.dirs_to_link:
-        src = nu.HOME / nc.dots_dir / d
-        if src.is_dir():
-            candidates.append((src, dotted_destination(src, nc.dots_dir, nu.HOME)))
-    return candidates
-
-
-##########################################
-# MAIN
-##########################################
-def deploy_dotfiles(nc: NoahConfig, nu: NoahUserProcessor):
-    if not (nu.HOME / nc.dots_dir).is_dir():
-        log.error(f"Dotfiles directory not found: {nu.HOME / nc.dots_dir}")
-        return
-    linked = 0
-    for src, dst in file_candidates(nc, nu):
-        if link_path(src, dst):
-            linked += 1
-    if shutil.which("hyprctl"):
-        subprocess.run(["hyprctl", "reload"], check=False)
-        log.info("Hyprland reloaded")
-    log.info(f"Total linked:\033[0m {linked}")
-
-
-############################
-# Encryption/Keys
-############################
-def import_ssh(key_path: Path) -> None:
-    if not Path(f"/run/user/{os.getuid()}/gcr/ssh").exists():
-        run_dmc(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
-        run_dmc(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-    run_dmc(["ssh-add", str(key_path)], check=False)
-    log.info(f"SSH key {key_path} added or already present.")
-
-
-def import_gpg(gpg_path: Path) -> None:
-
-    key_data = gpg_path.read_text()
-    gpg = gnupg.GPG()
-    pwd = getpass("Enter GPG Password:")
-    import_result = gpg.import_keys(key_data, pwd)
-    log.info(import_result.results)
-
-
-def init_gocrypt(enc_dir: Path) -> None:
-    enc_dir.mkdir(parents=True, exist_ok=True)
-    while True:
-        pw1 = getpass("Enter new gocryptfs password: ")
-        pw2 = getpass("Confirm password: ")
-        if pw1 == pw2 and pw1:
-            break
-        log.warning("Passwords do not match or empty. Try again.\n")
-    cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
-    run_dmc(cmd, check=True, input_text=pw1)
-    log.info(f"gocryptfs initialized at {enc_dir}.")
-
-
-############################
-# MariaDB
-############################
-def enable_mariadb(user_name) -> None:
-    while True:
-        p1 = getpass("Mariadb password: ")
-        p2 = getpass("Confirm: ")
-        if p1 == p2:
-            password = p1
-            break
-        print("Passwords do not match, try again.")
-    commands = [
-        [
-            "sudo",
-            "mariadb-install-db",
-            "--user=mysql",
-            "--basedir=/usr",
-            "--datadir=/var/lib/mysql",
-        ],
-        ["sudo", "systemctl", "start", "mariadb"],
-        [
-            "sudo",
-            "/usr/bin/mariadb",
-            "-e",
-            (
-                f"CREATE USER '{user_name}'@'localhost' IDENTIFIED BY '{password}'; "
-                f"GRANT ALL PRIVILEGES ON mydb.* TO '{user_name}'@'localhost'; "
-                "FLUSH PRIVILEGES;"
-            ),
-        ],
-    ]
-    for cmd in commands:
-        result = run_dmc(cmd)
-        if result and result.returncode != 0:
-            log.error(f"Command failed: {cmd}")
-
-
-############################
-# Git/Repos
-############################
-def ensure_github_known_hosts(HOME: Path) -> None:
-    kh = HOME / ".ssh" / "known_hosts"
-    kh.parent.mkdir(parents=True, exist_ok=True)
-    if not kh.exists():
-        kh.touch()
-    content = kh.read_text(errors="ignore")
-    if "github.com" not in content:
-        scan = run_dmc(["ssh-keyscan", "-H", "github.com"])
-        if scan and scan.stdout:
-            kh.write_text(content + scan.stdout)
-            log.info("Added github.com to known_hosts")
-        else:
-            log.warning("Failed to scan github.com for known_hosts")
-
-
-def clone_repos(
-    git_repos: list[GitRepos],
-    dest: Path,
-    ssh: bool,
-) -> None:
-    def url(user: str, repo: str) -> str:
-        if ssh:
-            return f"git@github.com:{user}/{repo}.git"
-        return f"https://github.com/{user}/{repo}.git"
-
-    dest.mkdir(parents=True, exist_ok=True)
-
-    for git_user in git_repos:
-        for remote_repo, local_dir in git_user.repos.items():
-            repo_path = dest / Path(local_dir).name
-            if repo_path.exists():
-                log.info(f"{repo_path} exists, skipping.")
-                continue
-
-            result = subprocess.run(
-                ["git", "clone", url(git_user.user, remote_repo), str(repo_path)],
-                capture_output=True,
-                text=True,
-            )
-
-            if result.returncode == 0:
-                log.info(f"Cloned {remote_repo} to {repo_path}")
-            else:
-                log.warning(
-                    f"Failed to clone {remote_repo}. Error: {result.stderr.strip()}"
-                )
-
-
-def configure_git() -> None:
-    result = run_dmc(["ssh-add", "-l"])
-    lines = result.stdout.strip().splitlines()
-    if not lines:
-        log.warning("No SSH keys found")
-        return
-    parts = lines[0].split()
-    my_email = parts[2]
-    my_name = input("Enter your full real name (git): ").strip()
-    run_dmc(["git", "config", "--global", "user.email", my_email])
-    run_dmc(["git", "config", "--global", "user.name", my_name])
-    log.info(f"Configured git with email={my_email} and name={my_name}")
-
-
-############################
-# Icons/Folders
-############################
-def set_folder_icons(
-    custom_folder_icons: dict[Path, str],
-    icon_dir="/usr/share/icons/WhiteSur-dark/places/scalable",
-) -> None:
-    for folder, icon_name in custom_folder_icons.items():
-        icon = f"{icon_dir}/{icon_name}.svg"
-        folder.mkdir(parents=True, exist_ok=True)
-        if Path(icon).exists():
-            icon_uri = f"file://{icon}"
-            cmd = ["gio", "set", str(folder), "metadata::custom-icon", icon_uri]
-            run_dmc(cmd)
-
-
-############################
-# Launch Apps
-############################
-def pass_and_input(pass_path: Path):
-    password = pass_path.read_text().strip()
-    os.environ["CLIPBOARD_STATE"] = "sensitive"
-    pyperclip.copy(password)
-    log.info("Password copied to clipboard.")
-    cmd = ["firedragon", "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/"]
-    subprocess.Popen(cmd).wait()
-    pyperclip.copy("")
-    log.info("Clipboard cleared.")
-    os.environ.pop("CLIPBOARD_STATE", None)
-
-
-def launch_apps(apps=["floorp", "protonmail-bridge", "betterbird", "steam"]):
-    processes = []
-    for app in apps:
-        processes.append(subprocess.Popen(app))
-    for app, process in zip(apps, processes):
-        process.wait()
-        log.info(f"{app} closed")
-
-
-def scrcpy_setup(port=5555) -> None:
-    answer = yes_no("Is your Android phone connected?")
-    if not answer:
-        log.info("Please connect your device via USB first.")
-        return
-    ip = next(
-        (
-            line.split("src")[-1].strip()
-            for line in run_dmc(["adb", "shell", "ip", "route"]).stdout.splitlines()
-            if "wlan" in line and "src" in line
-        )
-    )
-    if not ip:
-        log.warning("Could not determine device IP.")
-        return
-    target = f"{ip}:{port}"
-    log.info(f"Trying {target}")
-    msg = run_dmc(["adb", "connect", target])
-    log.info((msg.stdout + msg.stderr).lower())
-
-
-############################
-# Main
-############################
-def user_setup():
-    if shutil.which("zsh"):
-        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    if Path("/etc/resolv.conf").is_symlink() and not ping():
-        run_dmc(["sudo", "rm", "/etc/resolv.conf"])
-        run_dmc(["sudo", "resolvconf", "-u"])
-        run_dmc(["sudo", "systemctl", "restart", "iwd"])
-        time.sleep(5)
-        iwctl_scan()
-        time.sleep(5)
-    if shutil.which("tuned"):
-        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
-    nc = NoahConfig()
-    nu = NoahUserProcessor(nc)
-    if shutil.which("mariadb"):
-        user = pwd.getpwuid(os.getuid()).pw_name
-        enable_mariadb(user)
-    if nu.ssh_path.exists():
-        import_ssh(nu.ssh_path)
-        configure_git()
-        ensure_github_known_hosts(nu.HOME)
-        clone_repos(nc.git_repos, nu.HOME, ssh=False)
-    else:
-        clone_repos(nc.git_repos, nu.HOME, ssh=False)
-    if nu.gpg_path and not nu.gpg_path.exists():
-        import_gpg(nu.gpg_path)
-    if nu.ENCRYPTED and not (nu.ENCRYPTED / "gocryptfs.conf").exists():
-        if shutil.which("gocryptfs"):
-            init_gocrypt(nu.ENCRYPTED)
-    if nu.dirs_icons:
-        set_folder_icons(nu.dirs_icons)
-    for plugin in nc.yazi_plugins:
-        run_dmc(["ya", "pkg", "add", plugin])
-    if any((nu.DOTS).iterdir()):
-        deploy_dotfiles(nc, nu)
-        run_dmc(
-            ["uv", "add", "openmeteo-requests"],
-            cwd=f"{nu.HOME}/.local/bin/weather",
-        )
-    if shutil.which("scrcpy"):
-        scrcpy_setup()
-    if nu.masterpass_path.is_file():
-        pass_and_input(nu.masterpass_path)
-        launch_apps()
-    run_dmc(
-        ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
-        interactive=True,
-    )
-    for d in [(nu.HOME / "archinstall")]:
-        if d.exists():
-            shutil.rmtree(d)
-    if yes_no("Reboot now?", default=False):
-        run_dmc(["systemctl", "reboot"])
-        log.info("Reboot cancelled.")
-        return
 
 
 if __name__ == "__main__":
-    if os.geteuid() == 0:
-        from archinstall.default_profiles.profile import GreeterType
-        from archinstall.lib.authentication.authentication_handler import (
-            AuthenticationHandler,
-        )
-        from archinstall.lib.applications.application_handler import ApplicationHandler
-        from archinstall.lib.hardware import _sys_info, GfxDriver
-        from archinstall.lib.args import (
-            ArchConfig,
-            ArchConfigHandler,
-            AuthenticationConfiguration,
-        )
-        from archinstall.lib.configuration import ConfigurationOutput
-        from archinstall.lib.disk.filesystem import FilesystemHandler
-        from archinstall.lib.disk.utils import disk_layouts
-        from archinstall.lib.general.general_menu import (
-            PostInstallationAction,
-            select_post_installation,
-        )
-        from archinstall.lib.global_menu import GlobalMenu
-        from archinstall.lib.installer import Installer, run_custom_user_commands
-        from archinstall.lib.menu.util import delayed_warning
-        from archinstall.lib.models import Bootloader
-        from archinstall.lib.models.device import DiskLayoutType, EncryptionType
-        from archinstall.lib.models.users import User
-        from archinstall.lib.output import debug, error, info
-        from archinstall.tui.ui.components import tui
-        from archinstall.lib.models.users import Password
-        from archinstall.lib.network.network_handler import install_network_config
-        from archinstall.lib.profile.profiles_handler import profile_handler
-
-        sys_setup()
-    else:
-        user_setup()
-        import gnupg
-        import pyperclip
+    sys_setup()

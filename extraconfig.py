@@ -29,18 +29,22 @@ if os.geteuid() == 0:
         app_config=ApplicationConfiguration(
             bluetooth_config=BluetoothConfiguration(enabled=True),
             audio_config=AudioConfiguration(audio=Audio.PIPEWIRE),
-            power_management_config=PowerManagementConfiguration(PowerManagement.TUNED),
+            power_management_config=PowerManagementConfiguration(
+                power_management=PowerManagement.TUNED
+            ),
             print_service_config=PrintServiceConfiguration(enabled=False),
-            firewall_config=FirewallConfiguration(Firewall.FWD),
+            firewall_config=FirewallConfiguration(firewall=Firewall.FWD),
             fonts_config=FontsConfiguration(
-                [FontPackage.LIBERATION, FontPackage.EMOJI]
+                fonts=[FontPackage.LIBERATION, FontPackage.EMOJI]
             ),
         ),
         locale_config=LocaleConfiguration(
             kb_layout="us", sys_lang="en_US", sys_enc="UTF-8"
         ),
         network_config=NetworkConfiguration(type=NicType.ISO),
-        bootloader_config=BootloaderConfiguration(Bootloader.Systemd, False, False),
+        bootloader_config=BootloaderConfiguration(
+            bootloader=Bootloader.Systemd, uki=False, removable=False
+        ),
         hostname="yulia",
         kernels=["linux"],
         ntp=True,
@@ -81,12 +85,12 @@ json_config = {
     ],
     "git_repos": [
         {
-            "user": "acctux",
-            "repos": {
-                "noah": "Lit/noah",
-                "polka": "Lit/polka",
-                "docs": "Lit/Docs",
-            },
+            "username": "acctux",
+            "repos": [
+                ["noah", "Lit/noah"],
+                ["polka", "Lit/polka"],
+                ["docs", "Lit/Docs"],
+            ],
         }
     ],
     "groups": [
