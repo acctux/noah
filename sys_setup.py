@@ -603,10 +603,8 @@ def enable_user_serv(
     home = Path(f"/home/{username}")
     for unit in units:
         source_dir = Path(unit.source)
-        do_chown = True
         if unit.source == "/.config/systemd/user":
             source_dir = home / ".config/systemd/user"
-            do_chown = False
         for service in unit.services:
             target_dir = home / ".config/systemd/user" / f"{unit.target}.target.wants"
             mnt_target_dir = installation.target / target_dir.relative_to("/")
@@ -618,8 +616,6 @@ def enable_user_serv(
                     f"ln -sf {source_path} {target_dir}/{service}", username
                 )
                 log.info(f"{source_path} -> {target_dir}/{service}")
-        if do_chown:
-            installation.arch_chroot(f"chown {username}:{username} {target_dir}")
 
 
 def user_service(
@@ -650,6 +646,9 @@ def user_service(
             """
     )
     (installation.target / dir_path / name).write_text(content)
+    installation.arch_chroot(
+        f"chown {user.username}:{user.username} /{dir_path}/{name}"
+    )
     unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
     enable_user_serv(installation, [unit], user.username)
 
