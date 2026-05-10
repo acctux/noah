@@ -611,7 +611,7 @@ def enable_user_serv(
             target_dir = home / ".config/systemd/user" / f"{unit.target}.target.wants"
             mnt_target_dir = installation.target / target_dir.relative_to("/")
             source_path = source_dir / service
-            installation.arch_chroot(f"mkdir -p {target_dir}/{service}", username)
+            installation.arch_chroot(f"mkdir -p {target_dir}", username)
             link_path = mnt_target_dir / service
             if not link_path.exists():
                 installation.arch_chroot(
