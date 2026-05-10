@@ -597,7 +597,9 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
+def enable_user_serv(
+    installation: Installer, units: list[UsrSrv], username: str
+) -> None:
     home = Path(f"/home/{username}")
     for unit in units:
         source_dir = Path(unit.source)
@@ -612,12 +614,10 @@ def enable_user_serv(installation, units: list[UsrSrv], username: str) -> None:
             source_path = source_dir / service
             link_path = mnt_target_dir / service
             if not link_path.exists():
-                link_path.symlink_to(source_path)
-                log.info(f"{link_path} -> {source_path}")
-            if do_chown:
                 installation.arch_chroot(
-                    f"chown {username}:{username} {target_dir}/{service}"
+                    f"ln -sf {source_path} {target_dir}/{service}", username
                 )
+                log.info(f"{source_path} -> {target_dir}/{service}")
         if do_chown:
             installation.arch_chroot(f"chown {username}:{username} {target_dir}")
 
