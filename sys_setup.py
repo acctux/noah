@@ -414,11 +414,10 @@ def mnt_cp_keys(
         log.info("All required files present.")
         return
     if not yes_no(
-        f"Mount USB to copy {', '.join(str(dest_path) for _, dest_path in missing_paths)}"
+        f"Missing: {', '.join(dest_path.name for _, dest_path in missing_paths)}\nMount USB?"
     ):
         return
     selected = get_device()
-    run_dmc(["udevadm", "settle"])
     usb_mnt.mkdir(parents=True, exist_ok=True)
     run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
     time.sleep(2)
