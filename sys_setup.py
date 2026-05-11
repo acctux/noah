@@ -121,9 +121,12 @@ def collect_missing_paths(
     missing_paths: list[tuple[Path, Path]] = []
     root_home = Path("/root")
     for group in file_cp_list:
+        print(group)
         source_d = group.source_dir
+        print(source_d)
         for name in group.file_names:
             dest_path = root_home / group.target_dir / name
+            print(dest_path)
             if not dest_path.exists():
                 missing_paths.append((Path(source_d) / name, dest_path))
     for group in dir_cp_list:
@@ -146,7 +149,8 @@ def mnt_cp_keys(
 
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb()
-    if missing_paths := collect_missing_paths(file_cp_list, dir_cp_list):
+    missing_paths = collect_missing_paths(file_cp_list, dir_cp_list)
+    if missing_paths:
         log.info(f"Missing: {', '.join(path.name for _, path in missing_paths)}")
         if not yes_no("Mount USB?"):
             return
