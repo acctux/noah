@@ -153,7 +153,7 @@ def mnt_cp_keys(
     missing_files, missing_dirs = collect_missing_paths(file_cp_list, dir_cp_list)
     if missing_files or missing_dirs:
         log.info(
-            f"Missing: files: {', '.join(path.name for _, path in missing_files)}\nMissing: Directories to copy: {', '.join(path.name for _, path in missing_dirs)}"
+            f"\033[36mMissing files\033[0m: {', '.join(path.name for _, path in missing_files)}\nMissing directories: {', '.join(path.name for _, path in missing_dirs)}"
         )
         if not yes_no("Mount USB?"):
             return
