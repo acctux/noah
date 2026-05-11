@@ -206,7 +206,7 @@ json_config = {
             {
                 "source_dir": "noahinstall",
                 "target_dir": ".gnupg",
-                "file_names": [
+                "names": [
                     "my_sec_gpg.asc",
                 ],
             },

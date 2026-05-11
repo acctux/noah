@@ -46,7 +46,7 @@ class UsbDirCopy:
         return cls(
             source_dir=data.get("source_dir", ""),
             target_dir=data.get("target_dir", ""),
-            dir_names=data.get("dir_name", []),
+            dir_names=data.get("names", []),
         )
 
 
