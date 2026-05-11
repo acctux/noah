@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from archinstall.lib.disk.device_handler import device_handler
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.authentication.authentication_handler import (
     AuthenticationHandler,
@@ -697,55 +696,11 @@ def perform_installation(
                         pass
 
 
-# def find_hd(conf_json: dict, preferred_device: str = "vda") -> dict:
-#     lsblk = json.loads(
-#         subprocess.check_output(["lsblk", "-J", "-b", "-o", "NAME,SIZE,LOG-SEC"])
-#     )
-#     for d in lsblk["blockdevices"]:
-#         if d["name"] == preferred_device:
-#             conf_json["disk_config"]["device_modifications"][0]["device"] = (
-#                 f"/dev/{d['name']}"
-#             )
-#             conf_json["disk_config"]["device_modifications"][0]["partitions"][0][
-#                 "obj_id"
-#             ] = str(uuid.uuid4())
-#             conf_json["disk_config"]["device_modifications"][0]["partitions"][0][
-#                 "size"
-#             ]["sector_size"]["value"] = int(d["log-sec"])
-#             conf_json["disk_config"]["device_modifications"][0]["partitions"][0][
-#                 "start"
-#             ]["sector_size"]["value"] = int(d["log-sec"])
-#             conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
-#                 "obj_id"
-#             ] = str(uuid.uuid4())
-#             conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
-#                 "size"
-#             ]["sector_size"]["value"] = int(d["log-sec"])
-#             conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
-#                 "size"
-#             ]["value"] = int(d["size"]) - ((1 * 1024 * 1024) + (512 * 1024 * 1024))
-#             conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
-#                 "start"
-#             ]["sector_size"]["value"] = int(d["log-sec"])
-#             conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
-#                 "start"
-#             ]["value"] = (1 * 1024 * 1024) + (512 * 1024 * 1024)
-#     # arch_config_json["disk_config"]["disk_encryption"]["partitions"] = [
-#     #     arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1][
-#     #         "obj_id"
-#     #     ]
-#     # ]
-#     return conf_json
-
-
 def sys_setup() -> None:
-    print(device_handler.devices)
     nc = NoahConfig.from_config(ec.json_config)
     mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
     with open("users.json", "r") as f:
         users_dict = json.load(f)
-    # arch_json = find_hd(ec.arch_config_json)
-    # print(arch_json)
     auth_arch_config = ArchConfig.from_config(users_dict, Arguments(None))
     arch_config = ArchConfig.from_config(ec.arch_config_json, Arguments(None))
     arch_config_handler = ArchConfigHandler()

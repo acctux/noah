@@ -11,16 +11,6 @@ arch_config_json = {
     },
     "archinstall-language": "English",
     "bootloader_config": {"bootloader": "Limine", "removable": False, "uki": False},
-    "disk_config": {
-        "btrfs_options": {"snapshot_config": {"type": "Timeshift"}},
-        "config_type": "manual_partitioning",
-        "device_modifications": [],
-        "disk_encryption": {
-            "encryption_type": "luks",
-            "lvm_volumes": [],
-            "partitions": ["5734738e-adf6-4a35-91b1-51ea2d13408d"],
-        },
-    },
     "hostname": "yulia",
     "kernels": ["linux"],
     "locale_config": {"kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US.UTF-8"},
