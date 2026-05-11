@@ -730,11 +730,11 @@ def find_hd(arch_config_json: dict, preferred_device: str = "vda") -> dict:
     arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1][
         "start"
     ]["value"] = (1 * 1024 * 1024) + (512 * 1024 * 1024)
-    arch_config_json["disk_config"]["disk_encryption"]["partitions"] = [
-        arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1][
-            "obj_id"
-        ]
-    ]
+    # arch_config_json["disk_config"]["disk_encryption"]["partitions"] = [
+    #     arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1][
+    #         "obj_id"
+    #     ]
+    # ]
     return arch_config_json
 
 
