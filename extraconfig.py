@@ -66,11 +66,11 @@ arch_config_json = {
                 "wipe": True,
             }
         ],
-        "disk_encryption": {
-            "encryption_type": "luks",
-            "lvm_volumes": [],
-            "partitions": [],  # btrfs obj_id
-        },
+        # "disk_encryption": {
+        #     "encryption_type": "luks",
+        #     "lvm_volumes": [],
+        #     "partitions": [],  # btrfs obj_id
+        # },
     },
     "hostname": "yulia",
     "kernels": ["linux"],
