@@ -117,8 +117,9 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
 
 def collect_missing_paths(
     file_cp_list: list[UsbFileCopy], dir_cp_list: list[UsbDirCopy]
-) -> list[tuple[Path, Path]]:
-    missing_paths: list[tuple[Path, Path]] = []
+) -> tuple[list[tuple[Path, Path]], list[tuple[Path, Path]]]:
+    missing_keys: list[tuple[Path, Path]] = []
+    missing_dirs: list[tuple[Path, Path]] = []
     root_home = Path("/root")
     for group in file_cp_list:
         print(group)
@@ -128,13 +129,13 @@ def collect_missing_paths(
             dest_path = root_home / group.target_dir / name
             print(dest_path)
             if not dest_path.exists():
-                missing_paths.append((Path(source_d) / name, dest_path))
+                missing_keys.append((Path(source_d) / name, dest_path))
     for group in dir_cp_list:
         for name in group.dir_names:
             dest_dir = root_home / name
             if not dest_dir.is_dir():
-                missing_paths.append((Path(group.source_dir) / name, dest_dir))
-    return missing_paths
+                missing_dirs.append((Path(group.source_dir) / name, dest_dir))
+    return missing_keys, missing_dirs
 
 
 def mnt_cp_keys(
@@ -149,9 +150,11 @@ def mnt_cp_keys(
 
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb()
-    missing_paths = collect_missing_paths(file_cp_list, dir_cp_list)
-    if missing_paths:
-        log.info(f"Missing: {', '.join(path.name for _, path in missing_paths)}")
+    missing_files, missing_dirs = collect_missing_paths(file_cp_list, dir_cp_list)
+    if missing_files or missing_dirs:
+        log.info(
+            f"Missing: files: {', '.join(path.name for _, path in missing_files)}\nMissing: Directories to copy: {', '.join(path.name for _, path in missing_dirs)}"
+        )
         if not yes_no("Mount USB?"):
             return
         selected = get_device()
@@ -159,11 +162,13 @@ def mnt_cp_keys(
         run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
         run_dmc(["udevadm", "settle"])
         time.sleep(1)
-        for src_path, dest_path in missing_paths:
+        for src_path, dest_path in missing_files:
             src = usb_mnt / src_path
             if src.is_file():
                 copy_file(src, dest_path)
-            elif src.is_dir():
+        for src_path, dest_path in missing_dirs:
+            src = usb_mnt / src_path
+            if src.is_dir():
                 copy_dir(src, dest_path)
             else:
                 log.error(f"{src} does not exist on USB")
