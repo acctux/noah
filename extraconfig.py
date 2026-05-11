@@ -188,13 +188,6 @@ json_config = {
     "dirs_to_link": [
         "local/bin",
     ],
-    "ind_dirs": {
-        "fonts": ".local/share",
-        "task": ".config",
-        "zsh": ".config",
-        "git": ".config",
-        "gh": ".config",
-    },
     "dirs_icons": {
         "Desktop/Games": "folder-games",
         "Desktop/Encrypted": "folder-locked",
