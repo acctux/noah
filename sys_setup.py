@@ -125,12 +125,9 @@ def collect_missing_paths(
     missing_dirs: list[tuple[Path, Path]] = []
     root_home = Path("/root")
     for group in file_cp_list:
-        print(group)
         source_d = group.source_dir
-        print(source_d)
         for name in group.file_names:
             dest_path = root_home / group.target_dir / name
-            print(dest_path)
             if not dest_path.exists():
                 missing_keys.append((Path(source_d) / name, dest_path))
     for group in dir_cp_list:
@@ -233,17 +230,39 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
 
 
 def chaotic_repo(installation: Installer) -> None:
-    srv = "keyserver.ubuntu.com"
+    key_id = "3056513887B78AEB"
+    keyservers = [
+        "keyserver.ubuntu.com",
+        "hkps://keyserver.ubuntu.com",
+        "keys.openpgp.org",
+        "hkps://keys.openpgp.org",
+        "pgp.mit.edu",
+    ]
     web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
+    run_dmc(["pacman-key", "--init"])
+    installation.arch_chroot("pacman-key --init")
+    imported = False
+    for server in keyservers:
+        cmd = [
+            "pacman-key",
+            "--recv-key",
+            key_id,
+            "--keyserver",
+            server,
+        ]
+        run_dmc(cmd, check=True)
+        installation.arch_chroot(" ".join(cmd))
+        imported = True
+        break
+    if not imported:
+        raise RuntimeError("Failed to import Chaotic-AUR signing key")
     cmds = [
-        ["pacman-key", "--init"],
-        ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv],
-        ["pacman-key", "--lsign-key", "3056513887B78AEB"],
+        ["pacman-key", "--lsign-key", key_id],
         ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
         ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
     for cmd in cmds:
-        run_dmc(cmd)
+        run_dmc(cmd, check=True)
         installation.arch_chroot(" ".join(cmd))
     for path in [Path("/etc/pacman.conf"), installation.target / "etc/pacman.conf"]:
         with path.open("a") as f:
@@ -569,6 +588,7 @@ def perform_installation(
 
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
+
         if (
             config.bootloader_config
             and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
@@ -624,32 +644,27 @@ def perform_installation(
         sys_dots(mountpoint, script_d)
         install_icons(installation)
         modify_mkinit(mountpoint, list(nc.mkinit_hooks), plymouth=True)
-        if config.auth_config:
-            if users:
-                for user in users:
-                    installation.arch_chroot("xdg-user-dirs-update", user.username)
-                    enable_user_serv(
-                        installation, nc.user_services.services, user.username
-                    )
-                    enable_user_serv(
-                        installation, nc.user_services.services, user.username
-                    )
-                    hide_apps(installation, user.username, nc.apps_to_hide)
-                    user_service(installation, user, nc.terminal)
-                user_1 = users[0].username
-                mpd_tmpfiles(installation, users)
-                configure_sudo(mountpoint, user_1, pless=True)
-                cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
-                installation.arch_chroot(cmd, user_1)
-                cmd = "sudo passwd -dl root"
-                installation.arch_chroot(cmd, user_1)
-                cmd = "usermod --expiredate 1 root"
-                installation.arch_chroot(cmd, user_1)
-                configure_sudo(mountpoint, user_1)
-                copy_dir(script_d, (mountpoint / f"home/{user_1}" / script_d.name))
-                cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
-                installation.arch_chroot(cmd, user_1)
-                copy_keys(installation, user_1, nc.files_to_cp)
+        if users:
+            for user in users:
+                installation.arch_chroot("xdg-user-dirs-update", user.username)
+                enable_user_serv(installation, nc.user_services.services, user.username)
+                enable_user_serv(installation, nc.user_services.services, user.username)
+                hide_apps(installation, user.username, nc.apps_to_hide)
+                user_service(installation, user, nc.terminal)
+            user_1 = users[0].username
+            mpd_tmpfiles(installation, users)
+            configure_sudo(mountpoint, user_1, pless=True)
+            cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
+            installation.arch_chroot(cmd, user_1)
+            cmd = "sudo passwd -dl root"
+            installation.arch_chroot(cmd, user_1)
+            cmd = "usermod --expiredate 1 root"
+            installation.arch_chroot(cmd, user_1)
+            configure_sudo(mountpoint, user_1)
+            copy_dir(script_d, (mountpoint / f"home/{user_1}" / script_d.name))
+            cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
+            installation.arch_chroot(cmd, user_1)
+            copy_keys(installation, user_1, nc.files_to_cp)
         if config.bootloader_config:
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 if not config.bootloader_config.uki:
