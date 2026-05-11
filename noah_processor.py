@@ -91,10 +91,8 @@ class UserServices:
     @classmethod
     def parse_arg(cls, data=None):
         parsed = []
-
         for entry in data or []:
             source = entry.get("source", "")
-
             for target in entry.get("targets", []):
                 parsed.append(
                     UsrSrv(
@@ -103,7 +101,6 @@ class UserServices:
                         services=target.get("serv", []),
                     )
                 )
-
         return cls(parsed)
 
 
