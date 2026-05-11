@@ -441,7 +441,7 @@ def copy_keys(
     for group in groups:
         sys_path = Path("home") / username / group.target_dir
         if group.target_dir == "archinstall":
-            sys_path = installation.target
+            return
         target_dir = installation.target / sys_path
         target_dir.mkdir(parents=True, exist_ok=True)
         target_dir.chmod(0o700)
@@ -743,8 +743,12 @@ def sys_setup() -> None:
         users_dict = json.load(f)
     # arch_json = find_hd(ec.arch_config_json)
     # print(arch_json)
-    auth_arch_config = ArchConfig.from_config(users_dict, Arguments(None))
-    arch_config = ArchConfig.from_config(ec.arch_config_json, Arguments(None))
+    # auth_arch_config = ArchConfig.from_config(
+    #     users_dict, Arguments(creds=Path("users.json"))
+    # )
+    arch_config = ArchConfig.from_config(
+        ec.arch_config_json, Arguments(creds=Path("users.json"))
+    )
     arch_config_handler = ArchConfigHandler()
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
@@ -755,7 +759,7 @@ def sys_setup() -> None:
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.kernels = arch_config.kernels
     arch_config_handler.config.services = arch_config.services
-    arch_config_handler.config.auth_config = auth_arch_config.auth_config
+    arch_config_handler.config.auth_config = arch_config.auth_config
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
     base_pkgs = ec.pkgs["base"] + ec.pkgs["language"] + ec.pkgs["chaotic_repo"]
