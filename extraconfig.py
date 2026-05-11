@@ -197,7 +197,7 @@ json_config = {
             {
                 "source_dir": "noahinstall",
                 "target_dir": ".ssh",
-                "file_names": [
+                "names": [
                     "users.json",
                     "id_ed25519",
                     "pass.txt",
@@ -215,7 +215,7 @@ json_config = {
             {
                 "source_dir": "noahinstall",
                 "target_dir": "/etc/wireguard",
-                "dir_names": [
+                "names": [
                     "wireguard",
                 ],
             },
