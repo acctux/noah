@@ -697,7 +697,9 @@ def perform_installation(
 
 
 def find_hd(arch_config_json: dict, preferred_device: str = "vda") -> dict:
-    lsblk = json.loads(run_dmc(["lsblk", "-J", "-b", "-o", "NAME,SIZE,LOG-SEC"]))
+    lsblk = json.loads(
+        subprocess.check_output(["lsblk", "-J", "-b", "-o", "NAME,SIZE,LOG-SEC"])
+    )
     for d in lsblk["blockdevices"]:
         if d["name"] == preferred_device:
             disk = d
