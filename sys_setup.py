@@ -713,9 +713,10 @@ def perform_installation(
 
 
 def sys_setup() -> None:
+    script_dir: Path = Path(__file__).resolve().parent
     nc = NoahConfig.from_config(ec.json_config)
     mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
-    with open("users.json", "r") as f:
+    with open(str(script_dir / "users.json"), "r") as f:
         users_dict = json.load(f)
     auth_arch_config = ArchConfig.from_config(users_dict, Arguments(None))
     arch_config = ArchConfig.from_config(ec.arch_config_json, Arguments(None))
