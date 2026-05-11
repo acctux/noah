@@ -24,18 +24,10 @@ from archinstall.lib.installer import Installer, run_custom_user_commands
 from archinstall.lib.menu.util import delayed_warning
 from archinstall.lib.models import (
     Bootloader,
-    DiskLayoutConfiguration,
-    DiskEncryption,
-    DeviceModification,
-    BDevice,
-    PartitionModification,
 )
 from archinstall.lib.models.device import (
     DiskLayoutType,
     EncryptionType,
-    BtrfsOptions,
-    SnapshotConfig,
-    SnapshotType,
 )
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info

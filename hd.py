@@ -18,8 +18,7 @@ from archinstall.lib.models.device import (
 )
 from archinstall.lib.models.users import Password
 
-device_path = Path("/dev/vda")
-device = device_handler.get_device(device_path)
+device = device_handler.get_device(Path("/dev/vda"))
 if not device:
     raise ValueError("No device found for given path")
 device_modification = DeviceModification(device, wipe=True)
