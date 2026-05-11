@@ -585,7 +585,10 @@ def perform_installation(
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        copy_file(Path("/root/archinstall/chaotic.key"), mountpoint / "")
+        copy_file(
+            Path(f"/root/{nc.files_to_cp[0].target_dirs[1]}/chaotic.key"),
+            mountpoint / f"/root/{nc.files_to_cp[0].target_dirs[1]}/chaotic.key",
+        )
         generate_pacman_conf(mountpoint, list(nc.no_extracts))
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)

@@ -12,10 +12,15 @@ class GitRepos:
 
     @classmethod
     def parse_arg(cls, data):
+        data = data or {}
         return cls(
             user=data.get("user", ""),
             repos=data.get("repos", {}),
         )
+
+    def __iter__(self):
+        yield self.user
+        yield self.repos
 
 
 @dataclass(slots=True)
@@ -30,6 +35,10 @@ class UsbTargetCopy:
             dest=data.get("dest", ""),
             file_names=data.get("names", []),
         )
+
+    def __iter__(self):
+        yield self.dest
+        yield self.file_names
 
 
 @dataclass(slots=True)
@@ -46,6 +55,10 @@ class UsbFileCopy:
                 UsbTargetCopy.parse_arg(x) for x in data.get("target_dirs", [])
             ],
         )
+
+    def __iter__(self):
+        yield self.source_dir
+        yield self.target_dirs
 
 
 @dataclass(slots=True)
