@@ -130,10 +130,11 @@ def collect_missing_paths(
     root_home = Path("/root")
     for group in file_cp_list:
         source_d = group.source_dir
-        for name in group.file_names:
-            dest_path = root_home / group.target_dir / name
-            if not dest_path.exists():
-                missing_keys.append((Path(source_d) / name, dest_path))
+        for target in group.target_dirs:
+            for name in target.file_names:
+                dest_path = root_home / target.dest / name
+                if not dest_path.exists():
+                    missing_keys.append((Path(source_d) / name, dest_path))
     for group in dir_cp_list:
         for name in group.dir_names:
             dest_dir = root_home / name
@@ -454,19 +455,20 @@ def copy_keys(
 ) -> None:
     root_home = Path("/root")
     for group in groups:
-        sys_path = Path("home") / username / group.target_dir
-        if group.target_dir == "archinstall":
-            return
-        target_dir = installation.target / sys_path
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target_dir.chmod(0o700)
-        installation.chown(username, str(sys_path))
-        for name in group.file_names:
-            src = root_home / group.target_dir / name
-            dest = target_dir / name
-            copy_file(src, dest)
-            dest.chmod(0o600)
-            installation.chown(username, str(sys_path / name))
+        for target in group.target_dirs:
+            sys_path = Path("home") / username / target.dest
+            if target.dest == "archinstall":
+                return
+            target_dir = installation.target / sys_path
+            target_dir.mkdir(parents=True, exist_ok=True)
+            target_dir.chmod(0o700)
+            installation.chown(username, str(sys_path))
+            for name in target.file_names:
+                src = root_home / target.dest / name
+                dest = target_dir / name
+                copy_file(src, dest)
+                dest.chmod(0o600)
+                installation.chown(username, str(sys_path / name))
 
 
 def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) -> None:
