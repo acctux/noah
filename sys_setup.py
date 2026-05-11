@@ -138,6 +138,19 @@ def collect_missing_paths(
     return missing_keys, missing_dirs
 
 
+def copy_usb_to_root(usb_mnt, missing_files, missing_dirs):
+    for src_path, dest_path in missing_files:
+        src = usb_mnt / src_path
+        if src.is_file():
+            copy_file(src, dest_path)
+    for src_path, dest_path in missing_dirs:
+        src = usb_mnt / src_path
+        if src.is_dir():
+            copy_dir(src, dest_path)
+        else:
+            log.error(f"{src} does not exist on USB")
+
+
 def mnt_cp_keys(
     file_cp_list: list[UsbFileCopy],
     dir_cp_list: list[UsbDirCopy],
@@ -151,12 +164,13 @@ def mnt_cp_keys(
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb()
     missing_files, missing_dirs = collect_missing_paths(file_cp_list, dir_cp_list)
-    if missing_files or missing_dirs:
+    if missing_files:
         log.warning(
-            f"Missing Files: \033[36m{', '.join(path.name for _, path in missing_files)}\033[0m"
+            f"Requested files not yet present: \033[36m{', '.join(path.name for _, path in missing_files)}\033[0m"
         )
+    if missing_dirs:
         log.warning(
-            f"Missing Directories: \033[36m{', '.join(path.name for _, path in missing_dirs)}\033[0m"
+            f"Missing \033[36m{', '.join(path.name for _, path in missing_dirs)}\033[0m"
         )
         if not yes_no("Mount USB?"):
             return
@@ -165,16 +179,7 @@ def mnt_cp_keys(
         run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
         run_dmc(["udevadm", "settle"])
         time.sleep(1)
-        for src_path, dest_path in missing_files:
-            src = usb_mnt / src_path
-            if src.is_file():
-                copy_file(src, dest_path)
-        for src_path, dest_path in missing_dirs:
-            src = usb_mnt / src_path
-            if src.is_dir():
-                copy_dir(src, dest_path)
-            else:
-                log.error(f"{src} does not exist on USB")
+        copy_usb_to_root(usb_mnt, missing_files, missing_dirs)
         if yes_no("Files copied, unmount?"):
             unmount_usb()
     else:
@@ -783,5 +788,7 @@ def sys_setup() -> None:
     )
 
 
-if __name__ == "__main__":
-    sys_setup()
+# if __name__ == "__main__":
+#     sys_setup()
+cmd = ["pacman-key", "--add", "chaotic.key"]
+run_dmc(cmd)
