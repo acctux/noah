@@ -24,7 +24,7 @@ arch_config_json = {
                         "fs_type": "fat32",
                         "mount_options": [],
                         "mountpoint": "/boot",
-                        "obj_id": "cee25bd2-ec12-4cf0-a3e7-e25a5eb2c2d2",
+                        "obj_id": "",
                         "size": {
                             "sector_size": {"unit": "B", "value": 512},
                             "unit": "MiB",
@@ -48,16 +48,16 @@ arch_config_json = {
                         "flags": [],
                         "fs_type": "btrfs",
                         "mount_options": ["compress=zstd"],
-                        "obj_id": "5734738e-adf6-4a35-91b1-51ea2d13408d",
+                        "obj_id": "",
                         "size": {
                             "sector_size": {"unit": "B", "value": 512},
                             "unit": "B",
-                            "value": 511033999360,
+                            "value": 0,
                         },
                         "start": {
                             "sector_size": {"unit": "B", "value": 512},
                             "unit": "B",
-                            "value": 537919488,
+                            "value": 0,
                         },
                         "status": "create",
                         "type": "primary",
@@ -69,7 +69,7 @@ arch_config_json = {
         "disk_encryption": {
             "encryption_type": "luks",
             "lvm_volumes": [],
-            "partitions": ["5734738e-adf6-4a35-91b1-51ea2d13408d"],
+            "partitions": [],  # btrfs obj_id
         },
     },
     "hostname": "yulia",
