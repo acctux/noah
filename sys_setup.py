@@ -697,7 +697,6 @@ def perform_installation(
 
 
 def find_hd(arch_config_json: dict, preferred_device: str = "vda") -> dict:
-    disk = {}
     lsblk = json.loads(run_dmc(["lsblk", "-J", "-b", "-o", "NAME,SIZE,LOG-SEC"]))
     for d in lsblk["blockdevices"]:
         if d["name"] == preferred_device:
@@ -734,7 +733,7 @@ def find_hd(arch_config_json: dict, preferred_device: str = "vda") -> dict:
             "obj_id"
         ]
     ]
-    return disk
+    return arch_config_json
 
 
 def sys_setup() -> None:
@@ -742,8 +741,9 @@ def sys_setup() -> None:
     mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
     with open("/root/.ssh/users.json", "r") as f:
         users_dict = json.load(f)
+    arch_json = find_hd(ec.arch_config_json)
     auth_arch_config = ArchConfig.from_config(users_dict, Arguments(None))
-    arch_config = ArchConfig.from_config(ec.arch_config_json, Arguments(None))
+    arch_config = ArchConfig.from_config(arch_json, Arguments(None))
     arch_config_handler = ArchConfigHandler()
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
