@@ -703,7 +703,7 @@ def find_hd(conf_json: dict, preferred_device: str = "vda") -> dict:
     for d in lsblk["blockdevices"]:
         if d["name"] == preferred_device:
             disk = d
-            conf_json["disk_config"]["device_modifications"][0]["dev_path"] = (
+            conf_json["disk_config"]["device_modifications"][0]["device"] = (
                 f"/dev/{disk}"
             )
             conf_json["disk_config"]["device_modifications"][0]["partitions"][0][
