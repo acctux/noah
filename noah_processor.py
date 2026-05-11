@@ -66,9 +66,9 @@ class UsbDirCopy:
 
 @dataclass(slots=True)
 class UsrSrv:
-    source: str = ""
-    target: str = ""
-    services: list = field(default_factory=list)
+    source: str
+    target: str
+    services: list[str]
 
 
 @dataclass(slots=True)
@@ -77,14 +77,21 @@ class UserServices:
 
     @classmethod
     def parse_arg(cls, data=None):
-        data = data or {}
-        return cls(
-            services=[
-                UsrSrv(source=source, target=target, services=services)
-                for source, targets in data.items()
-                for target, services in targets.items()
-            ]
-        )
+        parsed = []
+
+        for entry in data or []:
+            source = entry.get("source", "")
+
+            for target in entry.get("targets", []):
+                parsed.append(
+                    UsrSrv(
+                        source=source,
+                        target=target.get("target", ""),
+                        services=target.get("serv", []),
+                    )
+                )
+
+        return cls(parsed)
 
 
 # =========================================================

@@ -86,51 +86,64 @@ json_config = {
             }
         ],
     },
-    "user_services": {
-        "source": "/usr/lib/systemd/user",
-        "targets": [
-            {
-                "default_target": "default",
-                "default_serv": [
-                    "psd.service",
-                ],
-            },
-            {
-                "sockets": [
-                    "gcr-ssh-agent.socket",
-                    "mpd.socket",
-                ],
-            },
-            {
-                "graphical-session": [
-                    "cliphist.service",
-                    "hypridle.service",
-                    "hyprsunset.service",
-                    "swaync.service",
-                    "waybar.service",
-                ],
-            },
-        ],
-        "/.config/systemd/user": {
-            "graphical-session": [
-                "ayugram.service",
-                "clip-persist.service",
-                "kdeconnectd.service",
-                "kanshi.service",
-                "playerctld.service",
-                "polkit-gnome.service",
-                "snixembed.service",
-                "swayosd.service",
-                "awww-daemon.service",
-            ],
-            "timers": [
-                "emailcheck.timer",
-                "task-reminder.timer",
-                "task-schedule.timer",
-                "wall.timer",
+    "user_services": [
+        {
+            "source": "/usr/lib/systemd/user",
+            "targets": [
+                {
+                    "target": "default",
+                    "serv": [
+                        "psd.service",
+                    ],
+                },
+                {
+                    "target": "sockets",
+                    "serv": [
+                        "gcr-ssh-agent.socket",
+                        "mpd.socket",
+                    ],
+                },
+                {
+                    "target": "graphical-session",
+                    "serv": [
+                        "cliphist.service",
+                        "hypridle.service",
+                        "hyprsunset.service",
+                        "swaync.service",
+                        "waybar.service",
+                    ],
+                },
             ],
         },
-    },
+        {
+            "source": ".config/systemd/user",
+            "targets": [
+                {
+                    "target": "graphical-session",
+                    "serv": [
+                        "ayugram.service",
+                        "clip-persist.service",
+                        "kdeconnectd.service",
+                        "kanshi.service",
+                        "playerctld.service",
+                        "polkit-gnome.service",
+                        "snixembed.service",
+                        "swayosd.service",
+                        "awww-daemon.service",
+                    ],
+                },
+                {
+                    "target": "graphical-session",
+                    "serv": [
+                        "emailcheck.timer",
+                        "task-reminder.timer",
+                        "task-schedule.timer",
+                        "wall.timer",
+                    ],
+                },
+            ],
+        },
+    ],
     "apps_to_hide": [
         "avahi-discover",
         "bssh",
