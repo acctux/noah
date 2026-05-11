@@ -644,8 +644,6 @@ def perform_installation(
             installation.arch_chroot(cmd, user_1)
             cmd = "sudo passwd -dl root"
             installation.arch_chroot(cmd, user_1)
-            cmd = "usermod --expiredate 1 root"
-            installation.arch_chroot(cmd, user_1)
             configure_sudo(mountpoint, user_1)
             copy_dir(script_d, (mountpoint / f"home/{user_1}" / script_d.name))
             cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
