@@ -696,46 +696,46 @@ def perform_installation(
                         pass
 
 
-def find_hd(arch_config_json: dict, preferred_device: str = "vda") -> dict:
+def find_hd(conf_json: dict, preferred_device: str = "vda") -> dict:
     lsblk = json.loads(
         subprocess.check_output(["lsblk", "-J", "-b", "-o", "NAME,SIZE,LOG-SEC"])
     )
     for d in lsblk["blockdevices"]:
         if d["name"] == preferred_device:
             disk = d
-    arch_config_json["disk_config"]["device_modifications"][0]["dev_path"] = (
-        f"/dev/{preferred_device}"
-    )
-    arch_config_json["disk_config"]["device_modifications"][0]["partitions"][0][
-        "obj_id"
-    ] = str(uuid.uuid4())
-    arch_config_json["disk_config"]["device_modifications"][0]["partitions"][0]["size"][
-        "sector_size"
-    ]["value"] = int(disk["log-sec"])
-    arch_config_json["disk_config"]["device_modifications"][0]["partitions"][0][
-        "start"
-    ]["sector_size"]["value"] = int(disk["log-sec"])
-    arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1][
-        "obj_id"
-    ] = str(uuid.uuid4())
-    arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1]["size"][
-        "sector_size"
-    ]["value"] = int(disk["log-sec"])
-    arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1]["size"][
-        "value"
-    ] = int(disk["size"]) - ((1 * 1024 * 1024) + (512 * 1024 * 1024))
-    arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1][
-        "start"
-    ]["sector_size"]["value"] = int(disk["log-sec"])
-    arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1][
-        "start"
-    ]["value"] = (1 * 1024 * 1024) + (512 * 1024 * 1024)
+            conf_json["disk_config"]["device_modifications"][0]["dev_path"] = (
+                f"/dev/{disk}"
+            )
+            conf_json["disk_config"]["device_modifications"][0]["partitions"][0][
+                "obj_id"
+            ] = str(uuid.uuid4())
+            conf_json["disk_config"]["device_modifications"][0]["partitions"][0][
+                "size"
+            ]["sector_size"]["value"] = int(disk["log-sec"])
+            conf_json["disk_config"]["device_modifications"][0]["partitions"][0][
+                "start"
+            ]["sector_size"]["value"] = int(disk["log-sec"])
+            conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
+                "obj_id"
+            ] = str(uuid.uuid4())
+            conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
+                "size"
+            ]["sector_size"]["value"] = int(disk["log-sec"])
+            conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
+                "size"
+            ]["value"] = int(disk["size"]) - ((1 * 1024 * 1024) + (512 * 1024 * 1024))
+            conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
+                "start"
+            ]["sector_size"]["value"] = int(disk["log-sec"])
+            conf_json["disk_config"]["device_modifications"][0]["partitions"][1][
+                "start"
+            ]["value"] = (1 * 1024 * 1024) + (512 * 1024 * 1024)
     # arch_config_json["disk_config"]["disk_encryption"]["partitions"] = [
     #     arch_config_json["disk_config"]["device_modifications"][0]["partitions"][1][
     #         "obj_id"
     #     ]
     # ]
-    return arch_config_json
+    return conf_json
 
 
 def sys_setup() -> None:
