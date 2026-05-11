@@ -587,7 +587,7 @@ def perform_installation(
         )
         copy_file(
             Path(f"/root/{nc.files_to_cp[0].target_dirs[1].dest}/chaotic.key"),
-            mountpoint / "",
+            mountpoint / f"{nc.files_to_cp[0].target_dirs[1].dest}/chaotic.key",
         )
         generate_pacman_conf(mountpoint, list(nc.no_extracts))
         copy_skel(mountpoint, nc)
