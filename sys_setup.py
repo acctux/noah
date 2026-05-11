@@ -713,7 +713,7 @@ def perform_installation(
 def sys_setup() -> None:
     nc = NoahConfig.from_config(ec.json_config)
     mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
-    with open(str("/root/.ssh/users.json"), "r") as f:
+    with open(str("/root/temp/users.json"), "r") as f:
         users_dict = json.load(f)
     auth_arch_config = ArchConfig.from_config(users_dict, Arguments(None))
     arch_config = ArchConfig.from_config(ec.arch_config_json, Arguments(None))
