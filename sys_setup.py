@@ -171,13 +171,9 @@ def mnt_cp_keys(
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb()
     missing_files, missing_dirs = collect_missing_paths(file_cp_list, dir_cp_list)
-    if missing_files:
+    if missing_files or missing_dirs:
         log.warning(
-            f"Requested files not yet present: {'\n'.join(str(path) for _, path in missing_files)}"
-        )
-    if missing_dirs:
-        log.warning(
-            f"Requested dirs not yet present: {'\n'.join(str(path) for _, path in missing_dirs)}"
+            f"Not yet present:\n{'\n'.join(str(path) for _, path in (missing_files + missing_dirs))}"
         )
         if not yes_no("Mount USB?"):
             return
