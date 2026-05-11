@@ -144,7 +144,6 @@ def mnt_cp_keys(
     file_cp_list: list[UsbFileCopy],
     dir_cp_list: list[UsbDirCopy],
     usb_mnt: Path = Path("/mnt/usb"),
-    log=log,
 ) -> None:
     def unmount_usb():
         run_dmc(["umount", str(usb_mnt)], check=True)
@@ -155,12 +154,11 @@ def mnt_cp_keys(
         unmount_usb()
     missing_files, missing_dirs = collect_missing_paths(file_cp_list, dir_cp_list)
     if missing_files or missing_dirs:
-        log = get_logger("Missing")
         log.info(
-            f"Files: \033[36m{', '.join(path.name for _, path in missing_files)}\033[0m"
+            f"\033[93mMissing Files:\033[0m \033[36m{', '.join(path.name for _, path in missing_files)}\033[0m"
         )
         log.info(
-            f"Directories: \033[36m{', '.join(path.name for _, path in missing_dirs)}\033[0m"
+            f"\033[93mMissing Directories:\033[0m \033[36m{', '.join(path.name for _, path in missing_dirs)}\033[0m"
         )
         if not yes_no("Mount USB?"):
             return
