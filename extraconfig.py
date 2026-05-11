@@ -16,7 +16,7 @@ arch_config_json = {
         "config_type": "manual_partitioning",
         "device_modifications": [
             {
-                "device": "/dev/nvme0n1",
+                "device": "",
                 "partitions": [
                     {
                         "btrfs": [],
