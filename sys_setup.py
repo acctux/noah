@@ -791,7 +791,7 @@ def sys_setup() -> None:
         if aborted:
             return sys_setup()
     if arch_config_handler.config.disk_config:
-        fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+        fs_handler = FilesystemHandler(d_conf)
         if not delayed_warning("Starting device modifications in "):
             return sys_setup()
         fs_handler.perform_filesystem_operations()
