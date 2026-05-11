@@ -132,9 +132,11 @@ def collect_missing_paths(
         source_d = group.source_dir
         for target in group.target_dirs:
             for name in target.file_names:
+                log.info(name)
                 dest_path = root_home / target.dest / name
                 if not dest_path.exists():
                     missing_keys.append((Path(source_d) / name, dest_path))
+                    log.info(str(Path(source_d) / name), dest_path)
     for group in dir_cp_list:
         for name in group.dir_names:
             dest_dir = root_home / name
