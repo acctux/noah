@@ -705,6 +705,7 @@ def sys_setup() -> None:
     )
     with open("/root/.ssh/users.json", "r") as f:
         users_dict = json.load(f)
+        print(users_dict)
     arch_config.auth_config = ArchConfig.from_config(
         users_dict, Arguments(None)
     ).auth_config
