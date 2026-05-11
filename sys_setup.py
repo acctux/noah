@@ -699,15 +699,10 @@ def sys_setup() -> None:
     nc = NoahConfig.from_config(ec.json_config)
     mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
     arch_config_handler = ArchConfigHandler()
-
-    arch_config = ArchConfig.from_config(
-        ec.arch_config_json, Arguments(creds=Path("/root/.ssh/users.json"))
-    )
+    arch_config = ArchConfig.from_config(ec.arch_config_json, Arguments(None))
     with open("/root/.ssh/users.json", "r") as f:
         users_dict = json.load(f)
-        print(users_dict)
-    archy_config = ArchConfig.from_config(users_dict, Arguments(None))
-    print(archy_config.auth_config)
+    auth_arch_config = ArchConfig.from_config(users_dict, Arguments(None))
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
@@ -716,8 +711,8 @@ def sys_setup() -> None:
     arch_config_handler.config.bootloader_config = arch_config.bootloader_config
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.kernels = arch_config.kernels
-    arch_config_handler.config.kernels = arch_config.kernels
     arch_config_handler.config.services = arch_config.services
+    arch_config_handler.config.auth_config = auth_arch_config.auth_config
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
     base_pkgs = ec.pkgs["base"] + ec.pkgs["language"] + ec.pkgs["chaotic_repo"]
