@@ -790,7 +790,5 @@ def sys_setup() -> None:
     )
 
 
-# if __name__ == "__main__":
-#     sys_setup()
-cmd = ["pacman-key", "--add", "chaotic.key"]
-run_dmc(cmd)
+if __name__ == "__main__":
+    sys_setup()
