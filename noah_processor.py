@@ -30,7 +30,7 @@ class UsbFileCopy:
         return cls(
             source_dir=data.get("source_dir", ""),
             target_dir=data.get("target_dir", ""),
-            file_names=data.get("file_names", []),
+            file_names=data.get("names", []),
         )
 
 
@@ -125,7 +125,9 @@ class NoahConfig:
             yazi_plugins=data.get("yazi_plugins", []),
             dirs_to_link=data.get("dirs_to_link", []),
             git_repos=parse_list(GitRepos, data.get("git_repos")),
-            files_to_cp=parse_list(UsbFileCopy, data.get("files_to_cp")),
+            files_to_cp=parse_list(
+                UsbFileCopy, data.get("to_cp", {}).get("files_to_cp")
+            ),
             dir_contents_to_cp=parse_list(UsbDirCopy, data.get("dir_contents_to_cp")),
             dirs_icons=data.get("dirs_icons", {}),
             user_services=UserServices.parse_arg(data.get("user_services")),
