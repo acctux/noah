@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from hd import d_conf
 from archinstall.lib.disk.device_handler import device_handler
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.authentication.authentication_handler import (
@@ -260,13 +259,12 @@ def chaotic_repo(installation: Installer) -> None:
     installation.arch_chroot("pacman -Sy")
 
 
-def mpd_tmpfiles(installation: Installer, users: list[User]) -> None:
-    for user in users:
-        cache = f"home/{user.username}/.cache/"
-        dir_path = installation.target / cache / "mpd/playlists"
-        dir_path.mkdir(parents=True, exist_ok=True)
-        dir_path.chmod(0o755)
-        installation.arch_chroot(f"chown -R {user.username}:{user.username} /{cache}")
+def mpd_tmpfiles(installation: Installer, user: User) -> None:
+    cache = f"home/{user.username}/.cache/"
+    dir_path = installation.target / cache / "mpd/playlists"
+    dir_path.mkdir(parents=True, exist_ok=True)
+    dir_path.chmod(0o755)
+    installation.arch_chroot(f"chown -R {user.username}:{user.username} /{cache}")
 
 
 def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
@@ -643,8 +641,8 @@ def perform_installation(
                 enable_user_serv(installation, nc.user_services.services, user.username)
                 hide_apps(installation, user.username, nc.apps_to_hide)
                 user_service(installation, user, nc.terminal)
+                mpd_tmpfiles(installation, user)
             user_1 = users[0].username
-            mpd_tmpfiles(installation, users)
             configure_sudo(mountpoint, user_1, pless=True)
             cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
             installation.arch_chroot(cmd, user_1)
@@ -652,8 +650,6 @@ def perform_installation(
             installation.arch_chroot(cmd, user_1)
             configure_sudo(mountpoint, user_1)
             copy_dir(script_d, (mountpoint / f"home/{user_1}" / script_d.name))
-            cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
-            installation.arch_chroot(cmd, user_1)
             copy_keys(installation, user_1, nc.files_to_cp)
         if config.bootloader_config:
             if config.bootloader_config.bootloader == Bootloader.Systemd:
@@ -754,7 +750,6 @@ def sys_setup() -> None:
     arch_config = ArchConfig.from_config(ec.arch_config_json, Arguments(None))
     arch_config_handler = ArchConfigHandler()
     arch_config_handler.config.hostname = arch_config.hostname
-    arch_config_handler.config.disk_config = d_conf
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
     arch_config_handler.config.profile_config = arch_config.profile_config
@@ -783,7 +778,7 @@ def sys_setup() -> None:
         if aborted:
             return sys_setup()
     if arch_config_handler.config.disk_config:
-        fs_handler = FilesystemHandler(d_conf)
+        fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         if not delayed_warning("Starting device modifications in "):
             return sys_setup()
         fs_handler.perform_filesystem_operations()

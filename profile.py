@@ -1,3 +1,5 @@
+from archinstall.lib.installer import Installer
+from archinstall.lib.models import User
 from typing import override
 from archinstall.default_profiles.profile import (
     CustomSetting,
@@ -163,11 +165,6 @@ class NoahProfile(Profile):
 
     @property
     @override
-    def install(self) -> GreeterType:
-        return GreeterType.Sddm
-
-    @property
-    @override
     def default_greeter_type(self) -> GreeterType:
         return GreeterType.Sddm
 
@@ -177,3 +174,13 @@ class NoahProfile(Profile):
         if pref := self.custom_settings.get(CustomSetting.SeatAccess, None):
             return [pref]
         return []
+
+    @override
+    def post_install(self, install_session: Installer) -> None:
+        install_session.arch_chroot(
+            "mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql"
+        )
+
+    @override
+    def provision(self, install_session: Installer, users: list[User]) -> None:
+        print("")
