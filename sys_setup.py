@@ -235,11 +235,10 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
 
 
 def chaotic_repo(installation: Installer) -> None:
-    srv = "keyserver.ubuntu.com"
     web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
     cmds = [
         ["pacman-key", "--init"],
-        ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv],
+        ["pacman-key", "--add", "chaotic.key"],
         ["pacman-key", "--add", "chaotic.key"],
         ["pacman-key", "--lsign-key", "3056513887B78AEB"],
         ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
@@ -441,6 +440,8 @@ def copy_keys(
     root_home = Path("/root")
     for group in groups:
         sys_path = Path("home") / username / group.target_dir
+        if group.target_dir == "archinstall":
+            sys_path = installation.target
         target_dir = installation.target / sys_path
         target_dir.mkdir(parents=True, exist_ok=True)
         target_dir.chmod(0o700)
@@ -566,6 +567,7 @@ def perform_installation(
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
+        copy_file(Path("/root/archinstall/chaotic.key"), mountpoint / "")
         generate_pacman_conf(mountpoint, list(nc.no_extracts))
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)

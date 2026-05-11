@@ -263,6 +263,13 @@ json_config = {
                 "source_dir": "noahinstall",
                 "target_dir": "archinstall",
                 "names": [
+                    "chaotic.key",
+                ],
+            },
+            {
+                "source_dir": "noahinstall",
+                "target_dir": "archinstall",
+                "names": [
                     "users.json",
                     "chaotic.key",
                 ],
