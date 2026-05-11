@@ -761,6 +761,7 @@ pkgs: dict[str, list[str]] = {
         "dmidecode",
         "dosfstools",
         "exfatprogs",
+        "hwdetect",
         "kanshi",
         "kitty",
         "less",
