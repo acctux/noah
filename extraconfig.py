@@ -255,9 +255,16 @@ json_config = {
                 "source_dir": "noahinstall",
                 "target_dir": ".ssh",
                 "names": [
-                    "users.json",
                     "id_ed25519",
                     "pass.txt",
+                ],
+            },
+            {
+                "source_dir": "noahinstall",
+                "target_dir": "archinstall",
+                "names": [
+                    "users.json",
+                    "chaotic.key",
                 ],
             },
             {

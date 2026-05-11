@@ -230,39 +230,18 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
 
 
 def chaotic_repo(installation: Installer) -> None:
-    key_id = "3056513887B78AEB"
-    keyservers = [
-        "keyserver.ubuntu.com",
-        "hkps://keyserver.ubuntu.com",
-        "keys.openpgp.org",
-        "hkps://keys.openpgp.org",
-        "pgp.mit.edu",
-    ]
+    srv = "keyserver.ubuntu.com"
     web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-    run_dmc(["pacman-key", "--init"])
-    installation.arch_chroot("pacman-key --init")
-    imported = False
-    for server in keyservers:
-        cmd = [
-            "pacman-key",
-            "--recv-key",
-            key_id,
-            "--keyserver",
-            server,
-        ]
-        run_dmc(cmd, check=True)
-        installation.arch_chroot(" ".join(cmd))
-        imported = True
-        break
-    if not imported:
-        raise RuntimeError("Failed to import Chaotic-AUR signing key")
     cmds = [
-        ["pacman-key", "--lsign-key", key_id],
+        ["pacman-key", "--init"],
+        ["pacman-key", "--recv-key", "3056513887B78AEB", "--keyserver", srv],
+        ["pacman-key", "--add", "chaotic.key"],
+        ["pacman-key", "--lsign-key", "3056513887B78AEB"],
         ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
         ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
     for cmd in cmds:
-        run_dmc(cmd, check=True)
+        run_dmc(cmd)
         installation.arch_chroot(" ".join(cmd))
     for path in [Path("/etc/pacman.conf"), installation.target / "etc/pacman.conf"]:
         with path.open("a") as f:
