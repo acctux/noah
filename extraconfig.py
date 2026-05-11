@@ -72,8 +72,15 @@ json_config = {
             {
                 "source_dir": "noahinstall",
                 "target_dirs": [
-                    {"dest": ".ssh", "names": ["id_ed25519", "pass.txt"]},
-                    {"dest": "temp", "names": ["users.json", "chaotic.key"]},
+                    {
+                        "dest": ".ssh",
+                        "names": [
+                            "id_ed25519",
+                            "pass.txt",
+                            "users.json",
+                            "chaotic.key",
+                        ],
+                    },
                     {"dest": ".gnupg", "names": ["my_sec_gpg.asc"]},
                 ],
             }
