@@ -1,72 +1,114 @@
-import os
 from textwrap import dedent
 
-if os.geteuid() == 0:
-    from archinstall.lib.models.bootloader import BootloaderConfiguration
-    from archinstall.lib.models.application import (
-        PowerManagementConfiguration,
-        PowerManagement,
-        Firewall,
-        FirewallConfiguration,
-        FontPackage,
-        FontsConfiguration,
-        ZramConfiguration,
-    )
-    from archinstall.lib.models import (
-        ApplicationConfiguration,
-        BluetoothConfiguration,
-        AudioConfiguration,
-        PrintServiceConfiguration,
-        Audio,
-        LocaleConfiguration,
-        NetworkConfiguration,
-        NicType,
-        Bootloader,
-    )
-    from archinstall.lib.args import ArchConfig
-
-    arch_config = ArchConfig(
-        app_config=ApplicationConfiguration(
-            bluetooth_config=BluetoothConfiguration(enabled=True),
-            audio_config=AudioConfiguration(audio=Audio.PIPEWIRE),
-            power_management_config=PowerManagementConfiguration(
-                power_management=PowerManagement.TUNED
-            ),
-            print_service_config=PrintServiceConfiguration(enabled=False),
-            firewall_config=FirewallConfiguration(firewall=Firewall.FWD),
-            fonts_config=FontsConfiguration(
-                fonts=[FontPackage.LIBERATION, FontPackage.EMOJI]
-            ),
-        ),
-        locale_config=LocaleConfiguration(
-            kb_layout="us", sys_lang="en_US", sys_enc="UTF-8"
-        ),
-        network_config=NetworkConfiguration(type=NicType.ISO),
-        bootloader_config=BootloaderConfiguration(
-            bootloader=Bootloader.Systemd, uki=False, removable=False
-        ),
-        hostname="yulia",
-        kernels=["linux"],
-        ntp=True,
-        swap=ZramConfiguration(enabled=True),
-        timezone="US/Eastern",
-        services=[
-            "ananicy-cpp",
-            "iwd",
-            "named",
-            "swayosd-libinput-backend",
-            "systemd-networkd",
-            "systemd-oomd",
-            "btrfs-scrub@-.timer",
-            "btrfs-scrub@home.timer",
-            "fstrim.timer",
-            "logrotate.timer",
-            "man-db.timer",
-            "paccache.timer",
-            "reflector.timer",
+arch_config_json = {
+    "app_config": {
+        "audio_config": {"audio": "pipewire"},
+        "bluetooth_config": {"enabled": True},
+        "firewall_config": {"firewall": "firewalld"},
+        "fonts_config": {"fonts": ["noto-fonts-emoji", "ttf-liberation"]},
+        "power_management_config": {"power_management": "tuned"},
+        "print_service_config": {"enabled": False},
+    },
+    "archinstall-language": "English",
+    "bootloader_config": {"bootloader": "Limine", "removable": False, "uki": False},
+    "disk_config": {
+        "btrfs_options": {"snapshot_config": {"type": "Timeshift"}},
+        "config_type": "manual_partitioning",
+        "device_modifications": [
+            {
+                "device": "/dev/nvme0n1",
+                "partitions": [
+                    {
+                        "btrfs": [],
+                        "flags": ["boot", "esp"],
+                        "fs_type": "fat32",
+                        "mount_options": [],
+                        "mountpoint": "/boot",
+                        "obj_id": "cee25bd2-ec12-4cf0-a3e7-e25a5eb2c2d2",
+                        "size": {
+                            "sector_size": {"unit": "B", "value": 512},
+                            "unit": "MiB",
+                            "value": 512,
+                        },
+                        "start": {
+                            "sector_size": {"unit": "B", "value": 512},
+                            "unit": "MiB",
+                            "value": 1,
+                        },
+                        "status": "create",
+                        "type": "primary",
+                    },
+                    {
+                        "btrfs": [
+                            {"mountpoint": "/", "name": "@"},
+                            {"mountpoint": "/home", "name": "@home"},
+                            {"mountpoint": "/var/log", "name": "@log"},
+                            {"mountpoint": "/var/cache/pacman/pkg", "name": "@pkg"},
+                        ],
+                        "flags": [],
+                        "fs_type": "btrfs",
+                        "mount_options": ["compress=zstd"],
+                        "obj_id": "5734738e-adf6-4a35-91b1-51ea2d13408d",
+                        "size": {
+                            "sector_size": {"unit": "B", "value": 512},
+                            "unit": "B",
+                            "value": 511033999360,
+                        },
+                        "start": {
+                            "sector_size": {"unit": "B", "value": 512},
+                            "unit": "B",
+                            "value": 537919488,
+                        },
+                        "status": "create",
+                        "type": "primary",
+                    },
+                ],
+                "wipe": True,
+            }
         ],
-    )
-
+        "disk_encryption": {
+            "encryption_type": "luks",
+            "lvm_volumes": [],
+            "partitions": ["5734738e-adf6-4a35-91b1-51ea2d13408d"],
+        },
+    },
+    "hostname": "yulia",
+    "kernels": ["linux"],
+    "locale_config": {"kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US.UTF-8"},
+    "network_config": {"type": "iso"},
+    "ntp": True,
+    "packages": [],
+    "pacman_config": {"color": True, "parallel_downloads": 10},
+    "profile_config": {
+        "gfx_driver": "AMD / ATI (open-source)",
+        "greeter": "ly",
+        "profile": {
+            "custom_settings": {"Hyprland": {"seat_access": "polkit"}},
+            "details": ["Hyprland"],
+            "main": "Desktop",
+        },
+    },
+    "services": [
+        "ananicy-cpp",
+        "iwd",
+        "named",
+        "swayosd-libinput-backend",
+        "systemd-networkd",
+        "systemd-oomd",
+        "btrfs-scrub@-.timer",
+        "btrfs-scrub@home.timer",
+        "fstrim.timer",
+        "logrotate.timer",
+        "man-db.timer",
+        "paccache.timer",
+        "reflector.timer",
+        "loggy",
+        "sysinfo",
+    ],
+    "swap": {"algorithm": "zstd", "enabled": True},
+    "timezone": "US/Eastern",
+    "version": "4.3",
+}
 
 json_config = {
     "parallel_downloads": 10,
@@ -79,7 +121,6 @@ json_config = {
     "gpg_key_file": "my_sec_gpg.asc",
     "master_pass_file": "pass.txt",
     "my_pass": "users.json",
-    "wireguard_dir": "wireguard",
     "dirs_to_link": [
         "local/bin",
     ],
@@ -92,13 +133,6 @@ json_config = {
                 ["docs", "Lit/Docs"],
             ],
         }
-    ],
-    "groups": [
-        "adm",
-        "games",
-        "realtime",
-        "storage",
-        "video",
     ],
     "mkinit_hooks": [
         "base",
@@ -119,10 +153,6 @@ json_config = {
         "--sort rate",
         "--number 3",
         "--save /etc/pacman.d/mirrorlist",
-    ],
-    "custom_services": [
-        "loggy",
-        "sysinfo",
     ],
     "disable_svcs": [
         "systemd-resolved",
@@ -162,21 +192,35 @@ json_config = {
         "etc/xdg/autostart/firewall-applet.desktop",
         "usr/share/icons/capitaine-cursors/*",
     ],
-    "to_cp": [
-        {
-            "source": "noahinstall",
-            "destinations": {
-                ".ssh": [
+    "to_cp": {
+        "files_to_cp": [
+            {
+                "source_dir": "noahinstall",
+                "target_dir": ".ssh",
+                "file_names": [
                     "users.json",
                     "id_ed25519",
                     "pass.txt",
                 ],
-                ".gnupg": [
+            },
+            {
+                "source_dir": "noahinstall",
+                "target_dir": ".gnupg",
+                "file_names": [
                     "my_sec_gpg.asc",
                 ],
             },
-        },
-    ],
+        ],
+        "dir_contents_to_cp": [
+            {
+                "source_dir": "noahinstall",
+                "target_dir": "/etc/wireguard",
+                "dir_names": [
+                    "wireguard",
+                ],
+            },
+        ],
+    },
     "user_services": {
         "/usr/lib/systemd/user": {
             "default": [
@@ -247,6 +291,13 @@ etc_files_to_write: dict[str, str] = {
         """\
         [Network]
         NameResolvingService=resolvconf
+        """
+    ),
+    "etc/apparmor/parser.conf": dedent(
+        """\
+        write-cache
+        cache-loc /etc/apparmor/earlypolicy/
+        Optimize=compress-fast
         """
     ),
     "etc/systemd/system/iwd.service.d/override.conf": dedent(
@@ -350,10 +401,16 @@ etc_files_to_write: dict[str, str] = {
         DESKTOP=Desktop
         MUSIC=Desktop/Music
         PICTURES=Desktop/Pictures
+        BOOKS=Desktop/Books
+        SCREENSHOTS=Desktop/Pictures/Screenshots
+        GAMES=Games
+        WALLPAPERS=Desktop/Pictures/Wallpapers
         VIDEOS=Desktop/Videos
         DOWNLOAD=Desktop/Downloads
         TEMPLATES=Desktop/Templates
+        PRIVATE=Desktop/Private
         PUBLICSHARE=Desktop/Public
+        PROJECTS="Lit"
         """
     ),
     "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
@@ -383,10 +440,15 @@ etc_files_to_write: dict[str, str] = {
         SystemMaxUse=50M
         """
     ),
+    "etc/fuse.conf": dedent(
+        """\
+        user_allow_other
+        """
+    ),
     "etc/systemd/zram-generator.conf": dedent(
         """\
         [zram0]
-        zram-size = min(ram / 3, 8192)
+        zram-size = min(ram / 2, 8192)
         compression-algorithm = zstd
         """
     ),
@@ -396,27 +458,38 @@ etc_files_to_write: dict[str, str] = {
         vm.watermark_boost_factor = 0
         vm.watermark_scale_factor = 125
         vm.page-cluster = 0
-        """
-    ),
-    "etc/fuse.conf": dedent(
-        """\
-        user_allow_other
-        """
-    ),
-    "etc/sysctl.d/99-watchdog.conf": dedent(
-        """\
-        kernel.nmi_watchdog = 0
-        """
-    ),
-    "etc/sysctl.d/99-steam.conf": dedent(
-        """\
+
         vm.max_map_count = 2147483642
+ 
+        # This action will speed up your boot and shutdown, because one less module is loaded.
+        # Additionally disabling watchdog timers increases performance and lowers power consumption
+        # Disable NMI watchdog
+        kernel.nmi_watchdog = 0
+
+        # To hide any kernel messages from the console
+        kernel.printk = 3 3 3 3
+
+        # Restricting access to kernel pointers in the proc filesystem
+        kernel.kptr_restrict = 2
+
+        # Increase netdev receive queue
+        # May help prevent losing packets
+        net.core.netdev_max_backlog = 4096
         """
     ),
-    "etc/sysctl.d/99-net.conf": dedent(
+    "etc/ssh/sshd_config.d/20-deny_root.conf": dedent("PermitRootLogin no"),
+    "etc/modprobe.d/blacklist.conf": dedent(
         """\
-        net.core.rmem_max = 8388608
-        net.core.wmem_max = 8388608
+        # Blacklist the Intel TCO Watchdog/Timer module
+        blacklist iTCO_wdt
+        # Blacklist the AMD SP5100 TCO Watchdog/Timer module (Required for Ryzen cpus)
+        blacklist sp5100_tco"
+        """
+    ),
+    "etc/modprobe.d/nvidia.conf": dedent(
+        """\
+        # Blacklist the Intel TCO Watchdog/Timer module
+        options nvidia NVreg_UsePageAttributeTable=1 
         """
     ),
     "etc/udisks2/mount_options.conf": dedent(
@@ -755,6 +828,7 @@ pkgs: dict[str, list[str]] = {
     "base": [
         # HARDWARE
         "ananicy-cpp",
+        "apparmor",
         "bluetui",
         "bluez-utils",  # for loggy
         "brightnessctl",
@@ -786,6 +860,7 @@ pkgs: dict[str, list[str]] = {
         "zsh-syntax-highlighting",
         "starship",
         "trash-cli",
+        "pkgfile",
         # Network
         "bind",
         "impala",
@@ -895,12 +970,31 @@ pkgs: dict[str, list[str]] = {
         "tesseract-data-eng",
     ],
     "chaotic_repo": [
+        "apparmor.d-git",
         "cachyos-ananicy-rules-git",
+        "downgrade",
         "floorp",
         "octopi",
         "paru",
         "systemd-oomd-defaults",
         "ocrmypdf",
+    ],
+    "printer": [
+        "cups",
+        "cups-browsed",
+        "cups-filters",
+        "cups-pdf",
+        "foomatic-db",
+        "foomatic-db-engine",
+        "foomatic-db-gutenprint-ppds",
+        "foomatic-db-nonfree",
+        "foomatic-db-nonfree-ppds",
+        "foomatic-db-ppds",
+        "ghostscript",
+        "gsfonts",
+        "gutenprint",
+        "splix",
+        "system-config-printer",
     ],
     "extra": [
         "rust",

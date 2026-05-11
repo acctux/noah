@@ -8,7 +8,7 @@ from archinstall.lib.hardware import _sys_info, GfxDriver
 from archinstall.lib.args import (
     ArchConfig,
     ArchConfigHandler,
-    AuthenticationConfiguration,
+    Arguments,
 )
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
@@ -25,11 +25,10 @@ from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
-from archinstall.lib.models.users import Password
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
 from utils import log, run_dmc, yes_no
-from noah_processor import NoahConfig, CopyGroup, UsrSrv
+from noah_processor import NoahConfig, UsbFileCopy, UsrSrv, UsbDirCopy
 from typing import Any
 from pathlib import Path
 import sys
@@ -45,23 +44,6 @@ from textwrap import dedent
 #########################
 # UTILS
 #########################
-def load_users_json(nc: NoahConfig) -> dict:
-    ssh_dir = nc.to_cp[0].to_cp_list[0].target_dir
-    json_file = Path("/root") / ssh_dir / nc.to_cp[0].to_cp_list[0].files[0]
-    if not (json_file).exists():
-        return {"users": []}
-    try:
-        with json_file.open() as f:
-            data = json.load(f)
-            users = data.get("users", [])
-            if not users:
-                log.warning(f"No users found in {json_file}")
-            return {"users": users}
-    except Exception as e:
-        log.error(f"Failed to read JSON: {e}")
-        return {"users": []}
-
-
 def copy_file(src: Path, dest: Path) -> None:
     if not src.is_file():
         log.error(f"{src} does not exist")
@@ -134,58 +116,57 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
 
 
 def collect_missing_paths(
-    groups: list[CopyGroup], wireguard_dir: str = ""
+    file_cp_list: list[UsbFileCopy], dir_cp_list: list[UsbDirCopy]
 ) -> list[tuple[Path, Path]]:
     missing_paths: list[tuple[Path, Path]] = []
     root_home = Path("/root")
-    for group in groups:
-        source_d = group.source
-        for copy_item in group.to_cp_list:
-            target_dir = root_home / copy_item.target_dir
-            for file_name in copy_item.files:
-                dest_file = target_dir / file_name
-                if not dest_file.exists():
-                    missing_paths.append((Path(source_d) / file_name, dest_file))
-    if wireguard_dir:
-        dest_dir = root_home / wireguard_dir
-        if not dest_dir.is_dir():
-            missing_paths.append((Path(source_d) / wireguard_dir, dest_dir))
-
+    for group in file_cp_list:
+        source_d = group.source_dir
+        for name in group.file_names:
+            dest_path = root_home / group.target_dir / name
+            if not dest_path.exists():
+                missing_paths.append((Path(source_d) / name, dest_path))
+    for group in dir_cp_list:
+        for name in group.dir_names:
+            dest_dir = root_home / name
+            if not dest_dir.is_dir():
+                missing_paths.append((Path(group.source_dir) / name, dest_dir))
     return missing_paths
 
 
 def mnt_cp_keys(
-    groups: list[CopyGroup], wireguard_dir: str = "", usb_mnt: Path = Path("/mnt/usb")
+    file_cp_list: list[UsbFileCopy],
+    dir_cp_list: list[UsbDirCopy],
+    usb_mnt: Path = Path("/mnt/usb"),
 ) -> None:
+    def unmount_usb():
+        run_dmc(["umount", str(usb_mnt)], check=True)
+        run_dmc(["udevadm", "settle"])
+        time.sleep(1)
+
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
-        run_dmc(["umount", str(usb_mnt)])
+        unmount_usb()
+    if missing_paths := collect_missing_paths(file_cp_list, dir_cp_list):
+        log.info(f"Missing: {', '.join(path.name for _, path in missing_paths)}")
+        if not yes_no("Mount USB?"):
+            return
+        selected = get_device()
+        usb_mnt.mkdir(parents=True, exist_ok=True)
+        run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
         run_dmc(["udevadm", "settle"])
         time.sleep(1)
-    missing_paths = collect_missing_paths(groups, wireguard_dir)
-    if not missing_paths:
-        log.info("All required files present.")
-        return
-    if not yes_no(
-        f"Missing: {', '.join(path.name for _, path in missing_paths)}\nMount USB?"
-    ):
-        return
-    selected = get_device()
-    usb_mnt.mkdir(parents=True, exist_ok=True)
-    run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
-    time.sleep(2)
-    for src_path, dest_path in missing_paths:
-        src = usb_mnt / src_path
-        if src.is_file():
-            copy_file(src, dest_path)
-        elif src.is_dir():
-            copy_dir(src, dest_path)
-        else:
-            log.error(f"{src} does not exist on USB")
-    time.sleep(1)
-    if yes_no("Files copied, unmount?"):
-        run_dmc(["umount", str(usb_mnt)])
-        run_dmc(["udevadm", "settle"])
-        time.sleep(1)
+        for src_path, dest_path in missing_paths:
+            src = usb_mnt / src_path
+            if src.is_file():
+                copy_file(src, dest_path)
+            elif src.is_dir():
+                copy_dir(src, dest_path)
+            else:
+                log.error(f"{src} does not exist on USB")
+        if yes_no("Files copied, unmount?"):
+            unmount_usb()
+    else:
+        log.info("All files to copy from USB found.")
 
 
 ###################################
@@ -274,6 +255,7 @@ def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
         Defaults    lecture=never
         Defaults    passwd_timeout=0
         Defaults    timestamp_timeout=20
+        Defaults    pwfeedback
         Defaults    timestamp_type=global
         Defaults    editor=/usr/sbin/nvim, !env_editor
         """
@@ -296,7 +278,13 @@ def sys_dots(mnt_point: Path, script_dir: Path) -> None:
         log.info("Copied %s to %s", source_dir, target_dir)
 
 
-def sysd_plymouth_setup(mnt_point: Path, boot_opts=["quiet", "splash"]) -> None:
+def sysd_boot_params(
+    mnt_point: Path, plymouth: bool, apparmor: bool, boot_opts=[]
+) -> None:
+    if plymouth:
+        boot_opts.extend(["quiet", "splash"])
+    if apparmor:
+        boot_opts.append("lsm=landlock,lockdown,yama,integrity,apparmor,bpf")
     entries_dir = mnt_point / "boot" / "loader" / "entries"
     for entry in entries_dir.iterdir():
         lines = entry.read_text().splitlines()
@@ -372,7 +360,7 @@ def user_service(
     installation: Installer,
     user: User,
     terminal: str,
-    user_script="sys_setup.py",
+    user_script="user_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
 ) -> None:
     if terminal.strip().lower() == "alacritty":
@@ -429,21 +417,22 @@ def install_icons(installation: Installer):
 ###################################
 # User Space
 ###################################
-def copy_keys(installation: Installer, username: str, groups: list[CopyGroup]) -> None:
+def copy_keys(
+    installation: Installer, username: str, groups: list[UsbFileCopy]
+) -> None:
     root_home = Path("/root")
     for group in groups:
-        for copy_item in group.to_cp_list:
-            sys_path = Path("home") / username / copy_item.target_dir
-            target_dir = installation.target / sys_path
-            target_dir.mkdir(parents=True, exist_ok=True)
-            target_dir.chmod(0o700)
-            installation.chown(username, str(sys_path))  # chown the directory
-            for name in copy_item.files:
-                src = root_home / copy_item.target_dir / name
-                dest = target_dir / name
-                copy_file(src, dest)
-                dest.chmod(0o600)
-                installation.chown(username, str(sys_path / name))
+        sys_path = Path("home") / username / group.target_dir
+        target_dir = installation.target / sys_path
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_dir.chmod(0o700)
+        installation.chown(username, str(sys_path))
+        for name in group.file_names:
+            src = root_home / group.target_dir / name
+            dest = target_dir / name
+            copy_file(src, dest)
+            dest.chmod(0o600)
+            installation.chown(username, str(sys_path / name))
 
 
 def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) -> None:
@@ -560,8 +549,6 @@ def perform_installation(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
         generate_pacman_conf(mountpoint, list(nc.no_extracts))
-        if "realtime" in nc.groups:
-            installation.add_additional_packages("realtime-privileges")
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)
 
@@ -613,7 +600,11 @@ def perform_installation(
         write_etc_file(mountpoint, ec.etc_files_to_write)
         reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
         reflector_timer_conf.write_text("\n".join(nc.reflector_options))
-        copy_dir(Path("/root") / nc.wireguard_dir, mountpoint / "etc" / "wireguard")
+        for dir_to_cp in nc.dir_contents_to_cp:
+            for name in dir_to_cp.dir_names:
+                copy_dir(
+                    Path("/root") / name, mountpoint / dir_to_cp.target_dir.lstrip("/")
+                )
         set_extensions(mountpoint, nc.firefox_browser, ec.new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
@@ -635,15 +626,19 @@ def perform_installation(
                 configure_sudo(mountpoint, user_1, pless=True)
                 cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
                 installation.arch_chroot(cmd, user_1)
+                cmd = "sudo passwd -dl root"
+                installation.arch_chroot(cmd, user_1)
+                cmd = "usermod --expiredate 1 root"
+                installation.arch_chroot(cmd, user_1)
                 configure_sudo(mountpoint, user_1)
                 copy_dir(script_d, (mountpoint / f"home/{user_1}" / script_d.name))
                 cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
                 installation.arch_chroot(cmd, user_1)
-                copy_keys(installation, user_1, nc.to_cp)
+                copy_keys(installation, user_1, nc.files_to_cp)
         if config.bootloader_config:
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 if not config.bootloader_config.uki:
-                    sysd_plymouth_setup(mountpoint)
+                    sysd_boot_params(mountpoint, plymouth=True, apparmor=True)
 
         if services := config.services:
             installation.enable_service(services)
@@ -690,32 +685,19 @@ def sys_setup() -> None:
     nc = NoahConfig.from_config(ec.json_config)
     mnt_cp_keys(nc.to_cp, nc.wireguard_dir)
     arch_config_handler = ArchConfigHandler()
-    users_json = load_users_json(nc)
-    if user_list := users_json.get("users", []):
-        arch_config_handler.config.auth_config = AuthenticationConfiguration(
-            None,
-            [
-                User(
-                    username=user_list[0]["username"],
-                    password=Password(enc_password=user_list[0]["enc_password"]),
-                    sudo=True,
-                    groups=list(nc.groups),
-                )
-            ],
-            None,
-        )
-    arch_config_handler.config.hostname = ec.arch_config.hostname
-    arch_config_handler.config.ntp = ec.arch_config.ntp
-    arch_config_handler.config.swap = ec.arch_config.swap
-    arch_config_handler.config.profile_config = ec.arch_config.profile_config
-    arch_config_handler.config.timezone = ec.arch_config.timezone
-    arch_config_handler.config.bootloader_config = ec.arch_config.bootloader_config
-    arch_config_handler.config.ntp = True
-    arch_config_handler.config.kernels = ec.arch_config.kernels
-    arch_config_handler.config.services = ec.arch_config.services + list(
-        nc.custom_services
+    arch_config = ArchConfig.from_config(
+        ec.arch_config_json, Arguments(creds=Path("/root/.ssh/users.json"))
     )
-    arch_config_handler.config.app_config = ec.arch_config.app_config
+    arch_config_handler.config.hostname = arch_config.hostname
+    arch_config_handler.config.ntp = arch_config.ntp
+    arch_config_handler.config.swap = arch_config.swap
+    arch_config_handler.config.profile_config = arch_config.profile_config
+    arch_config_handler.config.timezone = arch_config.timezone
+    arch_config_handler.config.bootloader_config = arch_config.bootloader_config
+    arch_config_handler.config.ntp = arch_config.ntp
+    arch_config_handler.config.kernels = arch_config.kernels
+    arch_config_handler.config.services = arch_config.services
+    arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
     base_pkgs = ec.pkgs["base"] + ec.pkgs["language"] + ec.pkgs["chaotic_repo"]
     if GfxDriver.VMOpenSource not in gfx_drivers:

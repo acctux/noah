@@ -20,24 +20,33 @@ class GitRepos:
 
 @dataclass(slots=True)
 class UsbFileCopy:
+    source_dir: str = ""
     target_dir: str = ""
-    files: list[str] = field(default_factory=list)
+    file_names: list[str] = field(default_factory=list)
+
+    @classmethod
+    def parse_arg(cls, data):
+        data = data or {}
+        return cls(
+            source_dir=data.get("source_dir", ""),
+            target_dir=data.get("target_dir", ""),
+            file_names=data.get("file_names", []),
+        )
 
 
 @dataclass(slots=True)
-class CopyGroup:
-    source: str = ""
-    to_cp_list: list[UsbFileCopy] = field(default_factory=list)
+class UsbDirCopy:
+    source_dir: str = ""
+    target_dir: str = ""
+    dir_names: list[str] = field(default_factory=list)
 
     @classmethod
-    def parse_arg(cls, data: dict):
+    def parse_arg(cls, data):
         data = data or {}
         return cls(
-            source=data.get("source", ""),
-            to_cp_list=[
-                UsbFileCopy(target_dir=target_dir, files=files)
-                for target_dir, files in data.get("destinations", {}).items()
-            ],
+            source_dir=data.get("source_dir", ""),
+            target_dir=data.get("target_dir", ""),
+            dir_names=data.get("dir_name", []),
         )
 
 
@@ -78,19 +87,18 @@ class NoahConfig:
     gpg_key_file: str
     master_pass_file: str
     my_pass: str
-    wireguard_dir: str
     parallel_downloads: int
     groups: list[str]
     dirs_icons: dict[str, str]
     mkinit_hooks: list[str]
     reflector_options: list[str]
-    custom_services: list[str]
     disable_svcs: list[str]
     apps_to_hide: list[str]
     no_extracts: list[str]
     yazi_plugins: list[str]
     git_repos: list[GitRepos]
-    to_cp: list[CopyGroup]
+    files_to_cp: list[UsbFileCopy]
+    dir_contents_to_cp: list[UsbDirCopy]
     user_services: UserServices
     dirs_to_link: list[str]
 
@@ -107,19 +115,18 @@ class NoahConfig:
             gpg_key_file=data.get("gpg_key_file", "my_sec_gpg.asc"),
             master_pass_file=data.get("master_pass_file", "pass.txt"),
             my_pass=data.get("my_pass", "users.json"),
-            wireguard_dir=data.get("wireguard_dir", "wireguard"),
             parallel_downloads=data.get("parallel_downloads", 10),
             groups=data.get("groups", []),
             mkinit_hooks=data.get("mkinit_hooks", []),
             reflector_options=data.get("reflector_options", []),
-            custom_services=data.get("custom_services", []),
             disable_svcs=data.get("disable_svcs", []),
             apps_to_hide=data.get("apps_to_hide", []),
             no_extracts=data.get("no_extracts", []),
             yazi_plugins=data.get("yazi_plugins", []),
             dirs_to_link=data.get("dirs_to_link", []),
             git_repos=parse_list(GitRepos, data.get("git_repos")),
-            to_cp=parse_list(CopyGroup, data.get("to_cp")),
+            files_to_cp=parse_list(UsbFileCopy, data.get("files_to_cp")),
+            dir_contents_to_cp=parse_list(UsbDirCopy, data.get("dir_contents_to_cp")),
             dirs_icons=data.get("dirs_icons", {}),
             user_services=UserServices.parse_arg(data.get("user_services")),
         )
