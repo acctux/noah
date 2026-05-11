@@ -243,7 +243,6 @@ def chaotic_repo(installation: Installer) -> None:
     cmds = [
         ["pacman-key", "--init"],
         ["pacman-key", "--add", "chaotic.key"],
-        ["pacman-key", "--add", "chaotic.key"],
         ["pacman-key", "--lsign-key", "3056513887B78AEB"],
         ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
         ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
@@ -258,12 +257,12 @@ def chaotic_repo(installation: Installer) -> None:
     installation.arch_chroot("pacman -Sy")
 
 
-def mpd_tmpfiles(installation: Installer, user: User) -> None:
-    cache = f"home/{user.username}/.cache/"
+def mpd_tmpfiles(installation: Installer, user: str) -> None:
+    cache = f"home/{user}/.cache/"
     dir_path = installation.target / cache / "mpd/playlists"
     dir_path.mkdir(parents=True, exist_ok=True)
     dir_path.chmod(0o755)
-    installation.arch_chroot(f"chown -R {user.username}:{user.username} /{cache}")
+    installation.arch_chroot(f"chown -R {user}:{user} /{cache}")
 
 
 def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
@@ -328,7 +327,22 @@ def modify_fstab(mnt_point: Path) -> None:
     fstab_path.write_text(content)
 
 
-def modify_mkinit(mnt_point: Path, hooks: list[str], plymouth: bool) -> None:
+def modify_mkinit(
+    mnt_point: Path,
+    plymouth: bool,
+    hooks: list[str] = [
+        "base",
+        "systemd",
+        "autodetect",
+        "microcode",
+        "modconf",
+        "kms",
+        "sd-vconsole",
+        "block",
+        "filesystems",
+        "fsck",
+    ],
+) -> None:
     if plymouth and "plymouth" not in hooks:
         hooks.insert(hooks.index("kms") + 1, "plymouth")
     with open(f"/{mnt_point}/etc/mkinitcpio.conf", "r+") as mkinit:
@@ -378,15 +392,15 @@ def enable_user_serv(
 
 def user_service(
     installation: Installer,
-    user: User,
+    user: str,
     terminal: str,
     user_script="user_setup.py",
     script_dir: str = Path(__file__).resolve().parent.name,
 ) -> None:
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
-    dir_path = f"home/{user.username}/.config/systemd/user"
-    run_script = f"/home/{user.username}/{script_dir}/{user_script}"
+    dir_path = f"home/{user}/.config/systemd/user"
+    run_script = f"/home/{user}/{script_dir}/{user_script}"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
     content = dedent(
         f"""\
@@ -404,11 +418,9 @@ def user_service(
             """
     )
     (installation.target / dir_path / name).write_text(content)
-    installation.arch_chroot(
-        f"chown {user.username}:{user.username} /{dir_path}/{name}"
-    )
+    installation.arch_chroot(f"chown {user}:{user} /{dir_path}/{name}")
     unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
-    enable_user_serv(installation, [unit], user.username)
+    enable_user_serv(installation, [unit], user)
 
 
 def install_icons(installation: Installer):
@@ -531,6 +543,9 @@ def perform_installation(
     disk_config = config.disk_config
     run_mkinitcpio = not config.bootloader_config or not config.bootloader_config.uki
     locale = config.locale_config
+    optional_repositories = (
+        config.mirror_config.optional_repositories if config.mirror_config else []
+    )
     with Installer(
         mountpoint,
         disk_config,
@@ -561,7 +576,7 @@ def perform_installation(
         )
         generate_pacman_conf(None, no_extracts=list(nc.no_extracts))
         installation.minimal_installation(
-            optional_repositories=[],
+            optional_repositories=optional_repositories,
             mkinitcpio=run_mkinitcpio,
             hostname=config.hostname,
             locale_config=locale,
@@ -632,15 +647,13 @@ def perform_installation(
         set_extensions(mountpoint, nc.firefox_browser, ec.new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
-        modify_mkinit(mountpoint, list(nc.mkinit_hooks), plymouth=True)
         if users:
             for user in users:
                 installation.arch_chroot("xdg-user-dirs-update", user.username)
                 enable_user_serv(installation, nc.user_services.services, user.username)
-                enable_user_serv(installation, nc.user_services.services, user.username)
                 hide_apps(installation, user.username, nc.apps_to_hide)
-                user_service(installation, user, nc.terminal)
-                mpd_tmpfiles(installation, user)
+                user_service(installation, user.username, nc.terminal)
+                mpd_tmpfiles(installation, user.username)
             user_1 = users[0].username
             configure_sudo(mountpoint, user_1, pless=True)
             cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
@@ -654,6 +667,7 @@ def perform_installation(
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 if not config.bootloader_config.uki:
                     sysd_boot_params(mountpoint, plymouth=True, apparmor=True)
+                    modify_mkinit(mountpoint, plymouth=True)
 
         if services := config.services:
             installation.enable_service(services)

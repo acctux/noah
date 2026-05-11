@@ -19,18 +19,32 @@ class GitRepos:
 
 
 @dataclass(slots=True)
-class UsbFileCopy:
-    source_dir: str = ""
-    target_dir: str = ""
+class UsbTargetCopy:
+    dest: str = ""
     file_names: list[str] = field(default_factory=list)
 
     @classmethod
     def parse_arg(cls, data):
         data = data or {}
         return cls(
-            source_dir=data.get("source_dir", ""),
-            target_dir=data.get("target_dir", ""),
+            dest=data.get("dest", ""),
             file_names=data.get("names", []),
+        )
+
+
+@dataclass(slots=True)
+class UsbFileCopy:
+    source_dir: str = ""
+    target_dirs: list[UsbTargetCopy] = field(default_factory=list)
+
+    @classmethod
+    def parse_arg(cls, data):
+        data = data or {}
+        return cls(
+            source_dir=data.get("source_dir", ""),
+            target_dirs=[
+                UsbTargetCopy.parse_arg(x) for x in data.get("target_dirs", [])
+            ],
         )
 
 
@@ -126,10 +140,10 @@ class NoahConfig:
             dirs_to_link=data.get("dirs_to_link", []),
             git_repos=parse_list(GitRepos, data.get("git_repos")),
             files_to_cp=parse_list(
-                UsbFileCopy, data.get("to_cp", {}).get("files_to_cp")
+                UsbFileCopy, data.get("copy_config", {}).get("files_to_cp")
             ),
             dir_contents_to_cp=parse_list(
-                UsbDirCopy, data.get("to_cp", {}).get("dir_contents_to_cp")
+                UsbDirCopy, data.get("copy_config", {}).get("dir_contents_to_cp")
             ),
             dirs_icons=data.get("dirs_icons", {}),
             user_services=UserServices.parse_arg(data.get("user_services")),

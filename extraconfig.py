@@ -1,5 +1,6 @@
 from textwrap import dedent
 
+
 arch_config_json = {
     "app_config": {
         "audio_config": {"audio": "pipewire"},
@@ -14,128 +15,11 @@ arch_config_json = {
     "hostname": "yulia",
     "kernels": ["linux"],
     "locale_config": {"kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US.UTF-8"},
+    "optional_repositories": ["multilib"],
     "network_config": {"type": "iso"},
     "ntp": True,
     "packages": [],
     "pacman_config": {"color": True, "parallel_downloads": 10},
-    "profile_config": {
-        "gfx_driver": "AMD / ATI (open-source)",
-        "greeter": "ly",
-        "profile": {
-            "custom_settings": {"Hyprland": {"seat_access": "polkit"}},
-            "details": ["Hyprland"],
-            "main": "Desktop",
-        },
-    },
-    "services": [
-        "ananicy-cpp",
-        "iwd",
-        "named",
-        "swayosd-libinput-backend",
-        "systemd-networkd",
-        "systemd-oomd",
-        "btrfs-scrub@-.timer",
-        "btrfs-scrub@home.timer",
-        "fstrim.timer",
-        "logrotate.timer",
-        "man-db.timer",
-        "paccache.timer",
-        "reflector.timer",
-        "loggy",
-        "sysinfo",
-    ],
-    "swap": {"algorithm": "zstd", "enabled": True},
-    "timezone": "US/Eastern",
-    "version": "4.3",
-}
-orig_arch_config_json = {
-    "app_config": {
-        "audio_config": {"audio": "pipewire"},
-        "bluetooth_config": {"enabled": True},
-        "firewall_config": {"firewall": "firewalld"},
-        "fonts_config": {"fonts": ["noto-fonts-emoji", "ttf-liberation"]},
-        "power_management_config": {"power_management": "tuned"},
-        "print_service_config": {"enabled": False},
-    },
-    "archinstall-language": "English",
-    "bootloader_config": {"bootloader": "Limine", "removable": False, "uki": False},
-    "disk_config": {
-        "btrfs_options": {"snapshot_config": {"type": "Timeshift"}},
-        "config_type": "manual_partitioning",
-        "device_modifications": [
-            {
-                "device": "/dev/nvme0n1",
-                "partitions": [
-                    {
-                        "btrfs": [],
-                        "flags": ["boot", "esp"],
-                        "fs_type": "fat32",
-                        "mount_options": [],
-                        "mountpoint": "/boot",
-                        "obj_id": "cee25bd2-ec12-4cf0-a3e7-e25a5eb2c2d2",
-                        "size": {
-                            "sector_size": {"unit": "B", "value": 512},
-                            "unit": "MiB",
-                            "value": 512,
-                        },
-                        "start": {
-                            "sector_size": {"unit": "B", "value": 512},
-                            "unit": "MiB",
-                            "value": 1,
-                        },
-                        "status": "create",
-                        "type": "primary",
-                    },
-                    {
-                        "btrfs": [
-                            {"mountpoint": "/", "name": "@"},
-                            {"mountpoint": "/home", "name": "@home"},
-                            {"mountpoint": "/var/log", "name": "@log"},
-                            {"mountpoint": "/var/cache/pacman/pkg", "name": "@pkg"},
-                        ],
-                        "flags": [],
-                        "fs_type": "btrfs",
-                        "mount_options": ["compress=zstd"],
-                        "obj_id": "5734738e-adf6-4a35-91b1-51ea2d13408d",
-                        "size": {
-                            "sector_size": {"unit": "B", "value": 512},
-                            "unit": "B",
-                            "value": 511033999360,
-                        },
-                        "start": {
-                            "sector_size": {"unit": "B", "value": 512},
-                            "unit": "B",
-                            "value": 537919488,
-                        },
-                        "status": "create",
-                        "type": "primary",
-                    },
-                ],
-                "wipe": True,
-            }
-        ],
-        "disk_encryption": {
-            "encryption_type": "luks",
-            "lvm_volumes": [],
-            "partitions": ["5734738e-adf6-4a35-91b1-51ea2d13408d"],
-        },
-    },
-    "hostname": "yulia",
-    "kernels": ["linux"],
-    "locale_config": {"kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US.UTF-8"},
-    "network_config": {"type": "iso"},
-    "ntp": True,
-    "packages": [],
-    "pacman_config": {"color": True, "parallel_downloads": 10},
-    "profile_config": {
-        "gfx_driver": "AMD / ATI (open-source)",
-        "greeter": "ly",
-        "profile": {
-            "custom_settings": {"Hyprland": {"seat_access": "polkit"}},
-            "details": ["Hyprland"],
-            "main": "Desktop",
-        },
-    },
     "services": [
         "ananicy-cpp",
         "iwd",
@@ -163,36 +47,10 @@ json_config = {
     "firefox_browser": "floorp",
     "dots_repo": "polka",
     "git_user": "acctux",
-    "encrypted_dir": "Desktop/Encrypted",
     "ssh_key_file": "id_ed25519",
     "gpg_key_file": "my_sec_gpg.asc",
     "master_pass_file": "pass.txt",
     "my_pass": "users.json",
-    "dirs_to_link": [
-        "local/bin",
-    ],
-    "git_repos": [
-        {
-            "username": "acctux",
-            "repos": [
-                ["noah", "Lit/noah"],
-                ["polka", "Lit/polka"],
-                ["docs", "Lit/Docs"],
-            ],
-        }
-    ],
-    "mkinit_hooks": [
-        "base",
-        "systemd",
-        "autodetect",
-        "microcode",
-        "modconf",
-        "kms",
-        "sd-vconsole",
-        "block",
-        "filesystems",
-        "fsck",
-    ],
     "reflector_options": [
         "--country US",
         "--protocol https",
@@ -205,6 +63,74 @@ json_config = {
         "systemd-resolved",
         "systemd-networkd-wait-online",
     ],
+    "no_extracts": [
+        "etc/xdg/autostart/firewall-applet.desktop",
+        "usr/share/icons/capitaine-cursors/*",
+    ],
+    "copy_config": {
+        "files_to_cp": [
+            {
+                "source_dir": "noahinstall",
+                "target_dirs": [
+                    {"dest": ".ssh", "names": ["id_ed25519", "pass.txt"]},
+                    {"dest": "archinstall", "names": ["users.json", "chaotic.key"]},
+                    {"dest": ".gnupg", "names": ["my_sec_gpg.asc"]},
+                ],
+            }
+        ],
+        "dir_contents_to_cp": [
+            {
+                "source_dir": "noahinstall",
+                "target_dir": "/etc/wireguard",
+                "names": ["wireguard"],
+            }
+        ],
+    },
+    "user_services": {
+        "source": "/usr/lib/systemd/user",
+        "targets": [
+            {
+                "default_target": "default",
+                "default_serv": [
+                    "psd.service",
+                ],
+            },
+            {
+                "sockets": [
+                    "gcr-ssh-agent.socket",
+                    "mpd.socket",
+                ],
+            },
+            {
+                "graphical-session": [
+                    "cliphist.service",
+                    "hypridle.service",
+                    "hyprsunset.service",
+                    "swaync.service",
+                    "waybar.service",
+                ],
+            },
+        ],
+        "/.config/systemd/user": {
+            "graphical-session": [
+                "ayugram.service",
+                "clip-persist.service",
+                "kdeconnectd.service",
+                "kanshi.service",
+                "playerctld.service",
+                "polkit-gnome.service",
+                "snixembed.service",
+                "swayosd.service",
+                "awww-daemon.service",
+            ],
+            "timers": [
+                "emailcheck.timer",
+                "task-reminder.timer",
+                "task-schedule.timer",
+                "wall.timer",
+            ],
+        },
+    },
     "apps_to_hide": [
         "avahi-discover",
         "bssh",
@@ -235,83 +161,20 @@ json_config = {
         "xgps",
         "xgpsspeed",
     ],
-    "no_extracts": [
-        "etc/xdg/autostart/firewall-applet.desktop",
-        "usr/share/icons/capitaine-cursors/*",
+    "encrypted_dir": "Desktop/Private",
+    "git_repos": [
+        {
+            "username": "acctux",
+            "repos": [
+                {"repo_name": "noah", "repo_dest": "Lit/noah"},
+                {"repo_name": "polka", "repo_dest": "Lit/polka"},
+                {"repo_name": "docs", "repo_dest": "Lit/Docs"},
+            ],
+        }
     ],
-    "to_cp": {
-        "files_to_cp": [
-            {
-                "source_dir": "noahinstall",
-                "target_dir": ".ssh",
-                "names": [
-                    "id_ed25519",
-                    "pass.txt",
-                ],
-            },
-            {
-                "source_dir": "noahinstall",
-                "target_dir": "archinstall",
-                "names": [
-                    "users.json",
-                    "chaotic.key",
-                ],
-            },
-            {
-                "source_dir": "noahinstall",
-                "target_dir": ".gnupg",
-                "names": [
-                    "my_sec_gpg.asc",
-                ],
-            },
-        ],
-        "dir_contents_to_cp": [
-            {
-                "source_dir": "noahinstall",
-                "target_dir": "/etc/wireguard",
-                "names": [
-                    "wireguard",
-                ],
-            },
-        ],
-    },
-    "user_services": {
-        "/usr/lib/systemd/user": {
-            "default": [
-                "psd.service",
-            ],
-            "sockets": [
-                "gcr-ssh-agent.socket",
-                "mpd.socket",
-            ],
-            "graphical-session": [
-                "cliphist.service",
-                "hypridle.service",
-                "hyprsunset.service",
-                "swaync.service",
-                "waybar.service",
-            ],
-        },
-        "/.config/systemd/user": {
-            "graphical-session": [
-                "ayugram.service",
-                "clip-persist.service",
-                "kdeconnectd.service",
-                "kanshi.service",
-                "playerctld.service",
-                "polkit-gnome.service",
-                "snixembed.service",
-                "swayosd.service",
-                "awww-daemon.service",
-            ],
-            "timers": [
-                "emailcheck.timer",
-                "task-reminder.timer",
-                "task-schedule.timer",
-                "wall.timer",
-            ],
-        },
-    },
+    "dirs_to_link": [
+        "local/bin",
+    ],
     "ind_dirs": {
         "fonts": ".local/share",
         "task": ".config",
