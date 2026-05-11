@@ -16,7 +16,7 @@ arch_config_json = {
         "config_type": "manual_partitioning",
         "device_modifications": [
             {
-                "device": "",
+                "device": "/dev/vda",
                 "partitions": [
                     {
                         "btrfs": [],
@@ -24,7 +24,7 @@ arch_config_json = {
                         "fs_type": "fat32",
                         "mount_options": [],
                         "mountpoint": "/boot",
-                        "obj_id": "",
+                        "obj_id": "cee25bd2-ec12-4cf0-a3e7-e25a5eb2c2d2",
                         "size": {
                             "sector_size": {"unit": "B", "value": 512},
                             "unit": "MiB",
@@ -48,16 +48,16 @@ arch_config_json = {
                         "flags": [],
                         "fs_type": "btrfs",
                         "mount_options": ["compress=zstd"],
-                        "obj_id": "",
+                        "obj_id": "5734738e-adf6-4a35-91b1-51ea2d13408d",
                         "size": {
                             "sector_size": {"unit": "B", "value": 512},
                             "unit": "B",
-                            "value": 0,
+                            "value": 511033999360,
                         },
                         "start": {
                             "sector_size": {"unit": "B", "value": 512},
                             "unit": "B",
-                            "value": 0,
+                            "value": 537919488,
                         },
                         "status": "create",
                         "type": "primary",
@@ -66,11 +66,11 @@ arch_config_json = {
                 "wipe": True,
             }
         ],
-        # "disk_encryption": {
-        #     "encryption_type": "luks",
-        #     "lvm_volumes": [],
-        #     "partitions": [],  # btrfs obj_id
-        # },
+        "disk_encryption": {
+            "encryption_type": "luks",
+            "lvm_volumes": [],
+            "partitions": ["5734738e-adf6-4a35-91b1-51ea2d13408d"],
+        },
     },
     "hostname": "yulia",
     "kernels": ["linux"],
@@ -109,7 +109,115 @@ arch_config_json = {
     "timezone": "US/Eastern",
     "version": "4.3",
 }
-
+orig_arch_config_json = {
+    "app_config": {
+        "audio_config": {"audio": "pipewire"},
+        "bluetooth_config": {"enabled": True},
+        "firewall_config": {"firewall": "firewalld"},
+        "fonts_config": {"fonts": ["noto-fonts-emoji", "ttf-liberation"]},
+        "power_management_config": {"power_management": "tuned"},
+        "print_service_config": {"enabled": False},
+    },
+    "archinstall-language": "English",
+    "bootloader_config": {"bootloader": "Limine", "removable": False, "uki": False},
+    "disk_config": {
+        "btrfs_options": {"snapshot_config": {"type": "Timeshift"}},
+        "config_type": "manual_partitioning",
+        "device_modifications": [
+            {
+                "device": "/dev/nvme0n1",
+                "partitions": [
+                    {
+                        "btrfs": [],
+                        "flags": ["boot", "esp"],
+                        "fs_type": "fat32",
+                        "mount_options": [],
+                        "mountpoint": "/boot",
+                        "obj_id": "cee25bd2-ec12-4cf0-a3e7-e25a5eb2c2d2",
+                        "size": {
+                            "sector_size": {"unit": "B", "value": 512},
+                            "unit": "MiB",
+                            "value": 512,
+                        },
+                        "start": {
+                            "sector_size": {"unit": "B", "value": 512},
+                            "unit": "MiB",
+                            "value": 1,
+                        },
+                        "status": "create",
+                        "type": "primary",
+                    },
+                    {
+                        "btrfs": [
+                            {"mountpoint": "/", "name": "@"},
+                            {"mountpoint": "/home", "name": "@home"},
+                            {"mountpoint": "/var/log", "name": "@log"},
+                            {"mountpoint": "/var/cache/pacman/pkg", "name": "@pkg"},
+                        ],
+                        "flags": [],
+                        "fs_type": "btrfs",
+                        "mount_options": ["compress=zstd"],
+                        "obj_id": "5734738e-adf6-4a35-91b1-51ea2d13408d",
+                        "size": {
+                            "sector_size": {"unit": "B", "value": 512},
+                            "unit": "B",
+                            "value": 511033999360,
+                        },
+                        "start": {
+                            "sector_size": {"unit": "B", "value": 512},
+                            "unit": "B",
+                            "value": 537919488,
+                        },
+                        "status": "create",
+                        "type": "primary",
+                    },
+                ],
+                "wipe": True,
+            }
+        ],
+        "disk_encryption": {
+            "encryption_type": "luks",
+            "lvm_volumes": [],
+            "partitions": ["5734738e-adf6-4a35-91b1-51ea2d13408d"],
+        },
+    },
+    "hostname": "yulia",
+    "kernels": ["linux"],
+    "locale_config": {"kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US.UTF-8"},
+    "network_config": {"type": "iso"},
+    "ntp": True,
+    "packages": [],
+    "pacman_config": {"color": True, "parallel_downloads": 10},
+    "profile_config": {
+        "gfx_driver": "AMD / ATI (open-source)",
+        "greeter": "ly",
+        "profile": {
+            "custom_settings": {"Hyprland": {"seat_access": "polkit"}},
+            "details": ["Hyprland"],
+            "main": "Desktop",
+        },
+    },
+    "services": [
+        "ananicy-cpp",
+        "iwd",
+        "named",
+        "swayosd-libinput-backend",
+        "systemd-networkd",
+        "systemd-oomd",
+        "btrfs-scrub@-.timer",
+        "btrfs-scrub@home.timer",
+        "fstrim.timer",
+        "logrotate.timer",
+        "man-db.timer",
+        "paccache.timer",
+        "reflector.timer",
+        "loggy",
+        "sysinfo",
+    ],
+    "swap": {"algorithm": "zstd", "enabled": True},
+    "timezone": "US/Eastern",
+    "version": "4.3",
+}
 json_config = {
     "parallel_downloads": 10,
     "terminal": "kitty",
