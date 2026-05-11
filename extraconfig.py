@@ -14,63 +14,12 @@ arch_config_json = {
     "disk_config": {
         "btrfs_options": {"snapshot_config": {"type": "Timeshift"}},
         "config_type": "manual_partitioning",
-        "device_modifications": [
-            {
-                "device": "/dev/vda",
-                "partitions": [
-                    {
-                        "btrfs": [],
-                        "flags": ["boot", "esp"],
-                        "fs_type": "fat32",
-                        "mount_options": [],
-                        "mountpoint": "/boot",
-                        "obj_id": "cee25bd2-ec12-4cf0-a3e7-e25a5eb2c2d2",
-                        "size": {
-                            "sector_size": {"unit": "B", "value": 512},
-                            "unit": "MiB",
-                            "value": 512,
-                        },
-                        "start": {
-                            "sector_size": {"unit": "B", "value": 512},
-                            "unit": "MiB",
-                            "value": 1,
-                        },
-                        "status": "create",
-                        "type": "primary",
-                    },
-                    {
-                        "btrfs": [
-                            {"mountpoint": "/", "name": "@"},
-                            {"mountpoint": "/home", "name": "@home"},
-                            {"mountpoint": "/var/log", "name": "@log"},
-                            {"mountpoint": "/var/cache/pacman/pkg", "name": "@pkg"},
-                        ],
-                        "flags": [],
-                        "fs_type": "btrfs",
-                        "mount_options": ["compress=zstd"],
-                        "obj_id": "5734738e-adf6-4a35-91b1-51ea2d13408d",
-                        "size": {
-                            "sector_size": {"unit": "B", "value": 512},
-                            "unit": "B",
-                            "value": 511033999360,
-                        },
-                        "start": {
-                            "sector_size": {"unit": "B", "value": 512},
-                            "unit": "B",
-                            "value": 537919488,
-                        },
-                        "status": "create",
-                        "type": "primary",
-                    },
-                ],
-                "wipe": True,
-            }
-        ],
-        # "disk_encryption": {
-        #     "encryption_type": "luks",
-        #     "lvm_volumes": [],
-        #     "partitions": ["5734738e-adf6-4a35-91b1-51ea2d13408d"],
-        # },
+        "device_modifications": [],
+        "disk_encryption": {
+            "encryption_type": "luks",
+            "lvm_volumes": [],
+            "partitions": ["5734738e-adf6-4a35-91b1-51ea2d13408d"],
+        },
     },
     "hostname": "yulia",
     "kernels": ["linux"],
