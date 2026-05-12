@@ -1,0 +1,6 @@
+[Unit]
+Description=Disable hibernate watch timer
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl disable --now hibernate_watch.timer

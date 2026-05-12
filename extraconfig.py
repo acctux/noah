@@ -34,6 +34,8 @@ arch_config_json = {
         "man-db.timer",
         "paccache.timer",
         "reflector.timer",
+        "snapper-timeline.timer",
+        "snapper-cleanup.timer",
         "loggy",
         "sysinfo",
     ],
@@ -357,6 +359,19 @@ etc_files_to_write: dict[str, str] = {
         Exec = /usr/bin/systemctl restart systemd-boot-update.service
         """
     ),
+    "etc/systemd/system/snapper-timeline.timer.d/15-snapper-timeline.conf": dedent(
+        """\
+        [Timer]
+        OnCalendar=
+        OnCalendar=*:0/15
+        """
+    ),
+    "etc/systemd/system/snapper-cleanup.timer.d/20-snapper-cleanup.conf": dedent(
+        """\
+        [Timer]
+        OnUnitActiveSec=1h
+        """
+    ),
     "etc/systemd/journald.conf.d/00-journal-size.conf": dedent(
         """\
         [Journal]
@@ -412,7 +427,7 @@ etc_files_to_write: dict[str, str] = {
     "etc/modprobe.d/nvidia.conf": dedent(
         """\
         # Blacklist the Intel TCO Watchdog/Timer module
-        options nvidia NVreg_UsePageAttributeTable=1 
+        options nvidia NVreg_UsePageAttributeTable=1
         """
     ),
     "etc/udisks2/mount_options.conf": dedent(
@@ -689,8 +704,6 @@ etc_files_to_write: dict[str, str] = {
         """
     ),
 }
-
-
 new_policies = {
     "DisableAppUpdate": True,
     "DisableDeveloperTools": False,
@@ -746,7 +759,6 @@ new_policies = {
         ],
     },
 }
-
 pkgs: dict[str, list[str]] = {
     "base": [
         # HARDWARE
@@ -820,6 +832,7 @@ pkgs: dict[str, list[str]] = {
         "satty",
         "seahorse",
         "snixembed",
+        "swappy",
         "swaync",
         "swayosd",
         "awww",
@@ -852,33 +865,10 @@ pkgs: dict[str, list[str]] = {
         "taskwarrior-tui",
         "man-pages",
         "rofimoji",
-        # coding
-        # Language Servers
-        "bash-language-server",
-        "lua-language-server",
-        "rust-analyzer",
-        "tombi",
-        "ty",
-        "vscode-css-languageserver",
-        "vscode-json-languageserver",
-        "yaml-language-server",
-        # Formatters
-        "ruff",
-        "shfmt",
-        # Lint
-        "shellcheck",
-        "biome",
-        "luacheck",
-        "yamllint",
-        # Tree sitter
-        "tree-sitter-bash",
-        "tree-sitter-cli",
-        "tree-sitter-python",
         "bat-extras",
         "eza",
         "fd",
         "fzf",
-        "github-cli",
         "lazygit",
         "ripgrep-all",
         "sd",
@@ -892,6 +882,8 @@ pkgs: dict[str, list[str]] = {
         "hunspell-en_us",
         "hyphen-en",
         "tesseract-data-eng",
+        "tesseract-data-rus",
+        "tesseract-data-ukr",
     ],
     "chaotic_repo": [
         "apparmor.d-git",
@@ -917,10 +909,36 @@ pkgs: dict[str, list[str]] = {
         "ghostscript",
         "gsfonts",
         "gutenprint",
+        "simple-scan",
         "splix",
         "system-config-printer",
     ],
+    "limine": ["limine-snapper-sync", "limine", "limine-mkinitcpio-hook", "snapper"],
     "extra": [
+        "github-cli",
+        # coding
+        # Language Servers
+        "bash-language-server",
+        "lua-language-server",
+        "rust-analyzer",
+        "tombi",
+        "ty",
+        "vscode-css-languageserver",
+        "vscode-json-languageserver",
+        "yaml-language-server",
+        # Formatters
+        "ruff",
+        "shfmt",
+        # Lint
+        "shellcheck",
+        "biome",
+        "luacheck",
+        "yamllint",
+        # Tree sitter
+        "tree-sitter-bash",
+        "tree-sitter-cli",
+        "tree-sitter-python",
+        "tmuxp",
         "rust",
         "stylua",
         "yamlfmt",
@@ -971,6 +989,8 @@ pkgs: dict[str, list[str]] = {
         "ayugram-desktop-git",
         "qt6-imageformats",  # AyuGram missing dependency
         "betterbird-bin",
+        "linux-headers",
+        "xpadneo-dkms",
         "nchat-git",
         "proton-cachyos-slr",
         "rpcs3-git",
