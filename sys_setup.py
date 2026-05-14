@@ -529,10 +529,16 @@ def install_limine(installation: Installer):
         ],
     )
     modify_mkinit(installation.target, hook="btrfs-overlayfs", after="filesystems")
-    copy_file(
-        installation.target / "etc" / "limine-entry-tool.conf",
-        installation.target / "etc" / "default" / "limine",
-    )
+    default_limine = installation.target / "etc" / "default" / "limine"
+    copy_file(installation.target / "etc" / "limine-entry-tool.conf", default_limine)
+    with open(default_limine) as default:
+        content = default.read().splitlines()
+    for i, line in enumerate(content):
+        stripped = line.strip()
+        if stripped.startswith("#TARGET_OS_NAME"):
+            content[i] = "TARGET_OS_NAME='Arch Linux"
+    with open(default_limine, "w") as default:
+        default.write("\n".join(content) + "\n")
     installation.enable_service(
         [
             "snapper-cleanup.timer",
