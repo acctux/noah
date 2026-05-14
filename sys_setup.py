@@ -251,7 +251,7 @@ def chaotic_repo(installation: Installer) -> None:
     for cmd in cmds:
         run_dmc(cmd)
         installation.arch_chroot(" ".join(cmd))
-        time.sleep(0.5)
+        time.sleep(1)
     for path in [Path("/etc/pacman.conf"), installation.target / "etc/pacman.conf"]:
         with path.open("a") as f:
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
