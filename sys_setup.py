@@ -362,7 +362,6 @@ def modify_mkinit(mnt_point: Path, hook: str, after: str) -> None:
             if hook not in hooks:
                 hooks.insert(hooks.index(after) + 1, hook)
             content[i] = f"HOOKS=({' '.join(hooks)})"
-            print(content[i])
     with open(mkinit_conf, "w") as mkinit:
         mkinit.write("\n".join(content) + "\n")
 
