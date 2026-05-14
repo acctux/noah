@@ -325,34 +325,6 @@ def sysd_boot_params(
         entry.write_text("\n".join(new_lines) + "\n")
 
 
-def limine_boot_params(
-    mnt_point: Path,
-    plymouth: bool,
-    apparmor: bool,
-    boot_opts=None,
-) -> None:
-    if boot_opts is None:
-        boot_opts = []
-    if plymouth:
-        boot_opts.extend(["quiet", "splash"])
-    if apparmor:
-        boot_opts.append("lsm=landlock,lockdown,yama,integrity,apparmor,bpf")
-    limine_conf = mnt_point / "boot" / "limine.conf"
-    lines = limine_conf.read_text().splitlines()
-    new_lines = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("APPEND") or stripped.startswith("KERNEL_CMDLINE"):
-            key, _, rest = line.partition(" ")
-            existing_opts = rest.split()
-            for opt in boot_opts:
-                if opt not in existing_opts:
-                    existing_opts.append(opt)
-            line = f"{key} {' '.join(existing_opts)}"
-        new_lines.append(line)
-    limine_conf.write_text("\n".join(new_lines) + "\n")
-
-
 def modify_fstab(mnt_point: Path) -> None:
     fstab_path = mnt_point / "etc" / "fstab"
     content = fstab_path.read_text()
@@ -526,9 +498,9 @@ def copy_skel(mountpoint: Path, nc: NoahConfig):
     copy_dir(tmp, mountpoint / "etc" / "skel")
 
 
-def write_kernel_cmdline(installation: Installer):
-    limine_conf = installation.target / "boot/arch-limine/limine.conf"
-    output_dir = installation.target / "etc/limine-entry-tool.d"
+def write_kernel_cmdline(mountpoint: Path):
+    limine_conf = mountpoint / "boot/EFI/arch-limine/limine.conf"
+    output_dir = mountpoint / "etc/limine-entry-tool.d"
     if not limine_conf.is_file():
         log.error(f"{limine_conf} does not exist or is not a file.")
         return
@@ -583,7 +555,7 @@ def install_limine(installation: Installer):
             "snapper-timeline.timer",
         ]
     )
-    write_kernel_cmdline(installation=installation)
+    write_kernel_cmdline(installation.target)
     # installation.arch_chroot("limine-install")
     # installation.arch_chroot(
     #     "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
@@ -868,4 +840,5 @@ def sys_setup() -> None:
 
 
 if __name__ == "__main__":
-    sys_setup()
+    # sys_setup()
+    write_kernel_cmdline(Path("/mnt"))
