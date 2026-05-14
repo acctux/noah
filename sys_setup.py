@@ -839,5 +839,4 @@ def sys_setup() -> None:
 
 
 if __name__ == "__main__":
-    # sys_setup()
-    write_kernel_cmdline(Path("/mnt"))
+    sys_setup()
