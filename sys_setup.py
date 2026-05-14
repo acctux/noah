@@ -207,8 +207,9 @@ def modify_pacman_conf(
         pacman_conf = mnt_point / "etc/pacman.conf"
     with open(pacman_conf) as pacman:
         content = pacman.read().splitlines()
-    for i, line in enumerate(content):
-        stripped = line.strip()
+    i = 0
+    while i < len(content):
+        stripped = content[i].strip()
         if stripped.startswith("ParallelDownloads"):
             content[i] = f"ParallelDownloads = {value}"
         elif stripped in ("#Color", "Color"):
@@ -217,6 +218,10 @@ def modify_pacman_conf(
                 content.insert(i + 1, "ILoveCandy")
         elif stripped.startswith("#NoExtract") or stripped.startswith("NoExtract"):
             content[i] = f"NoExtract = {' '.join(no_extracts)}"
+        elif stripped == "[chaotic-aur]":
+            del content[i : i + 2]
+            continue  # maintain same index
+        i += 1
     with open(pacman_conf, "w") as pacman:
         pacman.write("\n".join(content) + "\n")
 
@@ -524,12 +529,11 @@ def copy_skel(mountpoint: Path, nc: NoahConfig):
 def write_kernel_cmdline(installation: Installer):
     limine_conf = installation.target / "boot/arch-limine/limine.conf"
     output_dir = installation.target / "etc/limine-entry-tool.d"
-    conf_file = Path(limine_conf)
-    if not conf_file.is_file():
+    if not limine_conf.is_file():
         log.error(f"{limine_conf} does not exist or is not a file.")
         return
     cmdline = ""
-    with conf_file.open() as f:
+    with limine_conf.open() as f:
         for line in f:
             line = line.strip()
             if line.startswith("cmdline:"):
