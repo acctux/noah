@@ -529,15 +529,20 @@ def install_limine(installation: Installer):
         ],
     )
     modify_mkinit(installation.target, hook="btrfs-overlayfs", after="filesystems")
+    copy_file(
+        installation.target / "etc" / "limine-entry-tool.conf",
+        installation.target / "etc" / "default" / "limine",
+    )
     installation.enable_service(
         [
             "snapper-cleanup.timer",
             "snapper-timeline.timer",
         ]
     )
-    installation.arch_chroot(
-        "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
-    )
+    installation.arch_chroot("limine-update")
+    # installation.arch_chroot(
+    #     "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
+    # )
 
 
 ###################################
