@@ -521,6 +521,19 @@ def copy_skel(mountpoint: Path, nc: NoahConfig):
     copy_dir(tmp, mountpoint / "etc" / "skel")
 
 
+def write_kernel_cmdlines():
+    options: dict[str, str] = {
+        "rw root=UUID=...": "root_uuid",
+        "quiet splash initrd=/amd-ucode.img": "splash_ucode",
+    }
+    for option, file_name in options:
+        target_file = Path(f"/etc/limine-entry-tool.d/{file_name}.conf")
+        full_option = f"KERNEL_CMDLINE[default]+={option}\n"
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        target_file.write_text(full_option)
+        print(f"Wrote kernel cmdline lines to {target_file}")
+
+
 def install_limine(installation: Installer):
     installation.add_additional_packages(
         [
