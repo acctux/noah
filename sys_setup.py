@@ -141,11 +141,9 @@ def collect_missing_paths(
         source_d = group.source_dir
         for target in group.target_dirs:
             for name in target.file_names:
-                log.info(name)
                 dest_path = root_home / target.dest / name
                 if not dest_path.exists():
                     missing_keys.append((Path(source_d) / name, dest_path))
-                    log.info(str(Path(source_d) / name), dest_path)
     for group in dir_cp_list:
         for name in group.dir_names:
             dest_dir = root_home / name
@@ -620,7 +618,7 @@ def perform_installation(
             mkinitcpio=run_mkinitcpio,
             hostname=config.hostname,
             locale_config=locale,
-            pacman_config=None,
+            pacman_config=config.pacman_config,
         )
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
@@ -766,6 +764,8 @@ def setup_archinstall_conf(
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
     arch_config_handler.config.profile_config = arch_config.profile_config
+    arch_config_handler.config.network_config = arch_config.network_config
+    arch_config_handler.config.pacman_config = arch_config.pacman_config
     arch_config_handler.config.timezone = arch_config.timezone
     arch_config_handler.config.bootloader_config = arch_config.bootloader_config
     arch_config_handler.config.ntp = arch_config.ntp
