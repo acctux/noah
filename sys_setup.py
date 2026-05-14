@@ -201,40 +201,23 @@ def mnt_cp_keys(
 ###################################
 # ETC/BOOT
 ###################################
-def generate_pacman_conf(
-    mnt_point: Path | None,
-    no_extracts: list,
-    parallel_downloads: int = 10,
-    multilib: bool = True,
+def modify_pacman_conf(
+    mnt_point: Path | None, no_extracts: list[str], value: int = 10
 ) -> None:
-    no_extract_lines = "\n        ".join(
-        [f"NoExtract = {item}" for item in no_extracts]
-    )
-    pacman_content = dedent(f"""
-        [options]
-        HoldPkg = pacman glibc
-        Architecture = auto
-        Color
-        ILoveCandy
-        ParallelDownloads = {parallel_downloads}
-        DownloadUser = alpm
-        SigLevel    = Required DatabaseOptional
-        LocalFileSigLevel = Optional
-        {no_extract_lines}
-
-        [core]
-        Include = /etc/pacman.d/mirrorlist
-
-        [extra]
-        Include = /etc/pacman.d/mirrorlist
-
-        {"[multilib]\n        Include = /etc/pacman.d/mirrorlist" if multilib else ""}
-    """)
-    pacman_p = "etc/pacman.conf"
-    pac_p = Path("/") / pacman_p
-    if mnt_point:
-        pac_p = mnt_point / pacman_p
-    pac_p.write_text(pacman_content)
+    pacman_conf = f"/{mnt_point}/etc/pacman.conf"
+    with open(pacman_conf) as pacman:
+        content = pacman.read().splitlines()
+    for i, line in enumerate(content):
+        stripped = line.strip()
+        if stripped.startswith("ParallelDownloads"):
+            content[i] = f"ParallelDownloads = {value}"
+        elif stripped in ("#Color", "Color"):
+            content[i] = "Color"
+            if content[i + 1] != "ILoveCandy":
+                content.insert(i + 1, "ILoveCandy")
+        elif stripped.startswith("#NoExtract") or stripped.startswith("NoExtract"):
+            content[i] = f"NoExtract = {' '.join(no_extracts)}"
+    print(content)
 
 
 def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
@@ -329,6 +312,34 @@ def sysd_boot_params(
         entry.write_text("\n".join(new_lines) + "\n")
 
 
+def limine_boot_params(
+    mnt_point: Path,
+    plymouth: bool,
+    apparmor: bool,
+    boot_opts=None,
+) -> None:
+    if boot_opts is None:
+        boot_opts = []
+    if plymouth:
+        boot_opts.extend(["quiet", "splash"])
+    if apparmor:
+        boot_opts.append("lsm=landlock,lockdown,yama,integrity,apparmor,bpf")
+    limine_conf = mnt_point / "boot" / "limine.conf"
+    lines = limine_conf.read_text().splitlines()
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("APPEND") or stripped.startswith("KERNEL_CMDLINE"):
+            key, _, rest = line.partition(" ")
+            existing_opts = rest.split()
+            for opt in boot_opts:
+                if opt not in existing_opts:
+                    existing_opts.append(opt)
+            line = f"{key} {' '.join(existing_opts)}"
+        new_lines.append(line)
+    limine_conf.write_text("\n".join(new_lines) + "\n")
+
+
 def modify_fstab(mnt_point: Path) -> None:
     fstab_path = mnt_point / "etc" / "fstab"
     content = fstab_path.read_text()
@@ -337,30 +348,20 @@ def modify_fstab(mnt_point: Path) -> None:
     fstab_path.write_text(content)
 
 
-def modify_mkinit(
-    mnt_point: Path,
-    plymouth: bool,
-    hooks: list[str] = [
-        "base",
-        "systemd",
-        "autodetect",
-        "microcode",
-        "modconf",
-        "kms",
-        "sd-vconsole",
-        "block",
-        "filesystems",
-        "fsck",
-    ],
-) -> None:
-    if plymouth and "plymouth" not in hooks:
-        hooks.insert(hooks.index("kms") + 1, "plymouth")
-    with open(f"/{mnt_point}/etc/mkinitcpio.conf", "r+") as mkinit:
-        content = mkinit.read()
-        content = re.sub(r"\nHOOKS=.*", f"\nHOOKS=({' '.join(hooks)})", content)
-        mkinit.seek(0)
-        mkinit.truncate()
-        mkinit.write(content)
+def modify_mkinit(mnt_point: Path, hook: str, after: str) -> None:
+    mkinit_conf = f"/{mnt_point}/etc/mkinitcpio.conf"
+    with open(mkinit_conf, "r") as mkinit:
+        content = mkinit.read().splitlines()
+    for i, line in enumerate(content):
+        if line.startswith("HOOKS="):
+            # Extract hooks between parentheses
+            hooks = line[line.find("(") + 1 : line.find(")")].split()
+            if hook not in hooks:
+                hooks.insert(hooks.index(after) + 1, hook)
+            content[i] = f"HOOKS=({' '.join(hooks)})"
+            print(content[i])
+    with open(mkinit_conf, "w") as mkinit:
+        mkinit.write("\n".join(content) + "\n")
 
 
 def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
@@ -520,11 +521,16 @@ def install_limine(installation: Installer):
             "limine-mkinitcpio-hook",
         ],
     )
-    mkinit = ["btrfs-overlayfs"]
-    services = [
-        "snapper-cleanup.timer",
-        "snapper-timeline.timer",
-    ]
+    modify_mkinit(installation.target, hook="btrfs-overlayfs", after="filesystems")
+    installation.enable_service(
+        [
+            "snapper-cleanup.timer",
+            "snapper-timeline.timer",
+        ]
+    )
+    installation.arch_chroot(
+        "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine' --overwrite --quiet"
+    )
 
 
 ###################################
@@ -599,7 +605,7 @@ def perform_installation(
                 *(part for opt in nc.reflector_options for part in opt.split()),
             ]
         )
-        generate_pacman_conf(None, no_extracts=list(nc.no_extracts))
+        modify_pacman_conf(None, no_extracts=list(nc.no_extracts))
         installation.minimal_installation(
             optional_repositories=optional_repositories,
             mkinitcpio=run_mkinitcpio,
@@ -614,7 +620,7 @@ def perform_installation(
             Path(f"/root/{nc.files_to_cp[0].target_dirs[1].dest}/chaotic.key"),
             mountpoint / "root/chaotic.key",
         )
-        generate_pacman_conf(mountpoint, list(nc.no_extracts))
+        modify_pacman_conf(mountpoint, list(nc.no_extracts))
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)
 
@@ -675,6 +681,7 @@ def perform_installation(
         set_extensions(mountpoint, nc.firefox_browser, new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
+        modify_mkinit(mountpoint, hook="plymouth", after="kms")
         if users:
             for user in users:
                 installation.arch_chroot("xdg-user-dirs-update", user.username)
@@ -695,7 +702,8 @@ def perform_installation(
             if config.bootloader_config.bootloader == Bootloader.Systemd:
                 if not config.bootloader_config.uki:
                     sysd_boot_params(mountpoint, plymouth=True, apparmor=True)
-                    modify_mkinit(mountpoint, plymouth=True)
+            elif config.bootloader_config.bootloader == Bootloader.Limine:
+                install_limine(installation)
 
         if services := config.services:
             installation.enable_service(services)
@@ -758,10 +766,7 @@ def setup_archinstall_conf(
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
     base_pkgs = (
-        pacman_pkgs["base"]
-        + pacman_pkgs["language"]
-        + pacman_pkgs["chaotic_repo"]
-        + pacman_pkgs["limine"]
+        pacman_pkgs["base"] + pacman_pkgs["language"] + pacman_pkgs["chaotic_repo"]
     )
     if GfxDriver.VMOpenSource not in gfx_drivers:
         base_pkgs.extend(pacman_pkgs["extra"] + pacman_pkgs["extra_chaos"])
