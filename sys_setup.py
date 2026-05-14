@@ -204,7 +204,9 @@ def mnt_cp_keys(
 def modify_pacman_conf(
     mnt_point: Path | None, no_extracts: list[str], value: int = 10
 ) -> None:
-    pacman_conf = f"/{mnt_point}/etc/pacman.conf"
+    pacman_conf = "/etc/pacman.conf"
+    if mnt_point:
+        pacman_conf = mnt_point / "etc/pacman.conf"
     with open(pacman_conf) as pacman:
         content = pacman.read().splitlines()
     for i, line in enumerate(content):
