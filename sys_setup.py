@@ -754,7 +754,7 @@ def sys_setup() -> None:
     nc = NoahConfig.from_config(ec.json_config)
     mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
     arch_config_handler, gfx_drivers = setup_archinstall_conf(
-        ec.arch_config_json, "/root/archinstall/users.json"
+        ec.arch_config_json, "/root/users.json"
     )
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
