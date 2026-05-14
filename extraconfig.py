@@ -31,8 +31,6 @@ arch_config_json = {
         "man-db.timer",
         "paccache.timer",
         "reflector.timer",
-        "snapper-timeline.timer",
-        "snapper-cleanup.timer",
         "loggy",
         "sysinfo",
     ],

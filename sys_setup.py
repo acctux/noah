@@ -513,6 +513,20 @@ def copy_skel(mountpoint: Path, nc: NoahConfig):
     copy_dir(tmp, mountpoint / "etc" / "skel")
 
 
+def install_limine(installation: Installer):
+    installation.add_additional_packages(
+        [
+            "limine-snapper-sync",
+            "limine-mkinitcpio-hook",
+        ],
+    )
+    mkinit = ["btrfs-overlayfs"]
+    services = [
+        "snapper-cleanup.timer",
+        "snapper-timeline.timer",
+    ]
+
+
 ###################################
 # Archinstall
 ###################################

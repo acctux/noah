@@ -149,10 +149,6 @@ pacman_pkgs: dict[str, list[str]] = {
         "splix",
         "system-config-printer",
     ],
-    "limine": [
-        "limine-snapper-sync",
-        "limine-mkinitcpio-hook",
-    ],
     "extra": [
         "profile-sync-daemon",
         "protonmail-bridge-core",
