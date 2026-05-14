@@ -531,7 +531,7 @@ def install_limine(installation: Installer):
         ]
     )
     installation.arch_chroot(
-        "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine' --overwrite --quiet"
+        "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
     )
 
 
