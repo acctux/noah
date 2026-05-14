@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from root_files import etc_files_to_write, new_policies
+from pkgs import pacman_pkgs, aur_pkgs
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.authentication.authentication_handler import (
     AuthenticationHandler,
@@ -32,8 +34,15 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
-from utils import run_dmc, yes_no, get_logger
-from noah_processor import NoahConfig, UsbFileCopy, UsrSrv, UsbDirCopy
+from utils import (
+    run_dmc,
+    yes_no,
+    get_logger,
+    NoahConfig,
+    UsbFileCopy,
+    UsrSrv,
+    UsbDirCopy,
+)
 from typing import Any
 from pathlib import Path
 import sys
@@ -639,7 +648,7 @@ def perform_installation(
         for gfx_driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, gfx_driver)
         profile_handler.install_greeter(installation, GreeterType.Ly)
-        write_etc_file(mountpoint, ec.etc_files_to_write)
+        write_etc_file(mountpoint, etc_files_to_write)
         reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
         reflector_timer_conf.write_text("\n".join(nc.reflector_options))
         for dir_to_cp in nc.dir_contents_to_cp:
@@ -647,7 +656,7 @@ def perform_installation(
                 copy_dir(
                     Path("/root") / name, mountpoint / dir_to_cp.target_dir.lstrip("/")
                 )
-        set_extensions(mountpoint, nc.firefox_browser, ec.new_policies)
+        set_extensions(mountpoint, nc.firefox_browser, new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
         if users:
@@ -659,7 +668,7 @@ def perform_installation(
                 mpd_tmpfiles(installation, user.username)
             user_1 = users[0].username
             configure_sudo(mountpoint, user_1, pless=True)
-            cmd = f"paru -S --noconfirm --needed {' '.join(ec.aur_pkgs)}"
+            cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
             installation.arch_chroot(cmd, user_1)
             cmd = "sudo passwd -dl root"
             installation.arch_chroot(cmd, user_1)
@@ -713,14 +722,13 @@ def perform_installation(
                         pass
 
 
-def sys_setup() -> None:
-    nc = NoahConfig.from_config(ec.json_config)
-    mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
-    with open(str("/root/temp/users.json"), "r") as f:
+def setup_archinstall_conf(
+    arch_config_json: dict, auth_conf_path: str, arch_config_handler=ArchConfigHandler()
+) -> tuple[ArchConfigHandler, list[GfxDriver]]:
+    with open(auth_conf_path, "r") as f:
         users_dict = json.load(f)
-    auth_arch_config = ArchConfig.from_config(users_dict, Arguments(None))
-    arch_config = ArchConfig.from_config(ec.arch_config_json, Arguments(None))
-    arch_config_handler = ArchConfigHandler()
+    auth_conf = ArchConfig.from_config(users_dict, Arguments(None))
+    arch_config = ArchConfig.from_config(arch_config_json, Arguments(None))
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
@@ -730,13 +738,24 @@ def sys_setup() -> None:
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.kernels = arch_config.kernels
     arch_config_handler.config.services = arch_config.services
-    arch_config_handler.config.auth_config = auth_arch_config.auth_config
+    arch_config_handler.config.auth_config = auth_conf.auth_config
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
-    base_pkgs = ec.pkgs["base"] + ec.pkgs["language"] + ec.pkgs["chaotic_repo"]
+    base_pkgs = (
+        pacman_pkgs["base"] + pacman_pkgs["language"] + pacman_pkgs["chaotic_repo"]
+    )
     if GfxDriver.VMOpenSource not in gfx_drivers:
-        base_pkgs.extend(ec.pkgs["extra"] + ec.pkgs["extra_chaos"])
+        base_pkgs.extend(pacman_pkgs["extra"] + pacman_pkgs["extra_chaos"])
     arch_config_handler.config.packages = base_pkgs
+    return arch_config_handler, gfx_drivers
+
+
+def sys_setup() -> None:
+    nc = NoahConfig.from_config(ec.json_config)
+    mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
+    arch_config_handler, gfx_drivers = setup_archinstall_conf(
+        ec.arch_config_json, "/root/archinstall/users.json"
+    )
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()

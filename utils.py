@@ -41,9 +41,6 @@ def get_logger(log_name: str | None = None, level=logging.INFO):
     return logger
 
 
-#########################
-# NOAHCONFIG
-#########################
 def parse_list(cls, values):
     return [cls.parse_arg(v) for v in (values or [])]
 
