@@ -219,7 +219,8 @@ def modify_pacman_conf(
                 content.insert(i + 1, "ILoveCandy")
         elif stripped.startswith("#NoExtract") or stripped.startswith("NoExtract"):
             content[i] = f"NoExtract = {' '.join(no_extracts)}"
-    print(content)
+    with open(pacman_conf, "w") as pacman:
+        pacman.write("\n".join(content) + "\n")
 
 
 def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
