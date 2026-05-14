@@ -539,7 +539,8 @@ def install_limine(installation: Installer):
             "snapper-timeline.timer",
         ]
     )
-    installation.arch_chroot("limine-update")
+    installation.arch_chroot("limine-install")
+    # installation.arch_chroot("limine-update")
     # installation.arch_chroot(
     #     "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
     # )
