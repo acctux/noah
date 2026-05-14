@@ -522,7 +522,6 @@ def write_kernel_cmdline(mountpoint: Path):
     log.info(f"Wrote {cmdline} to {original_file}")
     extra_options = [
         ("plymouth", "quiet splash"),
-        ("amd_ucode", "initrd=/amd-ucode.img"),
         ("apparmor", "lsm=landlock,lockdown,yama,integrity,apparmor,bpf"),
     ]
     for filename, option in extra_options:
