@@ -739,7 +739,7 @@ def perform_installation(
             run_custom_user_commands(cc, installation)
 
         installation.genfstab()
-        modify_fstab(mountpoint)
+        # modify_fstab(mountpoint)
 
         debug(f"Disk states after installing:\n{disk_layouts()}")
         if not arch_config_handler.args.silent:
