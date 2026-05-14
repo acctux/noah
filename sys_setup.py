@@ -521,17 +521,38 @@ def copy_skel(mountpoint: Path, nc: NoahConfig):
     copy_dir(tmp, mountpoint / "etc" / "skel")
 
 
-def write_kernel_cmdlines():
-    options: dict[str, str] = {
-        "rw root=UUID=...": "root_uuid",
-        "quiet splash initrd=/amd-ucode.img": "splash_ucode",
-    }
-    for option, file_name in options:
-        target_file = Path(f"/etc/limine-entry-tool.d/{file_name}.conf")
-        full_option = f"KERNEL_CMDLINE[default]+={option}\n"
-        target_file.parent.mkdir(parents=True, exist_ok=True)
-        target_file.write_text(full_option)
-        print(f"Wrote kernel cmdline lines to {target_file}")
+def write_kernel_cmdline(installation: Installer):
+    limine_conf = installation.target / "boot/arch-limine/limine.conf"
+    output_dir = installation.target / "etc/limine-entry-tool.d"
+    conf_file = Path(limine_conf)
+    if not conf_file.is_file():
+        log.error(f"{limine_conf} does not exist or is not a file.")
+        return
+    cmdline = ""
+    with conf_file.open() as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("cmdline:"):
+                cmdline = line.split(":", 1)[1].strip()
+                log.info(cmdline)
+                break
+    if not cmdline:
+        log.error("No cmdline line found in limine.conf")
+        return
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    original_file = output_dir / "original_flags.conf"
+    original_file.write_text(f"KERNEL_CMDLINE[default]+={cmdline}\n")
+    log.info(f"Wrote {cmdline} to {original_file}")
+    extra_options = [
+        ("plymouth", "quiet splash"),
+        ("amd_ucode", "initrd=/amd-ucode.img"),
+        ("apparmor", "lsm=landlock,lockdown,yama,integrity,apparmor,bpf"),
+    ]
+    for filename, option in extra_options:
+        target_file = output_dir / f"{filename}.conf"
+        target_file.write_text(f"KERNEL_CMDLINE[default]+={option}\n")
+        log.info(f"Wrote extra option '{option}' to {target_file}")
 
 
 def install_limine(installation: Installer):
@@ -558,10 +579,12 @@ def install_limine(installation: Installer):
             "snapper-timeline.timer",
         ]
     )
+    write_kernel_cmdline(installation=installation)
     # installation.arch_chroot("limine-install")
-    installation.arch_chroot(
-        "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
-    )
+    # installation.arch_chroot(
+    #     "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
+    # )
+    installation.arch_chroot("limine-mkinitcpio")
     installation.arch_chroot("limine-update")
 
 
