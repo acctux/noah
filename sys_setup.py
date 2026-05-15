@@ -515,9 +515,21 @@ def copy_skel(mountpoint: Path, nc: NoahConfig):
     copy_dir(tmp, mountpoint / "etc" / "skel")
 
 
-def write_kernel_cmdline(mountpoint: Path):
-    limine_conf = mountpoint / "boot/EFI/arch-limine/limine.conf"
-    output_dir = mountpoint / "etc/limine-entry-tool.d"
+def write_kernel_cmdline(
+    mountpoint: Path,
+    extra_options: list[dict[str, str]] = [
+        {
+            "filename": "plymouth",
+            "option": "quiet splash",
+        },
+        {
+            "filename": "apparmor",
+            "option": "lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
+        },
+    ],
+):
+    limine_conf = mountpoint / "boot" / "EFI" / "arch-limine" / "limine.conf"
+    output_dir = mountpoint / "etc" / "limine-entry-tool.d"
     if not limine_conf.is_file():
         log.error(f"{limine_conf} does not exist or is not a file.")
         return
@@ -529,22 +541,15 @@ def write_kernel_cmdline(mountpoint: Path):
                 cmdline = line.split(":", 1)[1].strip()
                 log.info(cmdline)
                 break
-    if not cmdline:
-        log.error("No cmdline line found in limine.conf")
-        return
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     original_file = output_dir / "original_flags.conf"
     original_file.write_text(f"KERNEL_CMDLINE[default]+={cmdline}\n")
     log.info(f"Wrote {cmdline} to {original_file}")
-    extra_options = [
-        ("plymouth", "quiet splash"),
-        ("apparmor", "lsm=landlock,lockdown,yama,integrity,apparmor,bpf"),
-    ]
-    for filename, option in extra_options:
-        target_file = output_dir / f"{filename}.conf"
-        target_file.write_text(f"KERNEL_CMDLINE[default]+={option}\n")
-        log.info(f"Wrote extra option '{option}' to {target_file}")
+    for dict in extra_options:
+        target_file = output_dir / f"{dict['filename']}.conf"
+        target_file.write_text(f"KERNEL_CMDLINE[default]+={dict['option']}\n")
+        log.info(f"Wrote extra option '{dict['option']}' to {target_file}")
 
 
 def write_limine_conf(mountpoint: Path):
@@ -554,6 +559,7 @@ def write_limine_conf(mountpoint: Path):
     palette_bright = (
         "#4d4d4d ; #ff6e6e ; #10b981 ; #ffffa5 ; #33ccff ; #ff92df ; #a4ffff ; #ffffff"
     )
+    bg_img: str = "/boot/bg.jpg"
     limine_conf = mountpoint / "boot" / "limine.conf"
     if not limine_conf.is_file():
         log.error(f"{limine_conf} does not exist or is not a file.")
@@ -565,9 +571,12 @@ def write_limine_conf(mountpoint: Path):
             new_lines.append("timeout: 1")
             new_lines.extend(
                 [
+                    f"${{WALLPAPER_PATH}}=boot():{bg_img}",
                     f"term_palette: {palette}",
                     f"term_palette_bright: {palette_bright}",
                     "remember_last_entry: yes",
+                    "wallpaper: ${WALLPAPER_PATH}",
+                    "wallpaper_style: centered",
                 ]
             )
         else:
