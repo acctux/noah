@@ -169,8 +169,9 @@ class CopyProcessor:
             target_dir = Path(d.target_dir)
             if target_dir.is_absolute():
                 target_dir = target_dir.relative_to("/")  # /etc -> etc
-            root.append(self.root_dir / target_dir / dirname)
-            home_rel.append(target_dir / dirname)
+                root.append(self.root_dir / target_dir / dirname)
+            else:
+                home_rel.append(target_dir / dirname)
         return {"usb": usb, "root": root, "home_rel": home_rel}
 
     # --------- File paths access ---------

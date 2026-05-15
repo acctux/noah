@@ -266,7 +266,7 @@ def perform_installation(
             "\n".join(nc.reflector_options)
         )
         for dir_to_cp in nc.dir_contents_to_cp:
-            for name in dir_to_cp.dir_names:
+            for name in dir_to_cp.names:
                 copy_dir(
                     Path("/root") / name, mountpoint / dir_to_cp.target_dir.lstrip("/")
                 )
