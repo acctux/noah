@@ -6,8 +6,11 @@ from lib.limine import write_limine_opt
 
 def install_apparmor(installation: Installer):
     installation.add_additional_packages(["apparmor", "apparmor.d-git"])
-    kernel_param = {"apparmor": "lsm=landlock,lockdown,yama,integrity,apparmor,bpf"}
-    write_limine_opt(installation.target, kernel_param)
+    write_limine_opt(
+        installation.target,
+        filename="apparmor",
+        kernel_params="lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
+    )
     installation.enable_service("apparmor")
     content = {
         "etc/apparmor/parser.conf": dedent(
@@ -23,7 +26,9 @@ def install_apparmor(installation: Installer):
 
 def install_plymouth(installation: Installer):
     installation.add_additional_packages("plymouth")
-    write_limine_opt(installation.target, {"plymouth": "quiet splash"})
+    write_limine_opt(
+        installation.target, filename="plymouth", kernel_params="quiet splash"
+    )
     modify_mkinit(installation.target, hook="plymouth", after="kms")
 
 

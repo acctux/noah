@@ -3,12 +3,11 @@ from utils import copy_file, log
 from pathlib import Path
 
 
-def write_limine_opt(mountpoint: Path, extra_opt: dict[str, str]):
+def write_limine_opt(mountpoint: Path, filename: str, kernel_params: str):
     output_dir = mountpoint / "etc" / "limine-entry-tool.d"
-    for filename, opt in extra_opt:
-        target_file = output_dir / f"{filename}.conf"
-        target_file.write_text(f"KERNEL_CMDLINE[default]+={opt}\n")
-        log.info(f"Wrote extra option '{opt}' to {target_file}")
+    target_file = output_dir / f"{filename}.conf"
+    target_file.write_text(f"KERNEL_CMDLINE[default]+={kernel_params}\n")
+    log.info(f"Wrote extra option '{kernel_params}' to {target_file}")
 
 
 def get_cmdline(
@@ -57,6 +56,10 @@ def install_limine(installation: Installer):
     copy_file(installation.target / "etc" / "limine-entry-tool.conf", default_limine)
     set_target_os(default_limine)
     cmdline = get_cmdline(installation.target)
-    write_limine_opt(installation.target, {"original_flags": cmdline})
+    write_limine_opt(
+        installation.target,
+        filename="original_flags",
+        kernel_params=cmdline,
+    )
     write_limine_conf(installation.target)
     installation.arch_chroot("limine-mkinitcpio")
