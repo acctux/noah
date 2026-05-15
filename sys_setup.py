@@ -26,12 +26,7 @@ from archinstall.lib.profile.profiles_handler import profile_handler
 from utils import run_dmc, log, NoahConfig, copy_file, copy_dir, write_etc_file
 from lib.mnt_cp import mnt_cp_keys
 from lib.bootloaders import install_limine, sysd_boot_params
-from lib.apps import (
-    install_plymouth,
-    install_snapper,
-    install_apparmor,
-    realtime_priveleges,
-)
+from lib.apps import inst_plymouth, inst_snapper, inst_apparmor, realtime_priveleges
 from lib.pacman import chaotic_repo, modify_pacman_conf
 from lib.user_funcs import (
     user_service,
@@ -277,7 +272,7 @@ def perform_installation(
                 copy_dir(
                     Path("/root") / name, mountpoint / dir_to_cp.target_dir.lstrip("/")
                 )
-        install_snapper(installation, config)
+        inst_snapper(installation, config)
         set_extensions(mountpoint, nc.firefox_browser, new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
@@ -299,8 +294,8 @@ def perform_installation(
                     sysd_boot_params(mountpoint, plymouth=True, apparmor=True)
             elif boot_config.bootloader == Bootloader.Limine:
                 install_limine(installation)
-                install_apparmor(installation)
-                install_plymouth(installation)
+                inst_apparmor(installation)
+                inst_plymouth(installation)
         if services := config.services:
             installation.enable_service(services)
 

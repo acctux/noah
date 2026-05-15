@@ -188,9 +188,18 @@ json_config = {
         {
             "username": "acctux",
             "repos": [
-                {"repo_name": "noah", "repo_dest": "Lit/noah"},
-                {"repo_name": "polka", "repo_dest": "Lit/polka"},
-                {"repo_name": "docs", "repo_dest": "Lit/Docs"},
+                {
+                    "repo_name": "noah",
+                    "repo_dest": "Lit/noah",
+                },
+                {
+                    "repo_name": "polka",
+                    "repo_dest": "Lit/polka",
+                },
+                {
+                    "repo_name": "docs",
+                    "repo_dest": "Lit/Docs",
+                },
             ],
         }
     ],

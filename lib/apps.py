@@ -36,7 +36,7 @@ def realtime_priveleges(installation: Installer, users: list[User]):
         installation.arch_chroot(f"sudo usermod -aG realtime {user.username}")
 
 
-def install_snapper(
+def inst_snapper(
     installation: Installer,
     config: ArchConfig,
     snapper: dict[str, str] = {"root": "/", "home": "/home"},
