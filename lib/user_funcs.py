@@ -1,18 +1,8 @@
 from textwrap import dedent
-from utils import (
-    UsrSrv,
-    NoahConfig,
-    run_dmc,
-    get_logger,
-    UsbFileCopy,
-    copy_dir,
-    copy_file,
-)
+from utils import UsrSrv, NoahConfig, run_dmc, UsbFileCopy, copy_dir, copy_file, log
 import shutil
 from archinstall.lib.installer import Installer
 from pathlib import Path
-
-log = get_logger("Noah")
 
 
 def hide_apps(installation: Installer, user: str, apps_to_hide: list[str]):
