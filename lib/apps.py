@@ -1,4 +1,3 @@
-from archinstall.lib.args import ArchConfig
 from textwrap import dedent
 from archinstall.lib.installer import Installer
 from utils import write_etc_file, modify_mkinit
@@ -28,15 +27,8 @@ def install_plymouth(installation: Installer):
     modify_mkinit(installation.target, hook="plymouth", after="kms")
 
 
-def install_snapper(installation: Installer, arch_config: ArchConfig):
+def install_snapper(installation: Installer):
     installation.add_additional_packages("limine-snapper-sync")
-    installation.arch_chroot("snapper -c root create-config /")
-    installation.arch_chroot("snapper -c home create-config /home")
-    if arch_config.auth_config:
-        if users := arch_config.auth_config.users:
-            installation.arch_chroot(
-                f"snapper -c home set-config 'ALLOW_USERS={users[0]}' SYNC_ACL='yes'"
-            )
     write_etc_file(
         installation.target,
         {

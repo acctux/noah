@@ -270,7 +270,7 @@ def perform_installation(
                 copy_dir(
                     Path("/root") / name, mountpoint / dir_to_cp.target_dir.lstrip("/")
                 )
-        install_snapper(installation, config)
+        install_snapper(installation)
         set_extensions(mountpoint, nc.firefox_browser, new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
