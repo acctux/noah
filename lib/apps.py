@@ -7,7 +7,7 @@ from lib.limine import write_limine_opt
 def install_apparmor(installation: Installer):
     installation.add_additional_packages(["apparmor", "apparmor.d-git"])
     write_limine_opt(
-        installation.target,
+        installation,
         filename="apparmor",
         kernel_params="lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
     )
@@ -26,11 +26,7 @@ def install_apparmor(installation: Installer):
 
 def install_plymouth(installation: Installer):
     installation.add_additional_packages("plymouth")
-    write_limine_opt(
-        installation.target,
-        filename="plymouth",
-        kernel_params="quiet splash",
-    )
+    write_limine_opt(installation, filename="plymouth", kernel_params="quiet splash")
     modify_mkinit(installation.target, hook="plymouth", after="kms")
 
 
