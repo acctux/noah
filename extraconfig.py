@@ -81,7 +81,7 @@ json_config = {
     "dir_contents_to_cp": [
         {
             "source_dir": "noahinstall",
-            "target_dir": "/etc/wireguard",
+            "target_dir": "/etc",
             "names": ["wireguard"],
         }
     ],
