@@ -113,16 +113,13 @@ def copy_all_usb(processor: CopyProcessor, installer: "Installer", username: str
 
     def apply_permissions(dest: Path, home: bool):
         if not home:
-            # Do nothing for root-owned chroot files
             return
         if dest in key_paths:
-            # Key files: strict permissions
             dest.chmod(0o600 if dest.is_file() else 0o700)
         else:
             dest.chmod(0o644 if dest.is_file() else 0o755)
         installer.chown(username, str(dest))
 
-    # ------------------- Helper to copy a single item -------------------
     def copy_item(src: Path, dest: Path, home: bool):
         if src.is_file():
             copy_file(src, dest)
@@ -130,13 +127,12 @@ def copy_all_usb(processor: CopyProcessor, installer: "Installer", username: str
             copy_dir(src, dest)
         apply_permissions(dest, home)
 
-    # ------------------- Copy to Chroot (root-owned) -------------------
+    # ------------------- (root-owned) -------------------
     for src, dest in zip(processor.usb_paths(), processor.file_chroot_paths()):
         copy_item(src, dest, home=False)
     for src, dest in zip(processor.dir_usb_paths(), processor.dir_chroot_paths()):
         copy_item(src, dest, home=False)
-
-    # ------------------- Copy to Home (user-owned) -------------------
+    # ------------------- (user-owned) -------------------
     for src, dest in zip(processor.usb_paths(), processor.file_home_paths(username)):
         copy_item(src, dest, home=True)
     for src, dest in zip(processor.dir_usb_paths(), processor.dir_home_paths(username)):

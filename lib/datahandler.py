@@ -54,20 +54,6 @@ class UserServices:
         return cls(parsed)
 
 
-def parse_list(cls, data: list[dict] | None) -> list:
-    return [cls(**item) for item in (data or [])]
-
-
-def parse_usb_file_copy_list(data: list[dict] | None) -> list[UsbFileCopy]:
-    result = []
-    for item in data or []:
-        t_dirs = parse_list(UsbTargetCopy, item.get("target_dirs"))
-        result.append(
-            UsbFileCopy(source_dir=item.get("source_dir", ""), target_dirs=t_dirs)
-        )
-    return result
-
-
 @dataclass(slots=True)
 class NoahConfig:
     terminal: str = "kitty"
@@ -99,6 +85,20 @@ class NoahConfig:
     @classmethod
     def from_config(cls, data: dict):
         fc = data.get("file_copy_config", {})
+
+        def parse_usb_file_copy_list(data: list[dict] | None) -> list[UsbFileCopy]:
+            result = []
+            for item in data or []:
+                t_dirs = parse_list(UsbTargetCopy, item.get("target_dirs"))
+                result.append(
+                    UsbFileCopy(
+                        source_dir=item.get("source_dir", ""), target_dirs=t_dirs
+                    )
+                )
+            return result
+
+        def parse_list(cls, data: list[dict] | None) -> list:
+            return [cls(**item) for item in (data or [])]
 
         def parse_file(name):
             file_cfg = fc.get(name, {})
