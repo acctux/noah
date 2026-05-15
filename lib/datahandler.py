@@ -24,7 +24,7 @@ class UsbFileCopy:
 class UsbDirCopy:
     source_dir: str = ""
     target_dir: str = ""
-    dir_names: list[str] = field(default_factory=list)
+    names: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
