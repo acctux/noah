@@ -1,7 +1,8 @@
 from textwrap import dedent
-from utils import UsrSrv, NoahConfig, run_dmc, UsbFileCopy, copy_dir, copy_file, log
+from utils import run_dmc, copy_dir, copy_file, log
 import shutil
 from archinstall.lib.installer import Installer
+from lib.datahandler import NoahConfig, CopyProcessor, UsrSrv
 from pathlib import Path
 
 
@@ -107,25 +108,39 @@ def install_icons(installation: Installer):
 ###################################
 # User Space
 ###################################
-def copy_keys(
-    installation: Installer, username: str, groups: list[UsbFileCopy]
-) -> None:
-    root_home = Path("/root")
-    for group in groups:
-        for target in group.target_dirs:
-            sys_path = Path("home") / username / target.dest
-            if target.dest == "archinstall":
-                return
-            target_dir = installation.target / sys_path
-            target_dir.mkdir(parents=True, exist_ok=True)
-            target_dir.chmod(0o700)
-            installation.chown(username, str(sys_path))
-            for name in target.file_names:
-                src = root_home / target.dest / name
-                dest = target_dir / name
-                copy_file(src, dest)
-                dest.chmod(0o600)
-                installation.chown(username, str(sys_path / name))
+def copy_all_usb(processor: CopyProcessor, installer: "Installer", username: str):
+    key_paths = set(processor.file_home_paths(username))
+
+    def apply_permissions(dest: Path, home: bool):
+        if not home:
+            # Do nothing for root-owned chroot files
+            return
+        if dest in key_paths:
+            # Key files: strict permissions
+            dest.chmod(0o600 if dest.is_file() else 0o700)
+        else:
+            dest.chmod(0o644 if dest.is_file() else 0o755)
+        installer.chown(username, str(dest))
+
+    # ------------------- Helper to copy a single item -------------------
+    def copy_item(src: Path, dest: Path, home: bool):
+        if src.is_file():
+            copy_file(src, dest)
+        elif src.is_dir():
+            copy_dir(src, dest)
+        apply_permissions(dest, home)
+
+    # ------------------- Copy to Chroot (root-owned) -------------------
+    for src, dest in zip(processor.usb_paths(), processor.file_chroot_paths()):
+        copy_item(src, dest, home=False)
+    for src, dest in zip(processor.dir_usb_paths(), processor.dir_chroot_paths()):
+        copy_item(src, dest, home=False)
+
+    # ------------------- Copy to Home (user-owned) -------------------
+    for src, dest in zip(processor.usb_paths(), processor.file_home_paths(username)):
+        copy_item(src, dest, home=True)
+    for src, dest in zip(processor.dir_usb_paths(), processor.dir_home_paths(username)):
+        copy_item(src, dest, home=True)
 
 
 def mpd_tmpfiles(installation: Installer, user: str) -> None:

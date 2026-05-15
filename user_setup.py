@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from utils import get_logger, run_dmc, yes_no, NoahConfig, GitRepos
+from utils import get_logger, run_dmc, yes_no
 import pwd
 from extraconfig import json_config
 from getpass import getpass
@@ -9,6 +9,7 @@ import time
 import gnupg
 import shutil
 import subprocess
+from lib.datahandler import NoahConfig, GitRepos
 from dataclasses import dataclass, field
 import pyperclip
 
@@ -45,8 +46,10 @@ class NoahUserProcessor:
     ENCRYPTED: Path = field(init=False)
     DOTS: Path = field(init=False)
     SEC_DOTS: Path = field(init=False)
-    ssh_path: Path = field(init=False)
-    gpg_path: Path = field(init=False)
+    ssh_paths: list[Path] = field(init=False)
+    gpg_paths: list[Path] = field(init=False)
+    masterpass_paths: list[Path] = field(init=False)
+    dirs_icons: dict[Path, str] = field(init=False)
 
     def __post_init__(self):
         self.HOME = (
@@ -55,9 +58,21 @@ class NoahUserProcessor:
         self.ENCRYPTED = self.HOME / self.data.encrypted_dir
         self.DOTS = self.HOME / "Lit" / self.data.dots_repo
         self.SEC_DOTS = self.HOME / "Lit" / "Docs" / "secdots"
-        self.ssh_path = self.HOME / ".ssh" / self.data.ssh_key_file
-        self.gpg_path = self.HOME / ".gnupg" / self.data.gpg_key_file
-        self.masterpass_path = self.HOME / ".ssh" / self.data.master_pass_file
+        self.ssh_paths = [
+            self.HOME / t.dest / name
+            for t in self.data.ssh_key_file.target_dirs
+            for name in t.names
+        ]
+        self.gpg_paths = [
+            self.HOME / t.dest / name
+            for t in self.data.gpg_key_file.target_dirs
+            for name in t.names
+        ]
+        self.masterpass_paths = [
+            self.HOME / t.dest / name
+            for t in self.data.master_pass_file.target_dirs
+            for name in t.names
+        ]
         self.dirs_icons = {
             self.HOME / path: icon for path, icon in self.data.dirs_icons.items()
         }

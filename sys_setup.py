@@ -23,15 +23,16 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
-from utils import run_dmc, log, NoahConfig, copy_file, copy_dir, write_etc_file
+from utils import run_dmc, log, copy_file, copy_dir, write_etc_file
 from lib.mnt_cp import mnt_cp_keys
+from lib.datahandler import NoahConfig, CopyProcessor
 from lib.bootloaders import install_limine, sysd_boot_params
 from lib.apps import inst_plymouth, inst_snapper, inst_apparmor, realtime_priveleges
 from lib.pacman import chaotic_repo, modify_pacman_conf
 from lib.user_funcs import (
     user_service,
     enable_user_serv,
-    copy_keys,
+    copy_all_usb,
     copy_skel,
     install_icons,
     hide_apps,
@@ -159,6 +160,7 @@ def perform_installation(
     application_handler: ApplicationHandler,
     nc: NoahConfig,
     gfx_drivers: list[GfxDriver],
+    copy_conf: CopyProcessor,
 ) -> None:
     script_d = Path(__file__).resolve().parent
     start_time = time.monotonic()
@@ -208,10 +210,6 @@ def perform_installation(
         )
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        )
-        copy_file(
-            Path(f"/root/{nc.files_to_cp[0].target_dirs[1].dest}/chaotic.key"),
-            mountpoint / "root/chaotic.key",
         )
         modify_pacman_conf(mountpoint, nc.no_extracts)
         copy_skel(mountpoint, nc)
@@ -287,7 +285,7 @@ def perform_installation(
             aur_and_remove_root(installation, user_1, nc.sudo_defaults)
             realtime_priveleges(installation, users)
             copy_dir(script_d, (mountpoint / "home" / user_1 / script_d.name))
-            copy_keys(installation, user_1, nc.files_to_cp)
+            copy_all_usb(copy_conf, installation, user_1)
         if boot_config := config.bootloader_config:
             if boot_config.bootloader == Bootloader.Systemd:
                 if not boot_config.uki:
@@ -372,7 +370,7 @@ def setup_archinstall_conf(
 
 def sys_setup() -> None:
     nc = NoahConfig.from_config(ec.json_config)
-    mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
+    copy_conf = mnt_cp_keys(nc.files_to_cp, nc.dir_contents_to_cp)
     arch_config_handler, gfx_drivers = setup_archinstall_conf(
         ec.arch_config_json, "/root/users.json"
     )
@@ -399,6 +397,7 @@ def sys_setup() -> None:
         application_handler=ApplicationHandler(),
         nc=nc,
         gfx_drivers=gfx_drivers,
+        copy_conf=copy_conf,
     )
 
 
