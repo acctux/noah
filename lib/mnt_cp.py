@@ -108,10 +108,10 @@ def mnt_cp_keys(
         unmount_usb()
     processor = CopyProcessor(config)
     missing_files, missing_dirs = get_missing_paths(
-        usb_files=processor.usb_paths(),
-        usb_dirs=processor.dir_usb_paths(),
-        chroot_files=processor.file_chroot_paths(),
-        chroot_dirs=processor.dir_chroot_paths(),
+        usb_files=processor.usb_file_paths(),
+        usb_dirs=processor.usb_dir_paths(),
+        chroot_files=processor.root_file_paths(),
+        chroot_dirs=processor.home_file_paths(),
     )
     if missing_files or missing_dirs:
         log.warning(
