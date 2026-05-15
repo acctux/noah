@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-from utils import log, run_dmc, yes_no
+from utils import get_logger, run_dmc, yes_no, NoahConfig, GitRepos
 import pwd
 from extraconfig import json_config
-from noah_processor import NoahConfig, GitRepos
 from getpass import getpass
 import os
 from pathlib import Path
@@ -12,6 +11,9 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 import pyperclip
+
+
+log = get_logger("Noah")
 
 
 ############################

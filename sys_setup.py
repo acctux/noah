@@ -515,24 +515,18 @@ def copy_skel(mountpoint: Path, nc: NoahConfig):
     copy_dir(tmp, mountpoint / "etc" / "skel")
 
 
-def write_kernel_cmdline(
-    mountpoint: Path,
-    extra_options: list[dict[str, str]] = [
-        {"filename": "plymouth", "option": "quiet splash"},
-        {
-            "filename": "apparmor",
-            "option": "lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
-        },
-    ],
-):
-    def write_extra_opts(mountpoint: Path, extra_opts: list[dict[str, str]]):
-        output_dir = mountpoint / "etc" / "limine-entry-tool.d"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        for dict in extra_opts:
-            target_file = output_dir / f"{dict['filename']}.conf"
-            target_file.write_text(f"KERNEL_CMDLINE[default]+={dict['option']}\n")
-            log.info(f"Wrote extra option '{dict['option']}' to {target_file}")
+def write_limine_opts(mountpoint: Path, extra_opts: list[dict[str, str]]):
+    output_dir = mountpoint / "etc" / "limine-entry-tool.d"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for dict in extra_opts:
+        target_file = output_dir / f"{dict['filename']}.conf"
+        target_file.write_text(f"KERNEL_CMDLINE[default]+={dict['option']}\n")
+        log.info(f"Wrote extra option '{dict['option']}' to {target_file}")
 
+
+def get_cmdline(
+    mountpoint: Path,
+) -> str:
     limine_conf = mountpoint / "boot" / "EFI" / "arch-limine" / "limine.conf"
     cmdline = ""
     with limine_conf.open() as f:
@@ -542,8 +536,7 @@ def write_kernel_cmdline(
                 cmdline = line.split(":", 1)[1].strip()
                 log.info(cmdline)
                 break
-    write_extra_opts(mountpoint, [{"filename": "original_flags", "option": cmdline}])
-    write_extra_opts(mountpoint, extra_options)
+    return cmdline
 
 
 def write_limine_conf(mountpoint: Path):
@@ -554,9 +547,6 @@ def write_limine_conf(mountpoint: Path):
         "#4d4d4d ; #ff6e6e ; #10b981 ; #ffffa5 ; #33ccff ; #ff92df ; #a4ffff ; #ffffff"
     )
     limine_conf = mountpoint / "boot" / "limine.conf"
-    if not limine_conf.is_file():
-        log.error(f"{limine_conf} not a file.")
-        return
     lines = limine_conf.read_text().splitlines()
     new_lines = []
     for line in lines:
@@ -572,19 +562,10 @@ def write_limine_conf(mountpoint: Path):
         else:
             new_lines.append(line)
     limine_conf.write_text("\n".join(new_lines) + "\n")
-    log.info(f"Updated limine.conf at {limine_conf}")
+    log.info(f"Updated {limine_conf}")
 
 
-def install_limine(installation: Installer):
-    installation.add_additional_packages(
-        [
-            "limine-snapper-sync",
-            "limine-mkinitcpio-hook",
-        ],
-    )
-    modify_mkinit(installation.target, hook="btrfs-overlayfs", after="filesystems")
-    default_limine = installation.target / "etc" / "default" / "limine"
-    copy_file(installation.target / "etc" / "limine-entry-tool.conf", default_limine)
+def set_target_os(default_limine: Path):
     with open(default_limine) as default:
         content = default.read().splitlines()
     for i, line in enumerate(content):
@@ -593,13 +574,31 @@ def install_limine(installation: Installer):
             content[i] = "TARGET_OS_NAME='Arch Linux"
     with open(default_limine, "w") as default:
         default.write("\n".join(content) + "\n")
-    installation.enable_service(
-        [
-            "snapper-cleanup.timer",
-            "snapper-timeline.timer",
-        ]
+
+
+def install_limine(installation: Installer):
+    installation.add_additional_packages(
+        ["limine-snapper-sync", "limine-mkinitcpio-hook"]
     )
-    write_kernel_cmdline(installation.target)
+    modify_mkinit(installation.target, hook="btrfs-overlayfs", after="filesystems")
+    default_limine = installation.target / "etc" / "default" / "limine"
+    copy_file(installation.target / "etc" / "limine-entry-tool.conf", default_limine)
+    set_target_os(default_limine)
+    installation.enable_service(["snapper-cleanup.timer", "snapper-timeline.timer"])
+    cmdline = get_cmdline(installation.target)
+    write_limine_opts(
+        installation.target, [{"filename": "original_flags", "option": cmdline}]
+    )
+    write_limine_opts(
+        installation.target,
+        [
+            {"filename": "plymouth", "option": "quiet splash"},
+            {
+                "filename": "apparmor",
+                "option": "lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
+            },
+        ],
+    )
     write_limine_conf(installation.target)
     installation.arch_chroot("limine-mkinitcpio")
 
