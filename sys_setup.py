@@ -542,17 +542,22 @@ def write_limine_conf(mountpoint: Path):
         print(f"{limine_conf} does not exist or is not a file.")
         return
     lines = limine_conf.read_text().splitlines()
-    insert_index = next(
-        (i for i, line in enumerate(lines) if line.strip() == ""), len(lines)
-    )
-    lines[insert_index:insert_index] = [
-        f"term_palette: {term_palette}",
-        f"term_palette_bright: {term_palette_bright}",
-        "remember_last_entry: yes",
-        "wallpaper: /usr/local/bin/limine.jpg",
-    ]
-    limine_conf.write_text("\n".join(lines) + "\n")
-    log.info(f"Inserted term_palette and term_palette_bright into {limine_conf}")
+    new_lines = []
+    for line in lines:
+        if line.strip().startswith("timeout"):
+            new_lines.append("timeout 1")
+            new_lines.extend(
+                [
+                    f"term_palette: {term_palette}",
+                    f"term_palette_bright: {term_palette_bright}",
+                    "remember_last_entry: yes",
+                    "wallpaper: /usr/local/bin/limine.jpg",
+                ]
+            )
+        else:
+            new_lines.append(line)
+    limine_conf.write_text("\n".join(new_lines) + "\n")
+    log.info(f"Updated limine.conf at {limine_conf}")
 
 
 def install_limine(installation: Installer):
@@ -580,6 +585,7 @@ def install_limine(installation: Installer):
         ]
     )
     write_kernel_cmdline(installation.target)
+    write_limine_conf(installation.target)
     # installation.arch_chroot("limine-install")
     # installation.arch_chroot(
     #     "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
