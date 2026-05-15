@@ -1,3 +1,4 @@
+from archinstall.lib.models import User
 from archinstall.lib.args import ArchConfig
 from textwrap import dedent
 from archinstall.lib.installer import Installer
@@ -27,6 +28,12 @@ def install_plymouth(installation: Installer):
     installation.add_additional_packages("plymouth")
     write_limine_opt(installation, filename="plymouth", kernel_params="quiet splash")
     modify_mkinit(installation.target, hook="plymouth", after="kms")
+
+
+def realtime_priveleges(installation: Installer, users: list[User]):
+    installation.add_additional_packages("realtime-privileges")
+    for user in users:
+        installation.arch_chroot(f"sudo usermod -aG realtime {user.username}")
 
 
 def install_snapper(

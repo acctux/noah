@@ -38,7 +38,12 @@ from utils import run_dmc, log, NoahConfig, copy_file, copy_dir, write_etc_file
 from lib.sysd import sysd_boot_params
 from lib.mnt_cp import mnt_cp_keys
 from lib.limine import install_limine
-from lib.apps import install_plymouth, install_snapper, install_apparmor
+from lib.apps import (
+    install_plymouth,
+    install_snapper,
+    install_apparmor,
+    realtime_priveleges,
+)
 from lib.pacman import chaotic_repo, modify_pacman_conf
 from lib.user_funcs import (
     user_service,
@@ -283,13 +288,14 @@ def perform_installation(
                 mpd_tmpfiles(installation, user.username)
             user_1 = users[0].username
             aur_and_remove_root(installation, user_1, nc.sudo_defaults)
-            copy_dir(script_d, (mountpoint / f"home/{user_1}" / script_d.name))
+            realtime_priveleges(installation, users)
+            copy_dir(script_d, (mountpoint / "home" / user_1 / script_d.name))
             copy_keys(installation, user_1, nc.files_to_cp)
-        if config.bootloader_config:
-            if config.bootloader_config.bootloader == Bootloader.Systemd:
-                if not config.bootloader_config.uki:
+        if boot_config := config.bootloader_config:
+            if boot_config.bootloader == Bootloader.Systemd:
+                if not boot_config.uki:
                     sysd_boot_params(mountpoint, plymouth=True, apparmor=True)
-            elif config.bootloader_config.bootloader == Bootloader.Limine:
+            elif boot_config.bootloader == Bootloader.Limine:
                 install_limine(installation)
                 install_apparmor(installation)
                 install_plymouth(installation)
