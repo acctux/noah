@@ -147,31 +147,30 @@ class NoahConfig:
 class CopyProcessor:
     config: "NoahConfig"
     usb_mnt: Path = Path("/mnt/usb")
-    chroot_root: Path = Path("/mnt")
-    # Internal caches
+    root_dir: Path = Path("/root")  # actual destination root
     _file_paths_cache: dict[str, list[Path]] = field(init=False, default_factory=dict)
     _dir_paths_cache: dict[str, list[Path]] = field(init=False, default_factory=dict)
 
-    # --------- Path computation ---------
+    # --------- Compute paths ---------
     def compute_file_paths(self, f: "UsbFileCopy") -> dict[str, list[Path]]:
-        usb, chroot, home_rel = [], [], []
+        usb, root, home_rel = [], [], []
         for t in f.target_dirs:
             dest = Path(t.dest or "")
             for fname in t.names:
                 usb.append(self.usb_mnt / f.source_dir / fname)
-                chroot.append(self.chroot_root / dest / fname)
+                root.append(self.root_dir / dest / fname)
                 home_rel.append(dest / fname)
-        return {"usb": usb, "chroot": chroot, "home_rel": home_rel}
+        return {"usb": usb, "root": root, "home_rel": home_rel}
 
     def compute_dir_paths(self, d: "UsbDirCopy") -> dict[str, list[Path]]:
-        usb, chroot, home_rel = [], [], []
+        usb, root, home_rel = [], [], []
         for dirname in d.names:
             usb.append(self.usb_mnt / d.source_dir / dirname)
-            chroot.append(self.chroot_root / d.target_dir / dirname)
+            root.append(self.root_dir / Path(d.target_dir) / dirname)
             home_rel.append(Path(d.target_dir) / dirname)
-        return {"usb": usb, "chroot": chroot, "home_rel": home_rel}
+        return {"usb": usb, "root": root, "home_rel": home_rel}
 
-    # --------- Files access ---------
+    # --------- File paths access ---------
     def all_file_paths(self, location: str = "home_rel") -> list[Path]:
         if location not in self._file_paths_cache:
             paths = []
@@ -180,16 +179,16 @@ class CopyProcessor:
             self._file_paths_cache[location] = paths
         return self._file_paths_cache[location]
 
-    def file_home_paths(self, username: str) -> list[Path]:
-        return [Path("/home") / username / p for p in self.all_file_paths("home_rel")]
-
-    def usb_paths(self) -> list[Path]:
+    def usb_file_paths(self) -> list[Path]:
         return self.all_file_paths("usb")
 
-    def file_chroot_paths(self) -> list[Path]:
-        return self.all_file_paths("chroot")
+    def root_file_paths(self) -> list[Path]:
+        return self.all_file_paths("root")
 
-    # --------- Directories access ---------
+    def home_file_paths(self) -> list[Path]:
+        return self.all_file_paths("home_rel")
+
+    # --------- Directory paths access ---------
     def all_dir_paths(self, location: str = "home_rel") -> list[Path]:
         if location not in self._dir_paths_cache:
             paths = []
@@ -198,11 +197,11 @@ class CopyProcessor:
             self._dir_paths_cache[location] = paths
         return self._dir_paths_cache[location]
 
-    def dir_home_paths(self, username: str) -> list[Path]:
-        return [Path("/home") / username / p for p in self.all_dir_paths("home_rel")]
-
-    def dir_usb_paths(self) -> list[Path]:
+    def usb_dir_paths(self) -> list[Path]:
         return self.all_dir_paths("usb")
 
-    def dir_chroot_paths(self) -> list[Path]:
-        return self.all_dir_paths("chroot")
+    def root_dir_paths(self) -> list[Path]:
+        return self.all_dir_paths("root")
+
+    def home_dir_paths(self) -> list[Path]:
+        return self.all_dir_paths("home_rel")
