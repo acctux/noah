@@ -149,6 +149,7 @@ pacman_pkgs: dict[str, list[str]] = {
         "system-config-printer",
     ],
     "extra": [
+        "nmap",
         "bandwhich",
         "profile-sync-daemon",
         "protonmail-bridge-core",

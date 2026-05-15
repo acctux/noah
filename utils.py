@@ -169,6 +169,7 @@ class NoahConfig:
     mkinit_hooks: list[str]
     reflector_options: list[str]
     disable_svcs: list[str]
+    sudo_defaults: list[str]
     apps_to_hide: list[str]
     no_extracts: list[str]
     yazi_plugins: list[str]
@@ -199,6 +200,7 @@ class NoahConfig:
             apps_to_hide=data.get("apps_to_hide", []),
             no_extracts=data.get("no_extracts", []),
             yazi_plugins=data.get("yazi_plugins", []),
+            sudo_defaults=data.get("sudo_defaults", []),
             dirs_to_link=data.get("dirs_to_link", []),
             git_repos=parse_list(GitRepos, data.get("git_repos")),
             files_to_cp=parse_list(

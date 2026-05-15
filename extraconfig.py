@@ -171,6 +171,16 @@ json_config = {
         "xgps",
         "xgpsspeed",
     ],
+    "sudo_defaults": [
+        "insults",
+        "passwd_tries=10",
+        "lecture=never",
+        "passwd_timeout=0",
+        "timestamp_timeout=20",
+        "pwfeedback",
+        "timestamp_type=global",
+        "editor=/usr/sbin/nvim, !env_editor",
+    ],
     "encrypted_dir": "Desktop/Private",
     "git_repos": [
         {

@@ -34,7 +34,7 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
-from utils import run_dmc, get_logger, NoahConfig, copy_file, copy_dir, write_etc_file
+from utils import run_dmc, log, NoahConfig, copy_file, copy_dir, write_etc_file
 from lib.sysd import sysd_boot_params
 from lib.mnt_cp import mnt_cp_keys
 from lib.limine import install_limine
@@ -57,30 +57,30 @@ import subprocess
 import json
 import shutil
 import extraconfig as ec
-from textwrap import dedent
-
-log = get_logger("Noah")
 
 
 ###################################
 # ETC/BOOT
 ###################################
-def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
-    sudoers_content = dedent(
-        f"""\
-        {user_name} ALL=(ALL:ALL) {"NOPASSWD:ALL" if pless else "ALL"}
-        Defaults    insults
-        Defaults    passwd_tries=10
-        Defaults    lecture=never
-        Defaults    passwd_timeout=0
-        Defaults    timestamp_timeout=20
-        Defaults    pwfeedback
-        Defaults    timestamp_type=global
-        Defaults    editor=/usr/sbin/nvim, !env_editor
-        """
+def aur_and_remove_root(
+    installation: Installer, user_name: str, sudo_defaults: list[str]
+) -> None:
+    def write_sudoers(pless: bool) -> None:
+        defaults_block = "\n".join(f"Defaults    {line}" for line in sudo_defaults)
+        rule = f"{user_name} ALL=(ALL:ALL) {'NOPASSWD:ALL' if pless else 'ALL'}"
+        sudoers_block = "\n".join([rule, defaults_block])
+        sudoers_file = installation.target / f"etc/sudoers.d/00_{user_name}"
+        sudoers_file.write_text(sudoers_block)
+        log.info(
+            f"{'Removed' if pless else 'Created'} pass requirement for {user_name}"
+        )
+
+    write_sudoers(True)
+    installation.arch_chroot(
+        f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}", user_name
     )
-    (mnt_point / f"etc/sudoers.d/00_{user_name}").write_text(sudoers_content)
-    log.info(f"{'Removed' if pless else 'Created'} pass requirement for {user_name}")
+    installation.arch_chroot("sudo passwd -dl root", user_name)
+    write_sudoers(False)
 
 
 def sys_dots(mnt_point: Path, script_dir: Path) -> None:
@@ -270,7 +270,7 @@ def perform_installation(
                 copy_dir(
                     Path("/root") / name, mountpoint / dir_to_cp.target_dir.lstrip("/")
                 )
-        install_snapper(installation)
+        install_snapper(installation, config)
         set_extensions(mountpoint, nc.firefox_browser, new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
@@ -282,12 +282,7 @@ def perform_installation(
                 user_service(installation, user.username, nc.terminal)
                 mpd_tmpfiles(installation, user.username)
             user_1 = users[0].username
-            configure_sudo(mountpoint, user_1, pless=True)
-            cmd = f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}"
-            installation.arch_chroot(cmd, user_1)
-            cmd = "sudo passwd -dl root"
-            installation.arch_chroot(cmd, user_1)
-            configure_sudo(mountpoint, user_1)
+            aur_and_remove_root(installation, user_1, nc.sudo_defaults)
             copy_dir(script_d, (mountpoint / f"home/{user_1}" / script_d.name))
             copy_keys(installation, user_1, nc.files_to_cp)
         if config.bootloader_config:
@@ -364,7 +359,9 @@ def setup_archinstall_conf(
     base_pkgs = (
         pacman_pkgs["base"] + pacman_pkgs["language"] + pacman_pkgs["chaotic_repo"]
     )
-    if GfxDriver.VMOpenSource not in gfx_drivers:
+    if GfxDriver.VMOpenSource in gfx_drivers:
+        base_pkgs.append("spice-vdagent")
+    else:
         base_pkgs.extend(pacman_pkgs["extra"] + pacman_pkgs["extra_chaos"])
     arch_config_handler.config.packages = base_pkgs
     return arch_config_handler, gfx_drivers
