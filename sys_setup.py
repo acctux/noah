@@ -238,7 +238,6 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
 def chaotic_repo(installation: Installer) -> None:
     web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
     cmds = [
-        ["pacman-key", "--init"],
         [
             "pacman-key",
             "--recv-key",
@@ -251,6 +250,24 @@ def chaotic_repo(installation: Installer) -> None:
         ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
         ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
     ]
+    cmd = ["pacman-key", "--init"]
+    run_dmc(cmd)
+    installation.arch_chroot(" ".join(cmd))
+    time.sleep(1)
+    cmd = [
+        "pacman-key",
+        "--recv-key",
+        "3056513887B78AEB",
+        "--keyserver",
+        "keyserver.ubuntu.com",
+    ]
+    if not run_dmc(cmd):
+        cmd = ["pacman-key", "--add", "/root/chaotic.key"]
+        run_dmc(cmd)
+    if not installation.arch_chroot(" ".join(cmd)):
+        cmd = ["pacman-key", "--add", "/root/chaotic.key"]
+        installation.arch_chroot(" ".join(cmd))
+    time.sleep(1)
     for cmd in cmds:
         run_dmc(cmd)
         installation.arch_chroot(" ".join(cmd))
