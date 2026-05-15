@@ -554,7 +554,7 @@ def write_limine_conf(mountpoint: Path):
     term_palette_bright = (
         "#4d4d4d ; #ff6e6e ; #10b981 ; #ffffa5 ; #33ccff ; #ff92df ; #a4ffff ; #ffffff"
     )
-    limine_conf = mountpoint / "boot/limine.conf"
+    limine_conf = mountpoint / "boot/EFI/arch-limine/limine.conf"
     if not limine_conf.is_file():
         print(f"{limine_conf} does not exist or is not a file.")
         return
