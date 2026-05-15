@@ -559,10 +559,9 @@ def write_limine_conf(mountpoint: Path):
     palette_bright = (
         "#4d4d4d ; #ff6e6e ; #10b981 ; #ffffa5 ; #33ccff ; #ff92df ; #a4ffff ; #ffffff"
     )
-    bg_img: str = "/boot/bg.jpg"
     limine_conf = mountpoint / "boot" / "limine.conf"
     if not limine_conf.is_file():
-        log.error(f"{limine_conf} does not exist or is not a file.")
+        log.error(f"{limine_conf} not a file.")
         return
     lines = limine_conf.read_text().splitlines()
     new_lines = []
@@ -571,12 +570,9 @@ def write_limine_conf(mountpoint: Path):
             new_lines.append("timeout: 1")
             new_lines.extend(
                 [
-                    f"${{WALLPAPER_PATH}}=boot():{bg_img}",
                     f"term_palette: {palette}",
                     f"term_palette_bright: {palette_bright}",
                     "remember_last_entry: yes",
-                    "wallpaper: ${WALLPAPER_PATH}",
-                    "wallpaper_style: centered",
                 ]
             )
         else:
