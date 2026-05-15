@@ -67,6 +67,7 @@ def user_service(
 
             [Service]
             Type=oneshot
+            ExecStartPre=/usr/bin/sleep 5
             ExecStart=/usr/bin/{terminal} python {run_script}
             Restart=no
 
