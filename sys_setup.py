@@ -530,6 +530,31 @@ def write_kernel_cmdline(mountpoint: Path):
         log.info(f"Wrote extra option '{option}' to {target_file}")
 
 
+def write_limine_conf(mountpoint: Path):
+    term_palette = (
+        "#21222c ; #ff5555 ; #00ff99 ; #f1fa8c ; #0072ff ; #ff79c6 ; #33ccff ; #bfbfbf"
+    )
+    term_palette_bright = (
+        "#4d4d4d ; #ff6e6e ; #10b981 ; #ffffa5 ; #33ccff ; #ff92df ; #a4ffff ; #ffffff"
+    )
+    limine_conf = mountpoint / "boot/limine.conf"
+    if not limine_conf.is_file():
+        print(f"{limine_conf} does not exist or is not a file.")
+        return
+    lines = limine_conf.read_text().splitlines()
+    insert_index = next(
+        (i for i, line in enumerate(lines) if line.strip() == ""), len(lines)
+    )
+    lines[insert_index:insert_index] = [
+        f"term_palette: {term_palette}",
+        f"term_palette_bright: {term_palette_bright}",
+        "remember_last_entry: yes",
+        "wallpaper: /usr/local/bin/limine.jpg",
+    ]
+    limine_conf.write_text("\n".join(lines) + "\n")
+    log.info(f"Inserted term_palette and term_palette_bright into {limine_conf}")
+
+
 def install_limine(installation: Installer):
     installation.add_additional_packages(
         [
