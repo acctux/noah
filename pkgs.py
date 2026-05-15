@@ -6,6 +6,7 @@ pacman_pkgs: dict[str, list[str]] = {
         "bluez-utils",  # for loggy
         "brightnessctl",
         "btop",
+        "btrfs-assistant",
         "cliphist",
         "rocm-smi-lib",  # btop dependency for amd gpu
         "dmidecode",
@@ -148,6 +149,7 @@ pacman_pkgs: dict[str, list[str]] = {
         "system-config-printer",
     ],
     "extra": [
+        "bandwhich",
         "profile-sync-daemon",
         "protonmail-bridge-core",
         "termscp",

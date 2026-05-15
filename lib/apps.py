@@ -1,3 +1,4 @@
+from archinstall.lib.args import ArchConfig
 from textwrap import dedent
 from archinstall.lib.installer import Installer
 from utils import write_etc_file, modify_mkinit
@@ -7,9 +8,7 @@ from lib.limine import write_limine_opt
 def install_apparmor(installation: Installer):
     installation.add_additional_packages(["apparmor", "apparmor.d-git"])
     write_limine_opt(
-        installation,
-        filename="apparmor",
-        kernel_params="lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
+        installation, "apparmor", "lsm=landlock,lockdown,yama,integrity,apparmor,bpf"
     )
     installation.enable_service("apparmor")
     content = {
@@ -30,19 +29,23 @@ def install_plymouth(installation: Installer):
     modify_mkinit(installation.target, hook="plymouth", after="kms")
 
 
-def install_snapper(installation: Installer):
+def install_snapper(
+    installation: Installer,
+    config: ArchConfig,
+    snapper: dict[str, str] = {"root": "/", "home": "/home"},
+):
     installation.add_additional_packages("limine-snapper-sync")
     write_etc_file(
         installation.target,
         {
-            "etc/systemd/system/snapper-timeline.timer.d/15-snapper-timeline.conf": dedent(
+            "etc/systemd/system/snapper-timeline.timer.d/15-timeline.conf": dedent(
                 """\
                 [Timer]
                 OnCalendar=
                 OnCalendar=*:0/15
                 """
             ),
-            "etc/systemd/system/snapper-cleanup.timer.d/20-snapper-cleanup.conf": dedent(
+            "etc/systemd/system/snapper-cleanup.timer.d/20-cleanup.conf": dedent(
                 """\
                 [Timer]
                 OnUnitActiveSec=1h
@@ -50,13 +53,14 @@ def install_snapper(installation: Installer):
             ),
         },
     )
-    snapper: dict[str, str] = {
-        "root": "/",
-        "home": "/home",
-    }
     for config_name, mountpoint in snapper.items():
         installation.arch_chroot(
             f"snapper --no-dbus -c {config_name} create-config {mountpoint}"
         )
+    if config.auth_config:
+        if users := config.auth_config.users:
+            installation.arch_chroot(
+                f"snapper --no-dbus -c {config_name} set-config 'ALLOW_USERS={users[0].username}' SYNC_ACL='yes'"
+            )
     installation.enable_service(["snapper-cleanup.timer", "snapper-timeline.timer"])
     modify_mkinit(installation.target, hook="btrfs-overlayfs", after="filesystems")

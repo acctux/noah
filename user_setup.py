@@ -337,19 +337,6 @@ def user_setup():
         time.sleep(5)
     if shutil.which("tuned"):
         run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
-    if shutil.which("snapper"):
-        run_dmc(["snapper", "-c", "root", "create-config", "/"])
-        run_dmc(["snapper", "-c", "home", "create-config", "/home"])
-        run_dmc(
-            [
-                "snapper",
-                "-c",
-                "home",
-                "set-config",
-                "'ALLOW_USERS=nick'",
-                "SYNC_ACL='yes'",
-            ]
-        )
     nc = NoahConfig.from_config(json_config)
     nu = NoahUserProcessor(nc)
     if shutil.which("mariadb"):
