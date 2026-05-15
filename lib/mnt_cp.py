@@ -63,9 +63,9 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
 
 def get_missing_paths(
     usb_files: list[Path],
+    root_files: list[Path],
     usb_dirs: list[Path],
-    chroot_files: list[Path],
-    chroot_dirs: list[Path],
+    root_dirs: list[Path],
 ) -> tuple[list[tuple[Path, Path]], list[tuple[Path, Path]]]:
     """
     Given USB and chroot paths for files and directories,
@@ -73,12 +73,12 @@ def get_missing_paths(
     """
     missing_files: list[tuple[Path, Path]] = []
     missing_dirs: list[tuple[Path, Path]] = []
-    for usb_path, chroot_path in zip(usb_files, chroot_files):
-        if not chroot_path.exists():
-            missing_files.append((usb_path, chroot_path))
-    for usb_path, chroot_path in zip(usb_dirs, chroot_dirs):
-        if not chroot_path.is_dir():
-            missing_dirs.append((usb_path, chroot_path))
+    for usb_path, root_path in zip(usb_files, root_files):
+        if not root_path.exists():
+            missing_files.append((usb_path, root_path))
+    for usb_path, root_path in zip(usb_dirs, root_dirs):
+        if not root_path.is_dir():
+            missing_dirs.append((usb_path, root_path))
     return missing_files, missing_dirs
 
 
@@ -109,9 +109,9 @@ def mnt_cp_keys(
     processor = CopyProcessor(config)
     missing_files, missing_dirs = get_missing_paths(
         usb_files=processor.usb_file_paths(),
+        root_files=processor.root_file_paths(),
         usb_dirs=processor.usb_dir_paths(),
-        chroot_files=processor.root_file_paths(),
-        chroot_dirs=processor.root_dir_paths(),  # <- use root, not home_rel
+        root_dirs=processor.root_dir_paths(),
     )
     if missing_files or missing_dirs:
         log.warning(

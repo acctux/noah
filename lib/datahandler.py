@@ -152,7 +152,7 @@ class CopyProcessor:
     _dir_paths_cache: dict[str, list[Path]] = field(init=False, default_factory=dict)
 
     # --------- Compute paths ---------
-    def compute_file_paths(self, f: "UsbFileCopy") -> dict[str, list[Path]]:
+    def compute_key_paths(self, f: "UsbFileCopy") -> dict[str, list[Path]]:
         usb, root, home_rel = [], [], []
         for t in f.target_dirs:
             dest = Path(t.dest or "")
@@ -174,8 +174,8 @@ class CopyProcessor:
     def all_file_paths(self, location: str = "home_rel") -> list[Path]:
         if location not in self._file_paths_cache:
             paths = []
-            for f in self.config.all_files_to_cp:
-                paths.extend(self.compute_file_paths(f)[location])
+            for file in self.config.all_files_to_cp:
+                paths.extend(self.compute_key_paths(file)[location])
             self._file_paths_cache[location] = paths
         return self._file_paths_cache[location]
 
