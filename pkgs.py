@@ -1,6 +1,5 @@
 pacman_pkgs: dict[str, list[str]] = {
-    "base": [
-        # HARDWARE
+    "hardware": [
         "ananicy-cpp",
         "bluetui",
         "bluez-utils",  # for loggy
@@ -14,13 +13,31 @@ pacman_pkgs: dict[str, list[str]] = {
         "exfatprogs",
         "hwdetect",
         "kanshi",
-        "kitty",
-        "less",
-        "mcfly",
         "ntfs-3g",
         "smartmontools",
         "udisks2-btrfs",
         "usb_modeswitch",
+    ],
+    "network": [
+        "bind",
+        "impala",
+        "iw",
+        "openresolv",
+        "wireguard-tools",
+        "networkmanager",
+    ],
+    "media": [
+        "cava",
+        "imv",
+        "mpd",
+        "mpd-mpris",
+        "mpv-mpris",
+        "pavucontrol",
+        "playerctl",
+        "rmpc",
+    ],
+    "base": [
+        # HARDWARE
         "powertop",
         "gnome-logs",
         "systemctl-tui",
@@ -36,22 +53,7 @@ pacman_pkgs: dict[str, list[str]] = {
         "starship",
         "trash-cli",
         "pkgfile",
-        # Network
-        "bind",
-        "impala",
-        "iw",
-        "openresolv",
-        "wireguard-tools",
-        "networkmanager",
         # media
-        "cava",
-        "imv",
-        "mpd",
-        "mpd-mpris",
-        "mpv-mpris",
-        "pavucontrol",
-        "playerctl",
-        "rmpc",
         # Hypr
         "capitaine-cursors",
         "fuzzel",
@@ -90,6 +92,9 @@ pacman_pkgs: dict[str, list[str]] = {
         "npm",
         "neovim-lspconfig",
         "uv",
+        "kitty",
+        "less",
+        "mcfly",
         "qt5ct",
         "qt6ct",
         "wl-clipboard",

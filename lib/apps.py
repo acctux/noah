@@ -3,15 +3,14 @@ from archinstall.lib.args import ArchConfig
 from textwrap import dedent
 from archinstall.lib.installer import Installer
 from utils import write_etc_file, modify_mkinit
-from lib.limine import write_limine_opt
+from lib.bootloaders import write_limine_opt
 
 
-def install_apparmor(installation: Installer):
+def inst_apparmor(installation: Installer):
     installation.add_additional_packages(["apparmor", "apparmor.d-git"])
     write_limine_opt(
         installation, "apparmor", "lsm=landlock,lockdown,yama,integrity,apparmor,bpf"
     )
-    installation.enable_service("apparmor")
     content = {
         "etc/apparmor/parser.conf": dedent(
             """\
@@ -22,9 +21,10 @@ def install_apparmor(installation: Installer):
         )
     }
     write_etc_file(installation.target, content)
+    installation.enable_service("apparmor")
 
 
-def install_plymouth(installation: Installer):
+def inst_plymouth(installation: Installer):
     installation.add_additional_packages("plymouth")
     write_limine_opt(installation, filename="plymouth", kernel_params="quiet splash")
     modify_mkinit(installation.target, hook="plymouth", after="kms")

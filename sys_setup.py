@@ -2,16 +2,10 @@
 from root_files import etc_files_to_write, new_policies
 from pkgs import pacman_pkgs, aur_pkgs
 from archinstall.default_profiles.profile import GreeterType
-from archinstall.lib.authentication.authentication_handler import (
-    AuthenticationHandler,
-)
+from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.hardware import _sys_info, GfxDriver
-from archinstall.lib.args import (
-    ArchConfig,
-    ArchConfigHandler,
-    Arguments,
-)
+from archinstall.lib.args import ArchConfig, ArchConfigHandler, Arguments
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.disk.utils import disk_layouts
@@ -22,22 +16,16 @@ from archinstall.lib.general.general_menu import (
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, run_custom_user_commands
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.models import (
-    Bootloader,
-)
-from archinstall.lib.models.device import (
-    DiskLayoutType,
-    EncryptionType,
-)
+from archinstall.lib.models import Bootloader
+from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
 from utils import run_dmc, log, NoahConfig, copy_file, copy_dir, write_etc_file
-from lib.sysd import sysd_boot_params
 from lib.mnt_cp import mnt_cp_keys
-from lib.limine import install_limine
+from lib.bootloaders import install_limine, sysd_boot_params
 from lib.apps import (
     install_plymouth,
     install_snapper,
@@ -114,6 +102,23 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
         driver_map.get(device.lower().split()[0], GfxDriver.VMOpenSource)
         for device in graphics_devices
     ]
+
+
+def handle_reflector(reflector_country: str):
+    reflector_options = [
+        f"--country {reflector_country}",
+        "--protocol https",
+        "--latest 15",
+        "--sort rate",
+        "--number 3",
+        "--save /etc/pacman.d/mirrorlist",
+    ]
+    run_dmc(
+        [
+            "reflector",
+            *(part for opt in reflector_options for part in opt.split()),
+        ]
+    )
 
 
 def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) -> None:
@@ -196,12 +201,8 @@ def perform_installation(
             ):
                 installation.generate_key_files()
 
-        run_dmc(
-            [
-                "reflector",
-                *(part for opt in nc.reflector_options for part in opt.split()),
-            ]
-        )
+        handle_reflector(nc.reflector_country)
+
         modify_pacman_conf(None, no_extracts=nc.no_extracts)
         installation.minimal_installation(
             optional_repositories=optional_repositories,
@@ -367,7 +368,7 @@ def setup_archinstall_conf(
         pacman_pkgs["base"] + pacman_pkgs["language"] + pacman_pkgs["chaotic_repo"]
     )
     if GfxDriver.VMOpenSource in gfx_drivers:
-        base_pkgs.extend(["spice-vdagent", "qemu-guest-agent", "virtiofsd"])
+        base_pkgs.extend(["spice-vdagent", "qemu-guest-agent"])
     else:
         base_pkgs.extend(pacman_pkgs["extra"] + pacman_pkgs["extra_chaos"])
     arch_config_handler.config.packages = base_pkgs

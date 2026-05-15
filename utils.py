@@ -159,10 +159,11 @@ class NoahConfig:
     dots_repo: str
     git_user: str
     encrypted_dir: str
-    ssh_key_file: str
-    gpg_key_file: str
-    master_pass_file: str
-    my_pass: str
+    ssh_key_file: UsbFileCopy
+    gpg_key_file: UsbFileCopy
+    master_pass_file: UsbFileCopy
+    auth_conf: UsbFileCopy
+    all_files_to_cp: list[UsbFileCopy]
     parallel_downloads: int
     groups: list[str]
     dirs_icons: dict[str, str]
@@ -180,28 +181,54 @@ class NoahConfig:
     dirs_to_link: list[str]
 
     @classmethod
-    def from_config(cls, data):
+    def from_config(cls, data: dict):
         data = data or {}
+
+        # Parse special single files
+        ssh_key_file = UsbFileCopy.parse_arg(
+            data.get("file_copy_config", {}).get("ssh_key_file")
+        )
+        gpg_key_file = UsbFileCopy.parse_arg(
+            data.get("file_copy_config", {}).get("gpg_key_file")
+        )
+        master_pass_file = UsbFileCopy.parse_arg(
+            data.get("file_copy_config", {}).get("master_pass_file")
+        )
+        auth_conf = UsbFileCopy.parse_arg(
+            data.get("file_copy_config", {}).get("auth_conf")
+        )
+
+        # Combine all files into one list for bulk copy
+        additional_files = parse_list(UsbFileCopy, data.get("additional_files_to_cp"))
+        all_files_to_cp = [
+            ssh_key_file,
+            gpg_key_file,
+            master_pass_file,
+            auth_conf,
+        ] + additional_files
+
         return cls(
             terminal=data.get("terminal", "kitty"),
             firefox_browser=data.get("firefox_browser", ""),
             dots_repo=data.get("dots_repo", ""),
             git_user=data.get("git_user", ""),
             encrypted_dir=data.get("encrypted_dir", "Desktop/Encrypted"),
-            ssh_key_file=data.get("ssh_key_file", "id_ed25519"),
-            gpg_key_file=data.get("gpg_key_file", "my_sec_gpg.asc"),
-            master_pass_file=data.get("master_pass_file", "pass.txt"),
-            my_pass=data.get("my_pass", "users.json"),
+            ssh_key_file=ssh_key_file,
+            gpg_key_file=gpg_key_file,
+            master_pass_file=master_pass_file,
+            auth_conf=auth_conf,
+            all_files_to_cp=all_files_to_cp,
             parallel_downloads=data.get("parallel_downloads", 10),
             groups=data.get("groups", []),
             mkinit_hooks=data.get("mkinit_hooks", []),
             reflector_options=data.get("reflector_options", []),
             disable_svcs=data.get("disable_svcs", []),
+            sudo_defaults=data.get("sudo_defaults", []),
             apps_to_hide=data.get("apps_to_hide", []),
             no_extracts=data.get("no_extracts", []),
             yazi_plugins=data.get("yazi_plugins", []),
-            sudo_defaults=data.get("sudo_defaults", []),
             dirs_to_link=data.get("dirs_to_link", []),
+            dirs_icons=data.get("dirs_icons", {}),
             git_repos=parse_list(GitRepos, data.get("git_repos")),
             files_to_cp=parse_list(
                 UsbFileCopy, data.get("copy_config", {}).get("files_to_cp")
@@ -209,7 +236,6 @@ class NoahConfig:
             dir_contents_to_cp=parse_list(
                 UsbDirCopy, data.get("copy_config", {}).get("dir_contents_to_cp")
             ),
-            dirs_icons=data.get("dirs_icons", {}),
             user_services=UserServices.parse_arg(data.get("user_services")),
         )
 

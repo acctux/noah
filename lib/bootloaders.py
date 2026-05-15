@@ -1,8 +1,13 @@
+from textwrap import dedent
 from archinstall.lib.installer import Installer
-from utils import copy_file, log
+from utils import copy_file, log, write_etc_file
 from pathlib import Path
+import re
 
 
+###################################
+# LIMINE
+###################################
 def write_limine_opt(installation: Installer, filename: str, kernel_params: str):
     output_dir = installation.target / "etc" / "limine-entry-tool.d"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -60,3 +65,64 @@ def install_limine(installation: Installer):
     cmdline = get_cmdline(installation.target)
     write_limine_conf(installation.target)
     write_limine_opt(installation, filename="original_flags", kernel_params=cmdline)
+
+
+###################################
+# SYSTEM D
+###################################
+def sysd_boot_params(
+    mnt_point: Path, plymouth: bool, apparmor: bool, boot_opts=[]
+) -> None:
+    if plymouth:
+        boot_opts.extend(["quiet", "splash"])
+    if apparmor:
+        boot_opts.append("lsm=landlock,lockdown,yama,integrity,apparmor,bpf")
+    entries_dir = mnt_point / "boot" / "loader" / "entries"
+    for entry in entries_dir.iterdir():
+        lines = entry.read_text().splitlines()
+        new_lines = []
+        for line in lines:
+            if line.startswith("options "):
+                existing_opts = line[len("options ") :].split()
+                for opt in boot_opts:
+                    if opt not in existing_opts:
+                        existing_opts.append(opt)
+                line = "options " + " ".join(existing_opts)
+            new_lines.append(line)
+        entry.write_text("\n".join(new_lines) + "\n")
+
+
+def modify_fstab(mnt_point: Path) -> None:
+    fstab_path = mnt_point / "etc" / "fstab"
+    content = fstab_path.read_text()
+    content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
+    content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
+    fstab_path.write_text(content)
+
+
+def install_sysd(mnt_point: Path):
+    sysd_boot_params(mnt_point=mnt_point, plymouth=True, apparmor=True)
+    modify_fstab(mnt_point)
+    sysd_bootloader_files = {
+        "boot/loader/loader.conf": dedent(
+            """\
+        default @saved
+        timeout 1
+        editor no
+        """
+        ),
+        "etc/pacman.d/hooks/95-systemd-boot.hook": dedent(
+            """\
+        [Trigger]
+        Type = Package
+        Operation = Upgrade
+        Target = systemd
+
+        [Action]
+        Description = Gracefully upgrading systemd-boot...
+        When = PostTransaction
+        Exec = /usr/bin/systemctl restart systemd-boot-update.service
+        """
+        ),
+    }
+    write_etc_file(mnt_point, sysd_bootloader_files)

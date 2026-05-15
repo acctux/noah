@@ -44,18 +44,8 @@ json_config = {
     "firefox_browser": "floorp",
     "dots_repo": "polka",
     "git_user": "acctux",
-    "ssh_key_file": "id_ed25519",
-    "gpg_key_file": "my_sec_gpg.asc",
-    "master_pass_file": "pass.txt",
     "my_pass": "users.json",
-    "reflector_options": [
-        "--country US",
-        "--protocol https",
-        "--latest 15",
-        "--sort rate",
-        "--number 3",
-        "--save /etc/pacman.d/mirrorlist",
-    ],
+    "reflector_country": "US",
     "disable_svcs": [
         "systemd-resolved",
         "systemd-networkd-wait-online",
@@ -64,25 +54,37 @@ json_config = {
         "etc/xdg/autostart/firewall-applet.desktop",
         "usr/share/icons/capitaine-cursors/*",
     ],
-    "copy_config": {
-        "files_to_cp": [
-            {
-                "source_dir": "noahinstall",
-                "target_dirs": [
-                    {"dest": ".ssh", "names": ["id_ed25519", "pass.txt"]},
-                    {"dest": "", "names": ["users.json", "chaotic.key"]},
-                    {"dest": ".gnupg", "names": ["my_sec_gpg.asc"]},
-                ],
-            }
-        ],
-        "dir_contents_to_cp": [
-            {
-                "source_dir": "noahinstall",
-                "target_dir": "/etc/wireguard",
-                "names": ["wireguard"],
-            }
-        ],
+    "file_copy_config": {
+        "ssh_key_file": {
+            "source_dir": "noahinstall",
+            "target_dirs": [{"dest": ".ssh", "names": ["id_ed25519"]}],
+        },
+        "gpg_key_file": {
+            "source_dir": "noahinstall",
+            "target_dirs": [{"dest": ".gnupg", "names": ["my_sec_gpg.asc"]}],
+        },
+        "master_pass_file": {
+            "source_dir": "noahinstall",
+            "target_dirs": [{"dest": ".ssh", "names": ["pass.txt"]}],
+        },
+        "auth_conf": {
+            "source_dir": "noahinstall",
+            "target_dirs": [{"dest": "", "names": ["users.json"]}],
+        },
     },
+    "additional_files_to_cp": [
+        {
+            "source_dir": "noahinstall",
+            "target_dirs": [{"dest": "", "names": ["chaotic.key"]}],
+        }
+    ],
+    "dir_contents_to_cp": [
+        {
+            "source_dir": "noahinstall",
+            "target_dir": "/etc/wireguard",
+            "names": ["wireguard"],
+        }
+    ],
     "user_services": [
         {
             "source": "/usr/lib/systemd/user",

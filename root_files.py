@@ -122,28 +122,6 @@ network_files: dict[str, str] = {
         """
     ),
 }
-sysd_bootloader_files = {
-    "boot/loader/loader.conf": dedent(
-        """\
-        default @saved
-        timeout 1
-        editor no
-        """
-    ),
-    "etc/pacman.d/hooks/95-systemd-boot.hook": dedent(
-        """\
-        [Trigger]
-        Type = Package
-        Operation = Upgrade
-        Target = systemd
-
-        [Action]
-        Description = Gracefully upgrading systemd-boot...
-        When = PostTransaction
-        Exec = /usr/bin/systemctl restart systemd-boot-update.service
-        """
-    ),
-}
 etc_files_to_write: dict[str, str] = {
     "etc/fuse.conf": dedent(
         """\
