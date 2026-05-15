@@ -54,5 +54,13 @@ def install_snapper(installation: Installer):
             ),
         },
     )
+    snapper: dict[str, str] = {
+        "root": "/",
+        "home": "/home",
+    }
+    for config_name, mountpoint in snapper.items():
+        installation.arch_chroot(
+            f"snapper --no-dbus -c {config_name} create-config {mountpoint}"
+        )
     installation.enable_service(["snapper-cleanup.timer", "snapper-timeline.timer"])
     modify_mkinit(installation.target, hook="btrfs-overlayfs", after="filesystems")
