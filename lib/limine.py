@@ -5,6 +5,7 @@ from pathlib import Path
 
 def write_limine_opt(mountpoint: Path, filename: str, kernel_params: str):
     output_dir = mountpoint / "etc" / "limine-entry-tool.d"
+    output_dir.mkdir(parents=True, exist_ok=True)
     target_file = output_dir / f"{filename}.conf"
     target_file.write_text(f"KERNEL_CMDLINE[default]+={kernel_params}\n")
     log.info(f"Wrote extra option '{kernel_params}' to {target_file}")

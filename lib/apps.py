@@ -27,7 +27,9 @@ def install_apparmor(installation: Installer):
 def install_plymouth(installation: Installer):
     installation.add_additional_packages("plymouth")
     write_limine_opt(
-        installation.target, filename="plymouth", kernel_params="quiet splash"
+        installation.target,
+        filename="plymouth",
+        kernel_params="quiet splash",
     )
     modify_mkinit(installation.target, hook="plymouth", after="kms")
 

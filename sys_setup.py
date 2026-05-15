@@ -340,8 +340,9 @@ def perform_installation(
 
 
 def setup_archinstall_conf(
-    arch_config_json: dict, auth_conf_path: str, arch_config_handler=ArchConfigHandler()
+    arch_config_json: dict, auth_conf_path: str
 ) -> tuple[ArchConfigHandler, list[GfxDriver]]:
+    arch_config_handler = ArchConfigHandler()
     with open(auth_conf_path, "r") as f:
         users_dict = json.load(f)
     auth_conf = ArchConfig.from_config(users_dict, Arguments(None))
