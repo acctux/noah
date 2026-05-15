@@ -111,7 +111,7 @@ def mnt_cp_keys(
         usb_files=processor.usb_file_paths(),
         usb_dirs=processor.usb_dir_paths(),
         chroot_files=processor.root_file_paths(),
-        chroot_dirs=processor.home_file_paths(),
+        chroot_dirs=processor.root_dir_paths(),  # <- use root, not home_rel
     )
     if missing_files or missing_dirs:
         log.warning(
