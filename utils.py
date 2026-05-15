@@ -1,3 +1,5 @@
+import shutil
+from pathlib import Path
 import sys
 import logging
 import subprocess
@@ -39,6 +41,9 @@ def get_logger(log_name: str | None = None, level=logging.INFO):
     logger.setLevel(level)
     logger.propagate = False
     return logger
+
+
+log = get_logger("Noah")
 
 
 def parse_list(cls, values):
@@ -254,3 +259,48 @@ def yes_no(prompt: str, default: bool = True) -> bool:
             return True
         if r in ("n"):
             return False
+
+
+#########################
+# UTILS
+#########################
+def copy_file(src: Path, dest: Path) -> None:
+    if not src.is_file():
+        log.error(f"{src} does not exist")
+        return
+    dest = dest / src.name if dest.is_dir() else dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+    log.info(f"Copied file: {src} -> {dest}")
+
+
+def copy_dir(src: Path, dest: Path) -> None:
+    if not src.is_dir():
+        log.error(f"{src} does not exist")
+        return
+    shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
+    log.info(f"Copied directory: {src} -> {dest}")
+
+
+def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
+    for filepath, content in files_to_write.items():
+        full_path = mnt_point / filepath
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        with full_path.open("w") as file:
+            file.write(content)
+            log.info(f"Content: {content}\nWritten to: {full_path}")
+
+
+def modify_mkinit(mnt_point: Path, hook: str, after: str) -> None:
+    mkinit_conf = f"/{mnt_point}/etc/mkinitcpio.conf"
+    with open(mkinit_conf, "r") as mkinit:
+        content = mkinit.read().splitlines()
+    for i, line in enumerate(content):
+        if line.startswith("HOOKS="):
+            # Extract hooks between parentheses
+            hooks = line[line.find("(") + 1 : line.find(")")].split()
+            if hook not in hooks:
+                hooks.insert(hooks.index(after) + 1, hook)
+            content[i] = f"HOOKS=({' '.join(hooks)})"
+    with open(mkinit_conf, "w") as mkinit:
+        mkinit.write("\n".join(content) + "\n")

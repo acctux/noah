@@ -34,14 +34,20 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
-from utils import (
-    run_dmc,
-    yes_no,
-    get_logger,
-    NoahConfig,
-    UsbFileCopy,
-    UsrSrv,
-    UsbDirCopy,
+from utils import run_dmc, get_logger, NoahConfig, copy_file, copy_dir, write_etc_file
+from lib.sysd import sysd_boot_params
+from lib.mnt_cp import mnt_cp_keys
+from lib.limine import install_limine
+from lib.apps import install_plymouth, install_snapper, install_apparmor
+from lib.pacman import chaotic_repo, modify_pacman_conf
+from lib.user_funcs import (
+    user_service,
+    enable_user_serv,
+    copy_keys,
+    copy_skel,
+    install_icons,
+    hide_apps,
+    mpd_tmpfiles,
 )
 from typing import Any
 from pathlib import Path
@@ -49,7 +55,6 @@ import sys
 import time
 import subprocess
 import json
-import re
 import shutil
 import extraconfig as ec
 from textwrap import dedent
@@ -57,237 +62,9 @@ from textwrap import dedent
 log = get_logger("Noah")
 
 
-#########################
-# UTILS
-#########################
-def copy_file(src: Path, dest: Path) -> None:
-    if not src.is_file():
-        log.error(f"{src} does not exist")
-        return
-    dest = dest / src.name if dest.is_dir() else dest
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dest)
-    log.info(f"Copied file: {src} -> {dest}")
-
-
-def copy_dir(src: Path, dest: Path) -> None:
-    if not src.is_dir():
-        log.error(f"{src} does not exist")
-        return
-    shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
-    log.info(f"Copied directory: {src} -> {dest}")
-
-
-###################################
-# USB Files
-###################################
-def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
-    def recurse(devices):
-        for dev in devices:
-            if (
-                dev["type"] == "part"
-                and dev.get("fstype") == usb_fs_type
-                and dev.get("mountpoint") is None
-                and float(dev["size"][:-1]) > min_gb
-            ):
-                candidates.append(
-                    (
-                        dev["name"],
-                        dev["size"],
-                        dev.get("fstype"),
-                    )
-                )
-            if "children" in dev:
-                recurse(dev["children"])
-
-    data = json.loads(
-        subprocess.check_output(
-            ["lsblk", "-J", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,TYPE"]
-        )
-    )
-    candidates = []
-    recurse(data["blockdevices"])
-    while True:
-        print(
-            f"\033[91m{'No.':<5}\033[0m "
-            f"\033[93m{'Name':<10}\033[0m "
-            f"\033[94m{'Size':<10}\033[0m "
-            f"\033[96m{'FS Type':>10}\033[0m"
-        )
-        print("-" * 45)
-        for i, (name, size, fstype) in enumerate(candidates, 1):
-            print(
-                f"\033[91m{i:<5}\033[0m "
-                f"\033[93m{name:<10}\033[0m "
-                f"\033[94m{size:<10}\033[0m "
-                f"\033[96m{fstype:>10}\033[0m"
-            )
-        choice = input(f"\033[92mEnter 1-{len(candidates)}: \033[0m").strip()
-        if not choice.isdigit() or not (1 <= int(choice) <= len(candidates)):
-            log.error("Enter valid number.")
-            continue
-        selected_path = f"/dev/{candidates[int(choice) - 1][0]}"
-        break
-    return selected_path
-
-
-def collect_missing_paths(
-    file_cp_list: list[UsbFileCopy], dir_cp_list: list[UsbDirCopy]
-) -> tuple[list[tuple[Path, Path]], list[tuple[Path, Path]]]:
-    missing_keys: list[tuple[Path, Path]] = []
-    missing_dirs: list[tuple[Path, Path]] = []
-    root_home = Path("/root")
-    for group in file_cp_list:
-        source_d = group.source_dir
-        for target in group.target_dirs:
-            for name in target.file_names:
-                dest_path = root_home / target.dest / name
-                if not dest_path.exists():
-                    missing_keys.append((Path(source_d) / name, dest_path))
-    for group in dir_cp_list:
-        for name in group.dir_names:
-            dest_dir = root_home / name
-            if not dest_dir.is_dir():
-                missing_dirs.append((Path(group.source_dir) / name, dest_dir))
-    return missing_keys, missing_dirs
-
-
-def copy_usb_to_root(usb_mnt, missing_files, missing_dirs):
-    for src_path, dest_path in missing_files:
-        src = usb_mnt / src_path
-        if src.is_file():
-            copy_file(src, dest_path)
-    for src_path, dest_path in missing_dirs:
-        src = usb_mnt / src_path
-        if src.is_dir():
-            copy_dir(src, dest_path)
-        else:
-            log.error(f"{src} does not exist on USB")
-
-
-def mnt_cp_keys(
-    file_cp_list: list[UsbFileCopy],
-    dir_cp_list: list[UsbDirCopy],
-    usb_mnt: Path = Path("/mnt/usb"),
-) -> None:
-    def unmount_usb():
-        run_dmc(["umount", str(usb_mnt)], check=True)
-        run_dmc(["udevadm", "settle"])
-        time.sleep(1)
-
-    if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
-        unmount_usb()
-    missing_files, missing_dirs = collect_missing_paths(file_cp_list, dir_cp_list)
-    if missing_files or missing_dirs:
-        log.warning(
-            f"Not yet present:\n{'\n'.join(str(path) for _, path in (missing_files + missing_dirs))}"
-        )
-        if not yes_no("Mount USB?"):
-            return
-        selected = get_device()
-        usb_mnt.mkdir(parents=True, exist_ok=True)
-        run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
-        run_dmc(["udevadm", "settle"])
-        time.sleep(1)
-        copy_usb_to_root(usb_mnt, missing_files, missing_dirs)
-        if yes_no("Files copied, unmount?"):
-            unmount_usb()
-    else:
-        log.info("All files to copy from USB found.")
-
-
 ###################################
 # ETC/BOOT
 ###################################
-def modify_pacman_conf(
-    mnt_point: Path | None, no_extracts: list[str], value: int = 10
-) -> None:
-    pacman_conf = "/etc/pacman.conf"
-    if mnt_point:
-        pacman_conf = mnt_point / "etc/pacman.conf"
-    with open(pacman_conf) as pacman:
-        content = pacman.read().splitlines()
-    i = 0
-    while i < len(content):
-        stripped = content[i].strip()
-        if stripped.startswith("ParallelDownloads"):
-            content[i] = f"ParallelDownloads = {value}"
-        elif stripped in ("#Color", "Color"):
-            content[i] = "Color"
-            if content[i + 1] != "ILoveCandy":
-                content.insert(i + 1, "ILoveCandy")
-        elif stripped.startswith("#NoExtract") or stripped.startswith("NoExtract"):
-            content[i] = f"NoExtract = {' '.join(no_extracts)}"
-        elif stripped == "[chaotic-aur]":
-            del content[i : i + 2]
-            continue  # maintain same index
-        i += 1
-    with open(pacman_conf, "w") as pacman:
-        pacman.write("\n".join(content) + "\n")
-
-
-def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
-    for filepath, content in files_to_write.items():
-        full_path = mnt_point / filepath
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-        with full_path.open("w") as file:
-            file.write(content)
-            log.info(f"Content: {content}\nWritten to: {full_path}")
-
-
-def chaotic_repo(installation: Installer) -> None:
-    web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-    cmds = [
-        [
-            "pacman-key",
-            "--recv-key",
-            "3056513887B78AEB",
-            "--keyserver",
-            "keyserver.ubuntu.com",
-        ],
-        # ["pacman-key", "--add", "/root/chaotic.key"],
-        ["pacman-key", "--lsign-key", "3056513887B78AEB"],
-        ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
-        ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
-    ]
-    cmd = ["pacman-key", "--init"]
-    run_dmc(cmd)
-    installation.arch_chroot(" ".join(cmd))
-    time.sleep(1)
-    cmd = [
-        "pacman-key",
-        "--recv-key",
-        "3056513887B78AEB",
-        "--keyserver",
-        "keyserver.ubuntu.com",
-    ]
-    if not run_dmc(cmd):
-        cmd = ["pacman-key", "--add", "/root/chaotic.key"]
-        run_dmc(cmd)
-    if not installation.arch_chroot(" ".join(cmd)):
-        cmd = ["pacman-key", "--add", "/root/chaotic.key"]
-        installation.arch_chroot(" ".join(cmd))
-    time.sleep(1)
-    for cmd in cmds:
-        run_dmc(cmd)
-        installation.arch_chroot(" ".join(cmd))
-        time.sleep(1)
-    for path in [Path("/etc/pacman.conf"), installation.target / "etc/pacman.conf"]:
-        with path.open("a") as f:
-            f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
-            time.sleep(1)
-    run_dmc(["pacman", "-Sy"], check=True)
-    installation.arch_chroot("pacman -Sy")
-
-
-def mpd_tmpfiles(installation: Installer, user: str) -> None:
-    cache = f"home/{user}/.cache/"
-    dir_path = installation.target / cache / "mpd/playlists"
-    dir_path.mkdir(parents=True, exist_ok=True)
-    dir_path.chmod(0o755)
-    installation.arch_chroot(f"chown -R {user}:{user} /{cache}")
-
-
 def configure_sudo(mnt_point: Path, user_name: str, pless=False) -> None:
     sudoers_content = dedent(
         f"""\
@@ -320,51 +97,6 @@ def sys_dots(mnt_point: Path, script_dir: Path) -> None:
         log.info("Copied %s to %s", source_dir, target_dir)
 
 
-def sysd_boot_params(
-    mnt_point: Path, plymouth: bool, apparmor: bool, boot_opts=[]
-) -> None:
-    if plymouth:
-        boot_opts.extend(["quiet", "splash"])
-    if apparmor:
-        boot_opts.append("lsm=landlock,lockdown,yama,integrity,apparmor,bpf")
-    entries_dir = mnt_point / "boot" / "loader" / "entries"
-    for entry in entries_dir.iterdir():
-        lines = entry.read_text().splitlines()
-        new_lines = []
-        for line in lines:
-            if line.startswith("options "):
-                existing_opts = line[len("options ") :].split()
-                for opt in boot_opts:
-                    if opt not in existing_opts:
-                        existing_opts.append(opt)
-                line = "options " + " ".join(existing_opts)
-            new_lines.append(line)
-        entry.write_text("\n".join(new_lines) + "\n")
-
-
-def modify_fstab(mnt_point: Path) -> None:
-    fstab_path = mnt_point / "etc" / "fstab"
-    content = fstab_path.read_text()
-    content = re.sub(r"^(?!#).*?\bfmask=\d+", "fmask=0077", content, flags=re.MULTILINE)
-    content = re.sub(r"^(?!#).*?\bdmask=\d+", "dmask=0077", content, flags=re.MULTILINE)
-    fstab_path.write_text(content)
-
-
-def modify_mkinit(mnt_point: Path, hook: str, after: str) -> None:
-    mkinit_conf = f"/{mnt_point}/etc/mkinitcpio.conf"
-    with open(mkinit_conf, "r") as mkinit:
-        content = mkinit.read().splitlines()
-    for i, line in enumerate(content):
-        if line.startswith("HOOKS="):
-            # Extract hooks between parentheses
-            hooks = line[line.find("(") + 1 : line.find(")")].split()
-            if hook not in hooks:
-                hooks.insert(hooks.index(after) + 1, hook)
-            content[i] = f"HOOKS=({' '.join(hooks)})"
-    with open(mkinit_conf, "w") as mkinit:
-        mkinit.write("\n".join(content) + "\n")
-
-
 def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
     driver_map = {
         "nvidia": GfxDriver.NvidiaOpenKernel,
@@ -379,109 +111,6 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
     ]
 
 
-###################################
-# USR_SVC
-###################################
-def enable_user_serv(
-    installation: Installer, units: list[UsrSrv], username: str
-) -> None:
-    home = Path(f"/home/{username}")
-    for unit in units:
-        source_dir = Path(unit.source)
-        if unit.source == "/.config/systemd/user":
-            source_dir = home / ".config/systemd/user"
-        for service in unit.services:
-            target_dir = home / ".config/systemd/user" / f"{unit.target}.target.wants"
-            source_path = source_dir / service
-            installation.arch_chroot(f"mkdir -p {target_dir}", username)
-            link_path = installation.target / target_dir.relative_to("/") / service
-            if not link_path.exists():
-                installation.arch_chroot(
-                    f"ln -sf {source_path} {target_dir}/{service}", username
-                )
-                log.info(f"{source_path} -> {target_dir}/{service}")
-
-
-def user_service(
-    installation: Installer,
-    user: str,
-    terminal: str,
-    user_script="user_setup.py",
-    script_dir: str = Path(__file__).resolve().parent.name,
-) -> None:
-    if terminal.strip().lower() == "alacritty":
-        terminal = "alacritty -e"
-    dir_path = f"home/{user}/.config/systemd/user"
-    run_script = f"/home/{user}/{script_dir}/{user_script}"
-    name = f"{user_script.rsplit('.', 1)[0]}.service"
-    content = dedent(
-        f"""\
-            [Unit]
-            Description=Open {terminal} {run_script} on login
-            After=graphical-session.target
-
-            [Service]
-            Type=oneshot
-            ExecStart=/usr/bin/{terminal} python {run_script}
-            Restart=no
-
-            [Install]
-            WantedBy=graphical-session.target
-            """
-    )
-    (installation.target / dir_path / name).write_text(content)
-    installation.arch_chroot(f"chown {user}:{user} /{dir_path}/{name}")
-    unit = UsrSrv(source=f"/{dir_path}", target="graphical-session", services=[name])
-    enable_user_serv(installation, [unit], user)
-
-
-def install_icons(installation: Installer):
-    git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
-    installation.arch_chroot(f"git clone {git}")
-    installation.arch_chroot("bash ./WhiteSur-icon-theme/install.sh")
-    installation.arch_chroot("rm -rf ./WhiteSur-icon-theme")
-    icon_path = installation.target / "usr/share/icons"
-    white_sur_light = icon_path / "WhiteSur-light"
-    if white_sur_light.exists():
-        shutil.rmtree(white_sur_light)
-        log.info(f"Removed {white_sur_light}")
-    themes_to_modify = []
-    for folder in icon_path.iterdir():
-        if folder.is_dir() and ("-dark" in folder.name or "WhiteSur" in folder.name):
-            themes_to_modify.append(folder)
-    for theme_dir in themes_to_modify:
-        for svg_file in theme_dir.rglob("*.svg"):
-            if svg_file.is_file():
-                text = svg_file.read_text()
-                if "#ffffff" in text:
-                    svg_file.write_text(text.replace("#ffffff", "#F4F5F6"))
-                    log.info(f"Modified {svg_file}")
-
-
-###################################
-# User Space
-###################################
-def copy_keys(
-    installation: Installer, username: str, groups: list[UsbFileCopy]
-) -> None:
-    root_home = Path("/root")
-    for group in groups:
-        for target in group.target_dirs:
-            sys_path = Path("home") / username / target.dest
-            if target.dest == "archinstall":
-                return
-            target_dir = installation.target / sys_path
-            target_dir.mkdir(parents=True, exist_ok=True)
-            target_dir.chmod(0o700)
-            installation.chown(username, str(sys_path))
-            for name in target.file_names:
-                src = root_home / target.dest / name
-                dest = target_dir / name
-                copy_file(src, dest)
-                dest.chmod(0o600)
-                installation.chown(username, str(sys_path / name))
-
-
 def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) -> None:
     file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
     data = {}
@@ -494,113 +123,6 @@ def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) 
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(json.dumps(data, indent=2))
     log.info(f"Policies for {browser} have been set (overwritten).")
-
-
-def hide_apps(installation: Installer, user: str, apps_to_hide: list[str]):
-    user_home = f"home/{user}"
-    for app in apps_to_hide:
-        file_p = f"{user_home}/.local/share/applications/{app}.desktop"
-        (installation.target / file_p).write_text("[Desktop Entry]\nNoDisplay=true\n")
-        installation.chown(user, f"/{file_p}")
-
-
-def copy_skel(mountpoint: Path, nc: NoahConfig):
-    tmp = mountpoint / "tmp" / nc.dots_repo
-    tmp.mkdir(exist_ok=True)
-    git = f"https://github.com/{nc.git_user}/{nc.dots_repo}.git"
-    run_dmc(["git", "clone", git, str(tmp)])
-    shutil.rmtree(tmp / ".git")
-    for p in tmp.iterdir():
-        p.rename(p.parent / ("." + p.name))
-    copy_dir(tmp, mountpoint / "etc" / "skel")
-
-
-def write_limine_opts(mountpoint: Path, extra_opts: list[dict[str, str]]):
-    output_dir = mountpoint / "etc" / "limine-entry-tool.d"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for dict in extra_opts:
-        target_file = output_dir / f"{dict['filename']}.conf"
-        target_file.write_text(f"KERNEL_CMDLINE[default]+={dict['option']}\n")
-        log.info(f"Wrote extra option '{dict['option']}' to {target_file}")
-
-
-def get_cmdline(
-    mountpoint: Path,
-) -> str:
-    limine_conf = mountpoint / "boot" / "EFI" / "arch-limine" / "limine.conf"
-    cmdline = ""
-    with limine_conf.open() as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("cmdline:"):
-                cmdline = line.split(":", 1)[1].strip()
-                log.info(cmdline)
-                break
-    return cmdline
-
-
-def write_limine_conf(mountpoint: Path):
-    palette = (
-        "#21222c ; #ff5555 ; #00ff99 ; #f1fa8c ; #0072ff ; #ff79c6 ; #33ccff ; #bfbfbf"
-    )
-    palette_bright = (
-        "#4d4d4d ; #ff6e6e ; #10b981 ; #ffffa5 ; #33ccff ; #ff92df ; #a4ffff ; #ffffff"
-    )
-    limine_conf = mountpoint / "boot" / "limine.conf"
-    lines = limine_conf.read_text().splitlines()
-    new_lines = []
-    for line in lines:
-        if line.strip().startswith("timeout"):
-            new_lines.append("timeout: 1")
-            new_lines.extend(
-                [
-                    f"term_palette: {palette}",
-                    f"term_palette_bright: {palette_bright}",
-                    "remember_last_entry: yes",
-                ]
-            )
-        else:
-            new_lines.append(line)
-    limine_conf.write_text("\n".join(new_lines) + "\n")
-    log.info(f"Updated {limine_conf}")
-
-
-def set_target_os(default_limine: Path):
-    with open(default_limine) as default:
-        content = default.read().splitlines()
-    for i, line in enumerate(content):
-        stripped = line.strip()
-        if stripped.startswith("#TARGET_OS_NAME"):
-            content[i] = "TARGET_OS_NAME='Arch Linux"
-    with open(default_limine, "w") as default:
-        default.write("\n".join(content) + "\n")
-
-
-def install_limine(installation: Installer):
-    installation.add_additional_packages(
-        ["limine-snapper-sync", "limine-mkinitcpio-hook"]
-    )
-    modify_mkinit(installation.target, hook="btrfs-overlayfs", after="filesystems")
-    default_limine = installation.target / "etc" / "default" / "limine"
-    copy_file(installation.target / "etc" / "limine-entry-tool.conf", default_limine)
-    set_target_os(default_limine)
-    installation.enable_service(["snapper-cleanup.timer", "snapper-timeline.timer"])
-    cmdline = get_cmdline(installation.target)
-    write_limine_opts(
-        installation.target, [{"filename": "original_flags", "option": cmdline}]
-    )
-    write_limine_opts(
-        installation.target,
-        [
-            {"filename": "plymouth", "option": "quiet splash"},
-            {
-                "filename": "apparmor",
-                "option": "lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
-            },
-        ],
-    )
-    write_limine_conf(installation.target)
-    installation.arch_chroot("limine-mkinitcpio")
 
 
 ###################################
@@ -675,7 +197,7 @@ def perform_installation(
                 *(part for opt in nc.reflector_options for part in opt.split()),
             ]
         )
-        modify_pacman_conf(None, no_extracts=list(nc.no_extracts))
+        modify_pacman_conf(None, no_extracts=nc.no_extracts)
         installation.minimal_installation(
             optional_repositories=optional_repositories,
             mkinitcpio=run_mkinitcpio,
@@ -690,7 +212,7 @@ def perform_installation(
             Path(f"/root/{nc.files_to_cp[0].target_dirs[1].dest}/chaotic.key"),
             mountpoint / "root/chaotic.key",
         )
-        modify_pacman_conf(mountpoint, list(nc.no_extracts))
+        modify_pacman_conf(mountpoint, nc.no_extracts)
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)
 
@@ -748,10 +270,10 @@ def perform_installation(
                 copy_dir(
                     Path("/root") / name, mountpoint / dir_to_cp.target_dir.lstrip("/")
                 )
+        install_snapper(installation, config)
         set_extensions(mountpoint, nc.firefox_browser, new_policies)
         sys_dots(mountpoint, script_d)
         install_icons(installation)
-        modify_mkinit(mountpoint, hook="plymouth", after="kms")
         if users:
             for user in users:
                 installation.arch_chroot("xdg-user-dirs-update", user.username)
@@ -774,7 +296,8 @@ def perform_installation(
                     sysd_boot_params(mountpoint, plymouth=True, apparmor=True)
             elif config.bootloader_config.bootloader == Bootloader.Limine:
                 install_limine(installation)
-
+                install_apparmor(installation)
+                install_plymouth(installation)
         if services := config.services:
             installation.enable_service(services)
 

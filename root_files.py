@@ -145,13 +145,6 @@ sysd_bootloader_files = {
     ),
 }
 etc_files_to_write: dict[str, str] = {
-    "etc/apparmor/parser.conf": dedent(
-        """\
-        write-cache
-        cache-loc /etc/apparmor/earlypolicy/
-        Optimize=compress-fast
-        """
-    ),
     "etc/fuse.conf": dedent(
         """\
         user_allow_other
@@ -196,19 +189,6 @@ etc_files_to_write: dict[str, str] = {
         """
     ),
     "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
-    "etc/systemd/system/snapper-timeline.timer.d/15-snapper-timeline.conf": dedent(
-        """\
-        [Timer]
-        OnCalendar=
-        OnCalendar=*:0/15
-        """
-    ),
-    "etc/systemd/system/snapper-cleanup.timer.d/20-snapper-cleanup.conf": dedent(
-        """\
-        [Timer]
-        OnUnitActiveSec=1h
-        """
-    ),
     "etc/systemd/journald.conf.d/00-journal-size.conf": dedent(
         """\
         [Journal]
@@ -239,6 +219,14 @@ etc_files_to_write: dict[str, str] = {
     "etc/udev/rules.d/99-thunderbolt.rules": dedent(
         """\
         ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{authorized}=="0", ATTR{authorized}="1"
+        """
+    ),
+    "etc/udev/rules.d/99-ac-power.rules": dedent(
+        """\
+        # AC adapter plugged in
+        SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="1", RUN+="/usr/local/bin/unplug_notify.py 'AC adapter plugged in'"
+        # AC adapter unplugged
+        SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="0", RUN+="/usr/local/bin/unplug_notify.py 'AC adapter unplugged'"
         """
     ),
     "etc/polkit-1/rules.d/49-rules.rules": dedent(

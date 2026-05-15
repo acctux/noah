@@ -42,6 +42,11 @@ class NoahUserProcessor:
     data: NoahConfig
     username: str | None = None
     HOME: Path = field(init=False)
+    ENCRYPTED: Path = field(init=False)
+    DOTS: Path = field(init=False)
+    SEC_DOTS: Path = field(init=False)
+    ssh_path: Path = field(init=False)
+    gpg_path: Path = field(init=False)
 
     def __post_init__(self):
         self.HOME = (
@@ -49,11 +54,10 @@ class NoahUserProcessor:
         )
         self.ENCRYPTED = self.HOME / self.data.encrypted_dir
         self.DOTS = self.HOME / "Lit" / self.data.dots_repo
+        self.SEC_DOTS = self.HOME / "Lit" / "Docs" / "secdots"
         self.ssh_path = self.HOME / ".ssh" / self.data.ssh_key_file
         self.gpg_path = self.HOME / ".gnupg" / self.data.gpg_key_file
         self.masterpass_path = self.HOME / ".ssh" / self.data.master_pass_file
-        self.SEC_DOTS = self.HOME / "Lit" / "Docs" / "secdots"
-        self.dirs_to_link = [self.HOME / path for _, path in self.data.dirs_to_link]
         self.dirs_icons = {
             self.HOME / path: icon for path, icon in self.data.dirs_icons.items()
         }

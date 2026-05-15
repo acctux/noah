@@ -2,7 +2,6 @@ pacman_pkgs: dict[str, list[str]] = {
     "base": [
         # HARDWARE
         "ananicy-cpp",
-        "apparmor",
         "bluetui",
         "bluez-utils",  # for loggy
         "brightnessctl",
@@ -122,7 +121,6 @@ pacman_pkgs: dict[str, list[str]] = {
         "tesseract-data-ukr",
     ],
     "chaotic_repo": [
-        "apparmor.d-git",
         "cachyos-ananicy-rules-git",
         "downgrade",
         "floorp",
