@@ -548,27 +548,26 @@ def write_kernel_cmdline(mountpoint: Path):
 
 
 def write_limine_conf(mountpoint: Path):
-    term_palette = (
+    palette = (
         "#21222c ; #ff5555 ; #00ff99 ; #f1fa8c ; #0072ff ; #ff79c6 ; #33ccff ; #bfbfbf"
     )
-    term_palette_bright = (
+    palette_bright = (
         "#4d4d4d ; #ff6e6e ; #10b981 ; #ffffa5 ; #33ccff ; #ff92df ; #a4ffff ; #ffffff"
     )
-    limine_conf = mountpoint / "boot/EFI/arch-limine/limine.conf"
+    limine_conf = mountpoint / "boot" / "limine.conf"
     if not limine_conf.is_file():
-        print(f"{limine_conf} does not exist or is not a file.")
+        log.error(f"{limine_conf} does not exist or is not a file.")
         return
     lines = limine_conf.read_text().splitlines()
     new_lines = []
     for line in lines:
         if line.strip().startswith("timeout"):
-            new_lines.append("timeout 1")
+            new_lines.append("timeout: 1")
             new_lines.extend(
                 [
-                    f"term_palette: {term_palette}",
-                    f"term_palette_bright: {term_palette_bright}",
+                    f"term_palette: {palette}",
+                    f"term_palette_bright: {palette_bright}",
                     "remember_last_entry: yes",
-                    "wallpaper: /usr/local/bin/limine.jpg",
                 ]
             )
         else:
@@ -608,7 +607,7 @@ def install_limine(installation: Installer):
     #     "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
     # )
     installation.arch_chroot("limine-mkinitcpio")
-    installation.arch_chroot("limine-update")
+    # installation.arch_chroot("limine-update")
 
 
 ###################################
