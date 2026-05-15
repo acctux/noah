@@ -165,7 +165,7 @@ class CopyProcessor:
 
     def compute_dir_paths(self, d: "UsbDirCopy") -> dict[str, list[Path]]:
         usb, chroot, home_rel = [], [], []
-        for dirname in d.dir_names:
+        for dirname in d.names:
             usb.append(self.usb_mnt / d.source_dir / dirname)
             chroot.append(self.chroot_root / d.target_dir / dirname)
             home_rel.append(Path(d.target_dir) / dirname)
