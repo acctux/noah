@@ -268,8 +268,9 @@ def perform_installation(
             profile_handler.install_gfx_driver(installation, gfx_driver)
         profile_handler.install_greeter(installation, GreeterType.Ly)
         write_etc_file(mountpoint, etc_files_to_write)
-        reflector_timer_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
-        reflector_timer_conf.write_text("\n".join(nc.reflector_options))
+        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
+            "\n".join(nc.reflector_options)
+        )
         for dir_to_cp in nc.dir_contents_to_cp:
             for name in dir_to_cp.dir_names:
                 copy_dir(
@@ -366,7 +367,7 @@ def setup_archinstall_conf(
         pacman_pkgs["base"] + pacman_pkgs["language"] + pacman_pkgs["chaotic_repo"]
     )
     if GfxDriver.VMOpenSource in gfx_drivers:
-        base_pkgs.append("spice-vdagent")
+        base_pkgs.extend(["spice-vdagent", "qemu-guest-agent", "virtiofsd"])
     else:
         base_pkgs.extend(pacman_pkgs["extra"] + pacman_pkgs["extra_chaos"])
     arch_config_handler.config.packages = base_pkgs
