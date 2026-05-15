@@ -518,21 +518,22 @@ def copy_skel(mountpoint: Path, nc: NoahConfig):
 def write_kernel_cmdline(
     mountpoint: Path,
     extra_options: list[dict[str, str]] = [
-        {
-            "filename": "plymouth",
-            "option": "quiet splash",
-        },
+        {"filename": "plymouth", "option": "quiet splash"},
         {
             "filename": "apparmor",
             "option": "lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
         },
     ],
 ):
+    def write_extra_opts(mountpoint: Path, extra_opts: list[dict[str, str]]):
+        output_dir = mountpoint / "etc" / "limine-entry-tool.d"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for dict in extra_opts:
+            target_file = output_dir / f"{dict['filename']}.conf"
+            target_file.write_text(f"KERNEL_CMDLINE[default]+={dict['option']}\n")
+            log.info(f"Wrote extra option '{dict['option']}' to {target_file}")
+
     limine_conf = mountpoint / "boot" / "EFI" / "arch-limine" / "limine.conf"
-    output_dir = mountpoint / "etc" / "limine-entry-tool.d"
-    if not limine_conf.is_file():
-        log.error(f"{limine_conf} does not exist or is not a file.")
-        return
     cmdline = ""
     with limine_conf.open() as f:
         for line in f:
@@ -541,15 +542,8 @@ def write_kernel_cmdline(
                 cmdline = line.split(":", 1)[1].strip()
                 log.info(cmdline)
                 break
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    original_file = output_dir / "original_flags.conf"
-    original_file.write_text(f"KERNEL_CMDLINE[default]+={cmdline}\n")
-    log.info(f"Wrote {cmdline} to {original_file}")
-    for dict in extra_options:
-        target_file = output_dir / f"{dict['filename']}.conf"
-        target_file.write_text(f"KERNEL_CMDLINE[default]+={dict['option']}\n")
-        log.info(f"Wrote extra option '{dict['option']}' to {target_file}")
+    write_extra_opts(mountpoint, [{"filename": "original_flags", "option": cmdline}])
+    write_extra_opts(mountpoint, extra_options)
 
 
 def write_limine_conf(mountpoint: Path):
@@ -607,12 +601,7 @@ def install_limine(installation: Installer):
     )
     write_kernel_cmdline(installation.target)
     write_limine_conf(installation.target)
-    # installation.arch_chroot("limine-install")
-    # installation.arch_chroot(
-    #     "limine-entry-tool --add-efi 'Arch' '/boot/EFI/arch-limine/BOOTX64.EFI' --overwrite --quiet"
-    # )
     installation.arch_chroot("limine-mkinitcpio")
-    # installation.arch_chroot("limine-update")
 
 
 ###################################
