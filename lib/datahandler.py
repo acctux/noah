@@ -86,9 +86,12 @@ class NoahConfig:
     def from_config(cls, data: dict):
         fc = data.get("file_copy_config", {})
 
-        def parse_usb_file_copy_list(data: list[dict] | None) -> list[UsbFileCopy]:
+        def parse_list(cls_type, data_list: list[dict] | None) -> list:
+            return [cls_type(**item) for item in (data_list or [])]
+
+        def parse_usb_file_copy_list(data_list: list[dict] | None) -> list[UsbFileCopy]:
             result = []
-            for item in data or []:
+            for item in data_list or []:
                 t_dirs = parse_list(UsbTargetCopy, item.get("target_dirs"))
                 result.append(
                     UsbFileCopy(
@@ -97,10 +100,7 @@ class NoahConfig:
                 )
             return result
 
-        def parse_list(cls, data: list[dict] | None) -> list:
-            return [cls(**item) for item in (data or [])]
-
-        def parse_file(name):
+        def parse_file(name: str) -> UsbFileCopy:
             file_cfg = fc.get(name, {})
             targets = parse_list(UsbTargetCopy, file_cfg.get("target_dirs"))
             return UsbFileCopy(
@@ -138,16 +138,8 @@ class NoahConfig:
             yazi_plugins=data.get("yazi_plugins", []),
             dirs_to_link=data.get("dirs_to_link", []),
             git_repos=parse_list(GitRepos, data.get("git_repos")),
-            dir_contents_to_cp=parse_list(
-                UsbDirCopy, data.get("copy_config", {}).get("dir_contents_to_cp")
-            ),
-            user_services=UserServices(
-                [
-                    UsrSrv(s["source"], t["target"], t["serv"])
-                    for s in data.get("user_services", [])
-                    for t in s.get("targets", [])
-                ]
-            ),
+            dir_contents_to_cp=parse_list(UsbDirCopy, data.get("dir_contents_to_cp")),
+            user_services=UserServices.parse_arg(data.get("user_services")),
         )
 
 
