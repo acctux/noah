@@ -77,6 +77,7 @@ def get_missing_paths(
         if not root_path.exists():
             missing_files.append((usb_path, root_path))
     for usb_path, root_path in zip(usb_dirs, root_dirs):
+        print(root_path)
         if not root_path.is_dir():
             missing_dirs.append((usb_path, root_path))
     return missing_files, missing_dirs
@@ -99,6 +100,7 @@ def mnt_cp_keys(
     config: NoahConfig,
     usb_mnt: Path = Path("/mnt/usb"),
 ) -> CopyProcessor:
+
     def unmount_usb():
         run_dmc(["umount", str(usb_mnt)], check=True)
         run_dmc(["udevadm", "settle"])
