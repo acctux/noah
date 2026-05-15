@@ -376,3 +376,7 @@ def user_setup():
         run_dmc(["systemctl", "reboot"])
         log.info("Reboot cancelled.")
         return
+
+
+if __name__ == "__main__":
+    user_setup()
