@@ -284,6 +284,10 @@ def perform_installation(
                 user_service(installation, user.username, nc.terminal)
                 mpd_tmpfiles(installation, user.username)
                 enable_user_serv(installation, nc.user_services.services, user.username)
+                installation.arch_chroot(
+                    f"chown -R {user.username}:{user.username} /home/{user.username}"
+                )
+                installation.arch_chroot("chown -R root:root /usr/lib/systemd/user")
         if boot_config := config.bootloader_config:
             if boot_config.bootloader == Bootloader.Systemd:
                 if not boot_config.uki:
