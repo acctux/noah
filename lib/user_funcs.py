@@ -108,7 +108,7 @@ def install_icons(installation: Installer):
 ###################################
 # User Space
 ###################################
-def root_to_mnt(processor: CopyProcessor, installer: "Installer", username: str):
+def root_to_mnt_all(processor: CopyProcessor, installer: "Installer", username: str):
     key_files = processor.home_paths_split_by_keys(username)
     key_files_set = set(key_files)
     for src_path, dest_path in zip(

@@ -32,7 +32,7 @@ from lib.pacman import chaotic_repo, modify_pacman_conf
 from lib.user_funcs import (
     user_service,
     enable_user_serv,
-    usb_files_root_to_mnt,
+    root_to_mnt_all,
     copy_skel,
     install_icons,
     hide_apps,
@@ -284,7 +284,7 @@ def perform_installation(
             aur_and_remove_root(installation, user_1, nc.sudo_defaults)
             realtime_priveleges(installation, users)
             copy_dir(script_d, (mountpoint / "home" / user_1 / script_d.name))
-            usb_files_root_to_mnt(copy_conf, installation, user_1)
+            root_to_mnt_all(copy_conf, installation, user_1)
         if boot_config := config.bootloader_config:
             if boot_config.bootloader == Bootloader.Systemd:
                 if not boot_config.uki:
