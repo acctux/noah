@@ -147,7 +147,7 @@ def usb_files_root_to_mnt(
             path.chmod(0o600 if path.is_file() else 0o700)
         else:
             path.chmod(0o644 if path.is_file() else 0o755)
-        installer.chown(username, str(path))
+        installer.chown(username, str(path).lstrip("/mnt"))
 
 
 def mpd_tmpfiles(installation: Installer, user: str) -> None:
