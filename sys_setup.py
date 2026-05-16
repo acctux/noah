@@ -199,7 +199,6 @@ def perform_installation(
                 installation.generate_key_files()
 
         handle_reflector(nc.reflector_country)
-
         modify_pacman_conf(None, no_extracts=nc.no_extracts)
         installation.minimal_installation(
             optional_repositories=optional_repositories,
