@@ -111,39 +111,43 @@ def install_icons(installation: Installer):
 def usb_files_root_to_mnt(
     processor: CopyProcessor, installer: "Installer", username: str
 ):
-    key_files, other_files = processor.home_paths_split_by_keys(username)
+    key_sources = [
+        processor.config.ssh_key_file,
+        processor.config.gpg_key_file,
+        processor.config.master_pass_file,
+    ]
+    key_files = [
+        Path("/home") / username / t.dest / name
+        for kf in key_sources
+        for t in kf.target_dirs
+        for name in t.names
+    ]
     key_files_set = set(key_files)
-
-    def apply_permissions(dest: Path, is_user_file: bool):
-        if not is_user_file:
-            return
-        if dest in key_files_set:
-            dest.chmod(0o600 if dest.is_file() else 0o700)
-        else:
-            dest.chmod(0o644 if dest.is_file() else 0o755)
-        installer.chown(username, str(dest))
-
-    def copy_item(src: Path, dest: Path, is_user_file: bool):
+    all_files = processor.mnt_file_paths(username)
+    other_files = [f for f in all_files if f not in key_files]
+    for src, dest in zip(
+        processor.root_file_paths(), processor.mnt_file_paths(username)
+    ):
         if src.is_file():
             copy_file(src, dest)
         elif src.is_dir():
             copy_dir(src, dest)
-        apply_permissions(dest, is_user_file)
-
-    for src, dest in zip(
-        processor.root_file_paths(), processor.mnt_file_paths(username)
-    ):
-        copy_item(src, dest, is_user_file=False)
     for src, dest in zip(processor.root_dir_paths(), processor.mnt_dir_paths(username)):
-        copy_item(src, dest, is_user_file=False)
-
-    for path in key_files:
+        if src.is_file():
+            copy_file(src, dest)
+        elif src.is_dir():
+            copy_dir(src, dest)
+    for path in key_files + other_files:
         src = processor.usb_mnt / path.relative_to(f"/home/{username}")
-        copy_item(src, path, is_user_file=True)
-
-    for path in other_files:
-        src = processor.usb_mnt / path.relative_to(f"/home/{username}")
-        copy_item(src, path, is_user_file=True)
+        if src.is_file():
+            copy_file(src, path)
+        elif src.is_dir():
+            copy_dir(src, path)
+        if path in key_files_set:
+            path.chmod(0o600 if path.is_file() else 0o700)
+        else:
+            path.chmod(0o644 if path.is_file() else 0o755)
+        installer.chown(username, str(path))
 
 
 def mpd_tmpfiles(installation: Installer, user: str) -> None:
