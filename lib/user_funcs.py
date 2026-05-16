@@ -111,14 +111,13 @@ def install_icons(installation: Installer):
 def usb_files_root_to_mnt(
     processor: CopyProcessor, installer: "Installer", username: str
 ):
-    key_sources = [
-        processor.config.ssh_key_file,
-        processor.config.gpg_key_file,
-        processor.config.master_pass_file,
-    ]
     key_files = [
-        Path("/home") / username / t.dest / name
-        for kf in key_sources
+        Path("/mnt/home") / username / t.dest / name
+        for kf in [
+            processor.config.ssh_key_file,
+            processor.config.gpg_key_file,
+            processor.config.master_pass_file,
+        ]
         for t in kf.target_dirs
         for name in t.names
     ]
