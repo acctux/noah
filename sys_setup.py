@@ -357,7 +357,11 @@ def setup_archinstall_conf(
     arch_config_handler.config.app_config = arch_config.app_config
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
     base_pkgs = (
-        pacman_pkgs["base"] + pacman_pkgs["language"] + pacman_pkgs["chaotic_repo"]
+        pacman_pkgs["base"]
+        + pacman_pkgs["language"]
+        + pacman_pkgs["hardware"]
+        + pacman_pkgs["network"]
+        + pacman_pkgs["chaotic_repo"]
     )
     if GfxDriver.VMOpenSource in gfx_drivers:
         base_pkgs.extend(["spice-vdagent", "qemu-guest-agent"])

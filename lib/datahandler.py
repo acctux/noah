@@ -215,7 +215,7 @@ class CopyProcessor:
             self.config.master_pass_file,
         ]
         key_files = [
-            Path("/home") / username / t.dest / name
+            Path("/mnt/home") / username / t.dest / name
             for kf in key_sources
             for t in kf.target_dirs
             for name in t.names
@@ -241,7 +241,7 @@ class CopyProcessor:
             if not path.is_absolute():
                 f_mnt_paths.append(path)
             else:
-                home_base = Path("/home") / username
+                home_base = Path("/mnt/home") / username
                 f_mnt_paths.append(home_base / path)
         return f_mnt_paths
 
@@ -263,7 +263,7 @@ class CopyProcessor:
         return self._dir_cache[location]
 
     def mnt_dir_paths(self, username: str):
-        return [Path("/home") / username / p for p in self.all_dir_paths("mnt")]
+        return [Path("/mnt/home") / username / p for p in self.all_dir_paths("mnt")]
 
     def usb_dir_paths(self):
         return self.all_dir_paths("usb")
