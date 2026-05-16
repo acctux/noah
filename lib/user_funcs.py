@@ -1,8 +1,8 @@
 from textwrap import dedent
-from utils import run_dmc, copy_dir, copy_file, log
+from utils import run_dmc, copy_dir, log
 import shutil
 from archinstall.lib.installer import Installer
-from lib.datahandler import NoahConfig, CopyProcessor, UsrSrv
+from lib.datahandler import NoahConfig, UsrSrv
 from pathlib import Path
 
 
@@ -103,39 +103,6 @@ def install_icons(installation: Installer):
                 if "#ffffff" in text:
                     svg_file.write_text(text.replace("#ffffff", "#F4F5F6"))
                     log.info(f"Modified {svg_file}")
-
-
-###################################
-# User Space
-###################################
-def root_to_mnt_all(processor: CopyProcessor, installer: "Installer", username: str):
-    key_files = processor.home_paths_split_by_keys(username)
-    key_files_set = set(key_files)
-    for src_path, dest_path in zip(
-        processor.root_file_paths(), processor.mnt_file_paths(username)
-    ):
-        if not src_path.exists():
-            continue
-        if src_path.is_file():
-            copy_file(src_path, dest_path)
-        else:
-            copy_dir(src_path, dest_path)
-    for src_path, dest_path in zip(
-        processor.root_dir_paths(), processor.mnt_dir_paths(username)
-    ):
-        if not src_path.exists():
-            continue
-        if src_path.is_file():
-            copy_file(src_path, dest_path)
-        else:
-            copy_dir(src_path, dest_path)
-    for path in key_files:
-        key = path[0]
-        if key in key_files_set:
-            key.chmod(0o600 if key.is_file() else 0o700)
-        else:
-            key.chmod(0o644 if key.is_file() else 0o755)
-        installer.chown(username, str(path).lstrip("/mnt"))
 
 
 def mpd_tmpfiles(installation: Installer, user: str) -> None:

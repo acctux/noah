@@ -32,7 +32,6 @@ from lib.pacman import chaotic_repo, modify_pacman_conf
 from lib.user_funcs import (
     user_service,
     enable_user_serv,
-    root_to_mnt_all,
     copy_skel,
     install_icons,
     hide_apps,
@@ -160,7 +159,7 @@ def perform_installation(
     application_handler: ApplicationHandler,
     nc: NoahConfig,
     gfx_drivers: list[GfxDriver],
-    copy_conf: CopyProcessor,
+    copy_handler: CopyProcessor,
 ) -> None:
     script_d = Path(__file__).resolve().parent
     start_time = time.monotonic()
@@ -284,7 +283,7 @@ def perform_installation(
             aur_and_remove_root(installation, user_1, nc.sudo_defaults)
             realtime_priveleges(installation, users)
             copy_dir(script_d, (mountpoint / "home" / user_1 / script_d.name))
-            root_to_mnt_all(copy_conf, installation, user_1)
+            copy_handler.copy_root_to_mnt(user_1)
         if boot_config := config.bootloader_config:
             if boot_config.bootloader == Bootloader.Systemd:
                 if not boot_config.uki:

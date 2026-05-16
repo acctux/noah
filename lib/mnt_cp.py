@@ -2,7 +2,7 @@
 # USB Files
 ###################################
 import time
-from utils import run_dmc, yes_no, get_logger, copy_file, copy_dir
+from utils import run_dmc, yes_no, get_logger
 from lib.datahandler import NoahConfig, CopyProcessor
 import subprocess
 import json
@@ -61,63 +61,27 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
     return selected_path
 
 
-def get_missing_paths(
-    usb_files: list[Path],
-    root_files: list[Path],
-    usb_dirs: list[Path],
-    root_dirs: list[Path],
-) -> tuple[list[tuple[Path, Path]], list[tuple[Path, Path]]]:
-    """
-    Given USB and chroot paths for files and directories,
-    return tuples of (usb_path, chroot_path) for anything missing in chroot.
-    """
-    missing_files: list[tuple[Path, Path]] = []
-    missing_dirs: list[tuple[Path, Path]] = []
-    for usb_path, root_path in zip(usb_files, root_files):
-        if not root_path.exists():
-            missing_files.append((usb_path, root_path))
-    for usb_path, root_path in zip(usb_dirs, root_dirs):
-        print(root_path)
-        if not root_path.is_dir():
-            missing_dirs.append((usb_path, root_path))
-    return missing_files, missing_dirs
-
-
-def copy_usb_to_root(missing_files, missing_dirs):
-    for src_path, dest_path in missing_files:
-        if src_path.is_file():
-            copy_file(src_path, dest_path)
-        else:
-            log.error(f"{src_path} does not exist on USB")
-    for src_path, dest_path in missing_dirs:
-        if src_path.is_dir():
-            copy_dir(src_path, dest_path)
-        else:
-            log.error(f"{src_path} does not exist on USB")
-
-
 def mnt_cp_keys(
     config: NoahConfig,
     usb_mnt: Path = Path("/mnt/usb"),
 ) -> CopyProcessor:
+    """
+    Ensure USB files are copied to /root and return a CopyProcessor instance.
+    """
 
     def unmount_usb():
         run_dmc(["umount", str(usb_mnt)], check=True)
         run_dmc(["udevadm", "settle"])
         time.sleep(1)
 
+    processor = CopyProcessor(config)
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb()
-    processor = CopyProcessor(config)
-    missing_files, missing_dirs = get_missing_paths(
-        usb_files=processor.usb_file_paths(),
-        root_files=processor.root_file_paths(),
-        usb_dirs=processor.usb_dir_paths(),
-        root_dirs=processor.root_dir_paths(),
-    )
+    missing_files, missing_dirs = processor.get_missing_root()
     if missing_files or missing_dirs:
         log.warning(
-            f"Not yet present:\n{'\n'.join(str(path) for _, path in (missing_files + missing_dirs))}"
+            "Not yet present:\n"
+            + "\n".join(str(path) for _, path in (missing_files + missing_dirs))
         )
         if not yes_no("Mount USB?"):
             return processor
@@ -126,9 +90,11 @@ def mnt_cp_keys(
         run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
         run_dmc(["udevadm", "settle"])
         time.sleep(1)
-        copy_usb_to_root(missing_files, missing_dirs)
+        processor.copy_usb_to_root()
+        log.info("Missing files copied from USB to /root.")
         if yes_no("Files copied, unmount?"):
             unmount_usb()
     else:
         log.info("All files to copy from USB found.")
+
     return processor
