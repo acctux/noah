@@ -372,7 +372,7 @@ def setup_archinstall_conf(
 
 def sys_setup() -> None:
     nc = NoahConfig.from_config(ec.json_config)
-    copy_conf = mnt_cp_keys(nc)
+    copy_handler = mnt_cp_keys(nc)
     arch_config_handler, gfx_drivers = setup_archinstall_conf(
         ec.arch_config_json, "/root/users.json"
     )
@@ -399,7 +399,7 @@ def sys_setup() -> None:
         application_handler=ApplicationHandler(),
         nc=nc,
         gfx_drivers=gfx_drivers,
-        copy_conf=copy_conf,
+        copy_handler=copy_handler,
     )
 
 
