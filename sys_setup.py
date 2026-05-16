@@ -273,17 +273,17 @@ def perform_installation(
         sys_dots(mountpoint, script_d)
         install_icons(installation)
         if users:
-            for user in users:
-                installation.arch_chroot("xdg-user-dirs-update", user.username)
-                enable_user_serv(installation, nc.user_services.services, user.username)
-                hide_apps(installation, user.username, nc.apps_to_hide)
-                user_service(installation, user.username, nc.terminal)
-                mpd_tmpfiles(installation, user.username)
             user_1 = users[0].username
             aur_and_remove_root(installation, user_1, nc.sudo_defaults)
             realtime_priveleges(installation, users)
             copy_dir(script_d, (mountpoint / "home" / user_1 / script_d.name))
             copy_handler.copy_root_to_mnt(user_1)
+            for user in users:
+                installation.arch_chroot("xdg-user-dirs-update", user.username)
+                hide_apps(installation, user.username, nc.apps_to_hide)
+                user_service(installation, user.username, nc.terminal)
+                mpd_tmpfiles(installation, user.username)
+                enable_user_serv(installation, nc.user_services.services, user.username)
         if boot_config := config.bootloader_config:
             if boot_config.bootloader == Bootloader.Systemd:
                 if not boot_config.uki:
