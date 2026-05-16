@@ -1,43 +1,42 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Dict
 
 
 @dataclass(slots=True)
 class GitRepos:
     username: str = ""
-    repos: List[dict] = field(default_factory=list)
+    repos: list[dict] = field(default_factory=list)
 
 
 @dataclass(slots=True)
 class UsbTargetCopy:
     dest: str = ""
-    names: List[str] = field(default_factory=list)
+    names: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
 class UsbFileCopy:
     source_dir: str = ""
-    target_dirs: List[UsbTargetCopy] = field(default_factory=list)
+    target_dirs: list[UsbTargetCopy] = field(default_factory=list)
 
 
 @dataclass(slots=True)
 class UsbDirCopy:
     source_dir: str = ""
     target_dir: str = ""
-    dir_names: List[str] = field(default_factory=list)
+    dir_names: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
 class UsrSrv:
     source: str
     target: str
-    services: List[str]
+    services: list[str]
 
 
 @dataclass(slots=True)
 class UserServices:
-    services: List[UsrSrv] = field(default_factory=list)
+    services: list[UsrSrv] = field(default_factory=list)
 
     @classmethod
     def parse_arg(cls, data=None):
@@ -55,12 +54,12 @@ class UserServices:
         return cls(parsed)
 
 
-def parse_list(cls, data: List[dict] | None) -> list:
+def parse_list(cls, data: list[dict] | None) -> list:
     """Parse a list of dicts into a list of dataclass instances."""
     return [cls(**item) for item in (data or [])]
 
 
-def parse_usb_file_copy_list(data: List[dict] | None) -> List[UsbFileCopy]:
+def parse_usb_file_copy_list(data: list[dict] | None) -> list[UsbFileCopy]:
     """Parse a list of dicts into UsbFileCopy instances with nested UsbTargetCopy."""
     result = []
     for item in data or []:
@@ -83,21 +82,21 @@ class NoahConfig:
     gpg_key_file: UsbFileCopy = field(default_factory=lambda: UsbFileCopy())
     master_pass_file: UsbFileCopy = field(default_factory=lambda: UsbFileCopy())
     auth_conf: UsbFileCopy = field(default_factory=lambda: UsbFileCopy())
-    all_files_to_cp: List[UsbFileCopy] = field(default_factory=list)
+    all_files_to_cp: list[UsbFileCopy] = field(default_factory=list)
     parallel_downloads: int = 10
-    dir_contents_to_cp: List[UsbDirCopy] = field(default_factory=list)
-    groups: List[str] = field(default_factory=list)
-    dirs_icons: Dict[str, str] = field(default_factory=dict)
-    mkinit_hooks: List[str] = field(default_factory=list)
-    reflector_options: List[str] = field(default_factory=list)
-    disable_svcs: List[str] = field(default_factory=list)
-    sudo_defaults: List[str] = field(default_factory=list)
-    apps_to_hide: List[str] = field(default_factory=list)
-    no_extracts: List[str] = field(default_factory=list)
-    yazi_plugins: List[str] = field(default_factory=list)
-    git_repos: List[GitRepos] = field(default_factory=list)
+    dir_contents_to_cp: list[UsbDirCopy] = field(default_factory=list)
+    groups: list[str] = field(default_factory=list)
+    dirs_icons: dict[str, str] = field(default_factory=dict)
+    mkinit_hooks: list[str] = field(default_factory=list)
+    reflector_options: list[str] = field(default_factory=list)
+    disable_svcs: list[str] = field(default_factory=list)
+    sudo_defaults: list[str] = field(default_factory=list)
+    apps_to_hide: list[str] = field(default_factory=list)
+    no_extracts: list[str] = field(default_factory=list)
+    yazi_plugins: list[str] = field(default_factory=list)
+    git_repos: list[GitRepos] = field(default_factory=list)
     user_services: UserServices = field(default_factory=lambda: UserServices([]))
-    dirs_to_link: List[str] = field(default_factory=list)
+    dirs_to_link: list[str] = field(default_factory=list)
 
     @classmethod
     def from_config(cls, data: dict):
@@ -163,110 +162,123 @@ class NoahConfig:
 # -------------------- Copy Processor --------------------
 @dataclass(slots=True)
 class CopyProcessor:
-    config: NoahConfig
+    config: "NoahConfig"
     usb_mnt: Path = Path("/mnt/usb")
     chroot_mnt: Path = Path("/mnt")
     root: Path = Path("/root")
-    _file_cache: dict[str, List[Path]] = field(init=False, default_factory=dict)
-    _dir_cache: dict[str, List[Path]] = field(init=False, default_factory=dict)
+    _file_cache: dict[str, list[Path]] = field(init=False, default_factory=dict)
+    _dir_cache: dict[str, list[Path]] = field(init=False, default_factory=dict)
+
+    LOCATION_MAP = {"mnt": "mnt", "usb": "usb", "root": "root"}
+
+    # ------------------- PATH HELPERS -------------------
+
+    def _make_path(self, src: Path, dest: Path, name: str, location: str) -> Path:
+        if location == "usb":
+            return self.usb_mnt / src / name
+        base = self.chroot_mnt if location == "mnt" else self.root
+        return (
+            base / dest.relative_to("/") / name
+            if dest.is_absolute()
+            else base / dest / name
+        )
 
     def _compute_paths(
         self, items, location: str, source_attr, target_attr, names_attr
-    ):
-        """
-        Compute paths depending on location:
-          - 'usb' → always under usb_mnt / source / name
-          - 'mnt' → absolute paths → /mnt/...; relative → dest/name
-          - 'root' → absolute → /root/...; relative → /root/dest/name
-        """
+    ) -> list[Path]:
+        if location not in self.LOCATION_MAP:
+            raise ValueError(f"Unknown location: {location}")
+
         paths = []
         for item in items:
             src = Path(getattr(item, source_attr))
-            for t in getattr(item, target_attr):
-                dest = Path(
-                    getattr(t, "dest", t) if isinstance(t, UsbTargetCopy) else t
+            for t in getattr(item, target_attr, []):
+                dest = Path(getattr(t, "dest", t) if hasattr(t, "dest") else t)
+                names = getattr(t, names_attr, getattr(item, names_attr, []))
+                paths.extend(
+                    self._make_path(src, dest, name, location) for name in names
                 )
-                for name in getattr(t, names_attr, getattr(item, names_attr, [])):
-                    if location == "usb":
-                        paths.append(self.usb_mnt / src / name)
-                    elif location == "mnt":
-                        if dest.is_absolute():
-                            # Absolute paths → start at /mnt
-                            paths.append(self.chroot_mnt / dest.relative_to("/") / name)
-                        else:
-                            # Relative paths → under dest
-                            paths.append(dest / name)
-                    elif location == "root":
-                        # Keep absolute paths as /root/... for root, relative stays as dest/name
-                        if dest.is_absolute():
-                            paths.append(self.root / dest.relative_to("/") / name)
-                        else:
-                            paths.append(self.root / dest / name)
         return paths
 
+    # ------------------- GENERIC PATHS -------------------
+
+    def _get_paths(
+        self,
+        items_attr: str,
+        location: str,
+        source_attr: str,
+        target_attr: str,
+        names_attr: str,
+        cache: dict,
+    ) -> list[Path]:
+        if location not in cache:
+            items = getattr(self.config, items_attr)
+            cache[location] = self._compute_paths(
+                items, location, source_attr, target_attr, names_attr
+            )
+        return cache[location]
+
+    # ------------------- FILE PATHS -------------------
+
+    def all_file_paths(self, location: str = "mnt") -> list[Path]:
+        return self._get_paths(
+            "all_files_to_cp",
+            location,
+            "source_dir",
+            "target_dirs",
+            "names",
+            self._file_cache,
+        )
+
+    def mnt_file_paths(self, username: str) -> list[Path]:
+        home = Path("/mnt/home") / username
+        return [
+            home / p.relative_to("/") if p.is_absolute() else p
+            for p in self.all_file_paths("mnt")
+        ]
+
+    def usb_file_paths(self) -> list[Path]:
+        return self.all_file_paths("usb")
+
+    def root_file_paths(self) -> list[Path]:
+        return self.all_file_paths("root")
+
+    # ------------------- DIR PATHS -------------------
+
+    def all_dir_paths(self, location: str = "mnt") -> list[Path]:
+        return self._get_paths(
+            "dir_contents_to_cp",
+            location,
+            "source_dir",
+            "target_dir",
+            "dir_names",
+            self._dir_cache,
+        )
+
+    def mnt_dir_paths(self, username: str) -> list[Path]:
+        home = Path("/mnt/home") / username
+        return [home / p for p in self.all_dir_paths("mnt")]
+
+    def usb_dir_paths(self) -> list[Path]:
+        return self.all_dir_paths("usb")
+
+    def root_dir_paths(self) -> list[Path]:
+        return self.all_dir_paths("root")
+
+    # ------------------- HOME KEYS -------------------
+
     def home_paths_split_by_keys(self, username: str) -> tuple[list[Path], list[Path]]:
-        """
-        Returns a tuple (key_files, other_files) in /home/username
-        without copying, just paths.
-        """
+        home = Path("/mnt/home") / username
         key_sources = [
             self.config.ssh_key_file,
             self.config.gpg_key_file,
             self.config.master_pass_file,
         ]
         key_files = [
-            Path("/mnt/home") / username / t.dest / name
+            home / t.dest / name
             for kf in key_sources
-            for t in kf.target_dirs
-            for name in t.names
+            for t in getattr(kf, "target_dirs", [])
+            for name in getattr(t, "names", [])
         ]
-        all_files = self.mnt_file_paths(username)
-        other_files = [f for f in all_files if f not in key_files]
+        other_files = [f for f in self.mnt_file_paths(username) if f not in key_files]
         return key_files, other_files
-
-    def all_file_paths(self, location="mnt"):
-        if location not in self._file_cache:
-            self._file_cache[location] = self._compute_paths(
-                self.config.all_files_to_cp,
-                location,
-                "source_dir",
-                "target_dirs",
-                "names",
-            )
-        return self._file_cache[location]
-
-    def mnt_file_paths(self, username: str):
-        f_mnt_paths = []
-        for path in self.all_file_paths("mnt"):
-            if not path.is_absolute():
-                f_mnt_paths.append(path)
-            else:
-                home_base = Path("/mnt/home") / username
-                f_mnt_paths.append(home_base / path)
-        return f_mnt_paths
-
-    def usb_file_paths(self):
-        return self.all_file_paths("usb")
-
-    def root_file_paths(self):
-        return self.all_file_paths("chroot")
-
-    def all_dir_paths(self, location="mnt"):
-        if location not in self._dir_cache:
-            self._dir_cache[location] = self._compute_paths(
-                self.config.dir_contents_to_cp,
-                location,
-                "source_dir",
-                "target_dir",
-                "dir_names",
-            )
-        return self._dir_cache[location]
-
-    def mnt_dir_paths(self, username: str):
-        return [Path("/mnt/home") / username / p for p in self.all_dir_paths("mnt")]
-
-    def usb_dir_paths(self):
-        return self.all_dir_paths("usb")
-
-    def root_dir_paths(self):
-        return self.all_dir_paths("chroot")
