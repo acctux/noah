@@ -3,9 +3,6 @@ from pathlib import Path
 from typing import List, Dict
 
 
-# -------------------- Data Classes --------------------
-
-
 @dataclass(slots=True)
 class GitRepos:
     username: str = ""
@@ -58,9 +55,6 @@ class UserServices:
         return cls(parsed)
 
 
-# -------------------- Parsing Helpers --------------------
-
-
 def parse_list(cls, data: List[dict] | None) -> list:
     """Parse a list of dicts into a list of dataclass instances."""
     return [cls(**item) for item in (data or [])]
@@ -75,9 +69,6 @@ def parse_usb_file_copy_list(data: List[dict] | None) -> List[UsbFileCopy]:
             UsbFileCopy(source_dir=item.get("source_dir", ""), target_dirs=t_dirs)
         )
     return result
-
-
-# -------------------- Main Config --------------------
 
 
 @dataclass(slots=True)
@@ -213,6 +204,26 @@ class CopyProcessor:
                             paths.append(self.root / dest / name)
         return paths
 
+    def home_paths_split_by_keys(self, username: str) -> tuple[list[Path], list[Path]]:
+        """
+        Returns a tuple (key_files, other_files) in /home/username
+        without copying, just paths.
+        """
+        key_sources = [
+            self.config.ssh_key_file,
+            self.config.gpg_key_file,
+            self.config.master_pass_file,
+        ]
+        key_files = [
+            Path("/home") / username / t.dest / name
+            for kf in key_sources
+            for t in kf.target_dirs
+            for name in t.names
+        ]
+        all_files = self.mnt_file_paths(username)
+        other_files = [f for f in all_files if f not in key_files]
+        return key_files, other_files
+
     def all_file_paths(self, location="mnt"):
         if location not in self._file_cache:
             self._file_cache[location] = self._compute_paths(
@@ -225,13 +236,12 @@ class CopyProcessor:
         return self._file_cache[location]
 
     def mnt_file_paths(self, username: str):
-        file_paths = self.all_file_paths("mnt")
-        home_base = Path("/home") / username
         f_mnt_paths = []
-        for path in file_paths:
+        for path in self.all_file_paths("mnt"):
             if not path.is_absolute():
                 f_mnt_paths.append(path)
             else:
+                home_base = Path("/home") / username
                 f_mnt_paths.append(home_base / path)
         return f_mnt_paths
 
