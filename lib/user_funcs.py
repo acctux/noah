@@ -108,44 +108,33 @@ def install_icons(installation: Installer):
 ###################################
 # User Space
 ###################################
-def usb_files_root_to_mnt(
-    processor: CopyProcessor, installer: "Installer", username: str
-):
-    key_files = [
-        Path("/mnt/home") / username / t.dest / name
-        for kf in [
-            processor.config.ssh_key_file,
-            processor.config.gpg_key_file,
-            processor.config.master_pass_file,
-        ]
-        for t in kf.target_dirs
-        for name in t.names
-    ]
+def root_to_mnt(processor: CopyProcessor, installer: "Installer", username: str):
+    key_files = processor.home_paths_split_by_keys(username)
     key_files_set = set(key_files)
-    all_files = processor.mnt_file_paths(username)
-    other_files = [f for f in all_files if f not in key_files]
-    for src, dest in zip(
+    for src_path, dest_path in zip(
         processor.root_file_paths(), processor.mnt_file_paths(username)
     ):
-        if src.is_file():
-            copy_file(src, dest)
-        elif src.is_dir():
-            copy_dir(src, dest)
-    for src, dest in zip(processor.root_dir_paths(), processor.mnt_dir_paths(username)):
-        if src.is_file():
-            copy_file(src, dest)
-        elif src.is_dir():
-            copy_dir(src, dest)
-    for path in key_files + other_files:
-        src = processor.usb_mnt / path.relative_to(f"/home/{username}")
-        if src.is_file():
-            copy_file(src, path)
-        elif src.is_dir():
-            copy_dir(src, path)
-        if path in key_files_set:
-            path.chmod(0o600 if path.is_file() else 0o700)
+        if not src_path.exists():
+            continue
+        if src_path.is_file():
+            copy_file(src_path, dest_path)
         else:
-            path.chmod(0o644 if path.is_file() else 0o755)
+            copy_dir(src_path, dest_path)
+    for src_path, dest_path in zip(
+        processor.root_dir_paths(), processor.mnt_dir_paths(username)
+    ):
+        if not src_path.exists():
+            continue
+        if src_path.is_file():
+            copy_file(src_path, dest_path)
+        else:
+            copy_dir(src_path, dest_path)
+    for path in key_files:
+        key = path[0]
+        if key in key_files_set:
+            key.chmod(0o600 if key.is_file() else 0o700)
+        else:
+            key.chmod(0o644 if key.is_file() else 0o755)
         installer.chown(username, str(path).lstrip("/mnt"))
 
 
