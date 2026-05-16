@@ -46,8 +46,6 @@ def enable_user_serv(
                     f"ln -sf {source_path} {target_dir}/{service}", username
                 )
                 log.info(f"{source_path} -> {target_dir}/{service}")
-    installation.arch_chroot(f"chown -R {username}:{username} {home}")
-    installation.arch_chroot("chown -R root:root /usr/lib/systemd/user")
 
 
 def user_service(
