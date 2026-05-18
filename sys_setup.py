@@ -171,7 +171,6 @@ def perform_installation(
                 config.bootloader_config.uki,
                 config.bootloader_config.removable,
             )
-            bootloader_handling(installation, config.bootloader_config)
 
         if config.network_config:
             install_network_config(
@@ -209,6 +208,7 @@ def perform_installation(
         for gfx_driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, gfx_driver)
         profile_handler.install_greeter(installation, GreeterType.Ly)
+        bootloader_handling(installation, config)
         handle_sys_files(installation, nc, script_d)
         if users:
             single_user_and_user_list(
@@ -218,9 +218,6 @@ def perform_installation(
                 multi_user_funcs(installation, user, nc, script_d.name)
         if services := config.services:
             installation.enable_service(services)
-        if config.bootloader_config:
-            if config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER:
-                bootloader_handling(installation, config.bootloader_config)
 
         installation.disable_service(nc.disable_svcs)
 
@@ -268,7 +265,6 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
         offline=arch_config_handler.args.offline,
         verbose=arch_config_handler.args.verbose,
     )
-    mirror_list_handler.get_status_by_region(region="United States", speed_sort=True)
     arch_config_handler, nc, gfx_drivers = init_setup(
         arch_config_json=json_conf.archinstall_json,
         auth_conf_path="/root/keys/users.json",
