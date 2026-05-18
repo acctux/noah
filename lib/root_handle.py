@@ -83,9 +83,9 @@ def handle_sys_files(installation: Installer, nc: NoahConfig, script_d: Path):
             "--number 3",
             "--save /etc/pacman.d/mirrorlist",
         ]
-    (installation.target / "etc/xdg/reflector/reflector.conf").write_text(
-        "\n".join(reflector_options)
-    )
+        (installation.target / "etc/xdg/reflector/reflector.conf").write_text(
+            "\n".join(reflector_options)
+        )
     if nc.firefox_browser:
         set_extensions(installation.target, nc.firefox_browser, new_policies)
     sys_dots(installation.target, script_d)

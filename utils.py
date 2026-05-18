@@ -119,9 +119,13 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
     for filepath, content in files_to_write.items():
         full_path = mnt_point / filepath
         full_path.parent.mkdir(parents=True, exist_ok=True)
+        if full_path.exists():
+            backup_path = full_path.with_suffix(full_path.suffix + ".bak")
+            shutil.copy2(full_path, backup_path)
+            log.info(f"Backed up {full_path} to {backup_path}")
         with full_path.open("w") as file:
             file.write(content)
-            log.info(f"Content: {content}\nWritten to: {full_path}")
+        log.info(f"Content written to: {full_path}")
 
 
 def modify_mkinit(mnt_point: Path, hook: str, after: str) -> None:
