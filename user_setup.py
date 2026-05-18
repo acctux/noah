@@ -1,85 +1,79 @@
 #!/usr/bin/env python3
-from utils import get_logger, run_dmc, yes_no
-import pwd
-from jsonconfig import noah_json
-from getpass import getpass
 import os
-from pathlib import Path
-import time
-import gnupg
+import pwd
 import shutil
 import subprocess
-from lib.datahandler import NoahConfig, KeyCopyConfiguration, GitReposConfiguration
+import time
 from dataclasses import dataclass, field
-import pyperclip
+import getpass
+from pathlib import Path
 
+import gnupg
+import pyperclip
+from jsonconfig import noah_json
+from lib.datahandler import GitReposConfiguration, KeyCopyConfiguration, NoahConfig
+from utils import get_logger, run_dmc, yes_no
 
 log = get_logger("Noah")
 
 
 ############################
-# USER SETUP
+# USER SETUP HELPERS
 ############################
 def iwctl_scan() -> bool:
+    """Trigger a background station scan via iwctl."""
     result = run_dmc(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
     time.sleep(10)
-    if result.returncode == 0:
-        return True
-    return False
+    return result.returncode == 0 if result else False
 
 
 def ping(host: str = "google.com") -> bool:
-    cmd = ["ping", "-c", "1", host]
-    return (
-        subprocess.run(
-            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        ).returncode
-        == 0
-    )
+    """Check network connectivity via single ping."""
+    try:
+        res = subprocess.run(
+            ["ping", "-c", "1", "-W", "2", host],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
 
 
 @dataclass(slots=True)
 class NoahUserProcessor:
     data: NoahConfig
     username: str | None = None
-
     HOME: Path = field(init=False)
     ENCRYPTED: Path | None = field(init=False)
     DOTS: Path | None = field(init=False)
     SEC_DOTS: Path = field(init=False)
-
     ssh_path: Path | None = field(init=False, default=None)
     gpg_path: Path | None = field(init=False, default=None)
     masterpass_path: Path | None = field(init=False, default=None)
-
     dirs_icons: dict[Path, str] = field(init=False, default_factory=dict)
     key_copy_config: KeyCopyConfiguration | None = None
 
     def __post_init__(self):
-        # ---------- base home ----------
+        self.username = self.username or pwd.getpwuid(os.getuid()).pw_name
         self.HOME = (
-            Path.home() if self.username is None else Path("/home") / self.username
+            Path.home()
+            if self.username == pwd.getpwuid(os.getuid()).pw_name
+            else Path("/home") / self.username
         )
-        # ---------- optional config-based paths ----------
-        encrypted_dir = self.data.encrypted_dir
-        self.ENCRYPTED = self.HOME / encrypted_dir if encrypted_dir else None
-        dots_repo = self.data.dots_repo
-        self.DOTS = self.HOME / "Lit" / dots_repo if dots_repo else None
+        self.ENCRYPTED = (
+            self.HOME / self.data.encrypted_dir if self.data.encrypted_dir else None
+        )
+        self.DOTS = (
+            self.HOME / "Lit" / self.data.dots_repo if self.data.dots_repo else None
+        )
         self.SEC_DOTS = self.HOME / "Lit" / "Docs" / "secdots"
-        # ---------- flattened key-based paths (safe fallback) ----------
-        key_cfg = self.data.key_copy_config
-        if key_cfg:
+        if key_cfg := self.data.key_copy_config:
             target = key_cfg.target_dir
             k = key_cfg.keys
-
-            self.ssh_path = self.HOME / target / k["ssh_key"]
-            self.gpg_path = self.HOME / target / k["gpg_key"]
-            self.masterpass_path = self.HOME / target / k["master_pass"]
-        else:
-            self.ssh_path = None
-            self.gpg_path = None
-            self.masterpass_path = None
-
+            self.ssh_path = self.HOME / target / k.get("ssh_key", "")
+            self.gpg_path = self.HOME / target / k.get("gpg_key", "")
+            self.masterpass_path = self.HOME / target / k.get("master_pass", "")
         self.dirs_icons = {
             self.HOME / Path(path): icon
             for path, icon in (self.data.dirs_icons or {}).items()
@@ -87,9 +81,10 @@ class NoahUserProcessor:
 
 
 ##########################################
-# HELPERS
+# SYMLINK & FILE CANDIDATE HELPERS
 ##########################################
 def link_path(src: Path, dst: Path) -> bool:
+    """Safely create relative atomic symlinks."""
     dst.parent.mkdir(parents=True, exist_ok=True)
     rel = os.path.relpath(src, dst.parent)
     if dst.is_symlink() and os.readlink(dst) == rel:
@@ -99,21 +94,21 @@ def link_path(src: Path, dst: Path) -> bool:
             shutil.rmtree(dst)
         else:
             dst.unlink()
-        log.info(f"Removed: {dst}")
+        log.info(f"Removed old target destination: {dst}")
     dst.symlink_to(rel, target_is_directory=src.is_dir())
     log.info(f"Linked: {dst} → {rel}")
     return True
 
 
-def enter_pass():
+def enter_pass(prompt_str: str) -> str:
+    """Secure masked entry utility for credential setting."""
     while True:
-        password = input("Enter a password: ")
-        confirm_password = input("Confirm your password: ")
-        if password == confirm_password:
-            log.info("Password set successfully!")
+        password = getpass.getpass(prompt_str)
+        confirm_password = getpass.getpass("Confirm password: ")
+        if password == confirm_password and password:
+            log.info("Password confirmed.")
             return password
-        else:
-            log.info("Passwords do not match. Please try again.\n")
+        log.warning("Passwords do not match or empty. Try again.\n")
 
 
 def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
@@ -124,93 +119,78 @@ def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
 def collect_candidates(
     base_dir: Path, home: Path, dirs_to_skip: list[str]
 ) -> list[tuple[Path, Path]]:
-    """Return list of (src, dst) tuples for all files in base_dir, skipping certain dirs."""
+    """Return filtered list of (src, dst) mapping tuples for directory files."""
     candidates = []
+    skip_roots = {d.split("/")[0] for d in dirs_to_skip} | {".git"}
     for src in base_dir.rglob("*"):
         if not src.is_file():
             continue
-        rel = src.relative_to(base_dir)
-        if rel.parts[0] == ".git":
-            continue
-        if any(rel.parts[0] == d.split("/")[0] for d in dirs_to_skip):
+        rel_parts = src.relative_to(base_dir).parts
+        if rel_parts and rel_parts[0] in skip_roots:
             continue
         candidates.append((src, dotted_destination(src, base_dir, home)))
     return candidates
 
 
 def file_candidates(nc: NoahConfig, nu: NoahUserProcessor) -> list[tuple[Path, Path]]:
-    """Return list of (src, dst) tuples to link."""
+    """Generate master stack of all expected files and folders to target link."""
+    if not nu.DOTS:
+        return []
     candidates = []
-    if nu.DOTS:
-        candidates.extend(collect_candidates(nu.DOTS, nu.HOME, nc.dirs_to_link))
-        candidates.extend(collect_candidates(nu.SEC_DOTS, nu.HOME, nc.dirs_to_link))
-        for d in nc.dirs_to_link:
-            src = nu.HOME / nu.DOTS / d
-            if src.is_dir():
-                candidates.append((src, dotted_destination(src, nu.DOTS, nu.HOME)))
+    candidates.extend(collect_candidates(nu.DOTS, nu.HOME, nc.dirs_to_link))
+    candidates.extend(collect_candidates(nu.SEC_DOTS, nu.HOME, nc.dirs_to_link))
+    for d in nc.dirs_to_link:
+        src = nu.DOTS / d
+        if src.is_dir():
+            candidates.append((src, dotted_destination(src, nu.DOTS, nu.HOME)))
     return candidates
 
 
-##########################################
-# MAIN
-##########################################
-def deploy_dotfiles(nc: NoahConfig, nu: NoahUserProcessor):
+def deploy_dotfiles(nc: NoahConfig, nu: NoahUserProcessor) -> None:
     if nu.DOTS and not nu.DOTS.is_dir():
-        log.error(f"Dotfiles directory not found: {nu.DOTS}")
+        log.error(f"Dotfiles directory missing: {nu.DOTS}")
         return
-    linked = 0
-    for src, dst in file_candidates(nc, nu):
-        if link_path(src, dst):
-            linked += 1
+    linked = sum(1 for src, dst in file_candidates(nc, nu) if link_path(src, dst))
     if shutil.which("hyprctl"):
         subprocess.run(["hyprctl", "reload"], check=False)
-        log.info("Hyprland reloaded")
-    log.info(f"Total linked:\033[0m {linked}")
+        log.info("Hyprland reloaded configuration.")
+    log.info(f"Total files synchronized and linked: {linked}")
 
 
 ############################
-# Encryption/Keys
+# ENCRYPTION / KEYS
 ############################
 def import_ssh(key_path: Path) -> None:
-    if not Path(f"/run/user/{os.getuid()}/gcr/ssh").exists():
+    socket_path = Path(f"/run/user/{os.getuid()}/gcr/ssh")
+    if not socket_path.exists():
         run_dmc(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
         run_dmc(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
     run_dmc(["ssh-add", str(key_path)], check=False)
-    log.info(f"SSH key {key_path} added or already present.")
+    log.info(f"SSH identity processed for: {key_path}")
 
 
 def import_gpg(gpg_path: Path) -> None:
     key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
-    pwd = enter_pass()
-    import_result = gpg.import_keys(key_data, pwd)
-    log.info(import_result.results)
+    passphrase = enter_pass("Enter GPG Password: ")
+    import_result = gpg.import_keys(key_data, passphrase)
+    log.info(f"GPG import status results: {import_result.results}")
 
 
 def init_gocrypt(enc_dir: Path) -> None:
     enc_dir.mkdir(parents=True, exist_ok=True)
-    while True:
-        pw1 = getpass("Enter new gocryptfs password: ")
-        pw2 = getpass("Confirm password: ")
-        if pw1 == pw2 and pw1:
-            break
-        log.warning("Passwords do not match or empty. Try again.\n")
+    pw = enter_pass("Enter new gocryptfs password: ")
     cmd = ["gocryptfs", "-init", "--passfile", "/dev/stdin", str(enc_dir)]
-    run_dmc(cmd, check=True, input_text=pw1)
-    log.info(f"gocryptfs initialized at {enc_dir}.")
+    run_dmc(cmd, check=True, input_text=pw)
+    log.info(f"gocryptfs cleanly initialized at {enc_dir}.")
 
 
 ############################
-# MariaDB
+# MARIADB
 ############################
-def enable_mariadb(user_name) -> None:
-    while True:
-        p1 = getpass("Mariadb password: ")
-        p2 = getpass("Confirm: ")
-        if p1 == p2:
-            password = p1
-            break
-        print("Passwords do not match, try again.")
+def enable_mariadb() -> None:
+    user_name = getpass.getuser()
+    password = enter_pass("Configure MariaDB user password: ")
     commands = [
         [
             "sudo",
@@ -224,157 +204,158 @@ def enable_mariadb(user_name) -> None:
             "sudo",
             "/usr/bin/mariadb",
             "-e",
-            (
-                f"CREATE USER '{user_name}'@'localhost' IDENTIFIED BY '{password}'; "
-                f"GRANT ALL PRIVILEGES ON mydb.* TO '{user_name}'@'localhost'; "
-                "FLUSH PRIVILEGES;"
-            ),
+            f"CREATE USER '{user_name}'@'localhost' IDENTIFIED BY '{password}'; "
+            f"GRANT ALL PRIVILEGES ON mydb.* TO '{user_name}'@'localhost'; "
+            f"FLUSH PRIVILEGES;",
         ],
     ]
     for cmd in commands:
         result = run_dmc(cmd)
         if result and result.returncode != 0:
-            log.error(f"Command failed: {cmd}")
+            log.error(f"Database initialization step failed: {cmd}")
 
 
 ############################
-# Git/Repos
+# GIT / REPOS
 ############################
-def ensure_github_known_hosts(HOME: Path) -> None:
-    kh = HOME / ".ssh" / "known_hosts"
+def ensure_github_known_hosts(home_path: Path) -> None:
+    kh = home_path / ".ssh" / "known_hosts"
     kh.parent.mkdir(parents=True, exist_ok=True)
-    if not kh.exists():
-        kh.touch()
+    kh.touch(exist_ok=True)
     content = kh.read_text(errors="ignore")
     if "github.com" not in content:
         scan = run_dmc(["ssh-keyscan", "-H", "github.com"])
         if scan and scan.stdout:
             kh.write_text(content + scan.stdout)
-            log.info("Added github.com to known_hosts")
+            log.info("Appended github.com validation signature to known_hosts")
         else:
-            log.warning("Failed to scan github.com for known_hosts")
+            log.warning("Could not -keyscan to verify GitHub host identity.")
 
 
 def clone_repos(git_repos: GitReposConfiguration, dest: Path, ssh: bool) -> None:
-    def url(user: str, repo: str) -> str:
-        if ssh:
-            return f"git@github.com:{user}/{repo}.git"
-        return f"https://github.com/{user}/{repo}.git"
+    def get_url(user: str, repo: str) -> str:
+        return (
+            f"git@github.com:{user}/{repo}.git"
+            if ssh
+            else f"https://github.com/{user}/{repo}.git"
+        )
 
     dest.mkdir(parents=True, exist_ok=True)
     for git_user in git_repos.repositories:
         for remote_repo, local_dir in git_user.repos.items():
             repo_path = dest / Path(local_dir).name
             if repo_path.exists():
-                log.info(f"{repo_path} exists, skipping.")
+                log.info(f"Repository destination '{repo_path}' exists, skipping.")
                 continue
             result = subprocess.run(
-                ["git", "clone", url(git_user.username, remote_repo), str(repo_path)],
+                [
+                    "git",
+                    "clone",
+                    get_url(git_user.username, remote_repo),
+                    str(repo_path),
+                ],
                 capture_output=True,
                 text=True,
             )
             if result.returncode == 0:
-                log.info(f"Cloned {remote_repo} to {repo_path}")
+                log.info(f"Successfully cloned {remote_repo}")
             else:
-                log.warning(
-                    f"Failed to clone {remote_repo}. Error: {result.stderr.strip()}"
-                )
+                log.warning(f"Aborted {remote_repo}: {result.stderr.strip()}")
 
 
 def configure_git() -> None:
-    def git_config_check(key: str):
+    def git_config_get(key: str) -> str | None:
         result = run_dmc(["git", "config", "--global", "--get", key], check=False)
-        value = result.stdout.strip() if result and result.stdout else ""
-        return value or None
+        return result.stdout.strip() if result and result.stdout else None
 
-    existing_email = git_config_check("user.email")
-    existing_name = git_config_check("user.name")
-    if existing_email and existing_name:
-        log.info(f"Git already configured: {existing_name} <{existing_email}>")
+    if git_config_get("user.email") and git_config_get("user.name"):
+        log.info("Global profile environment for Git already generated.")
         return
     result = run_dmc(["ssh-add", "-l"])
-    lines = result.stdout.strip().splitlines()
+    lines = result.stdout.strip().splitlines() if result and result.stdout else []
     if not lines:
-        log.warning("No SSH keys found")
+        log.warning("Cannot scan user metadata without active SSH session.")
         return
-    parts = lines[0].split()
-    my_email = parts[2]
-    my_name = input("Enter your full real name (git): ").strip()
+    my_email = lines[0].split()[2]
+    my_name = input("Enter your global git user.name profile identity: ").strip()
     run_dmc(["git", "config", "--global", "user.email", my_email])
     run_dmc(["git", "config", "--global", "user.name", my_name])
-    log.info(f"Configured git with email={my_email} and name={my_name}")
+    log.info(f"Created configuration footprint parameters: {my_name} <{my_email}>")
 
 
 ############################
-# Icons/Folders
+# DESKTOP ENVIRONMENT / APPS
 ############################
 def set_folder_icons(
     custom_folder_icons: dict[Path, str],
-    icon_dir="/usr/share/icons/WhiteSur-dark/places/scalable",
+    icon_dir: str = "/usr/share/icons/WhiteSur-dark/places/scalable",
 ) -> None:
     for folder, icon_name in custom_folder_icons.items():
-        icon = f"{icon_dir}/{icon_name}.svg"
+        icon = Path(icon_dir) / f"{icon_name}.svg"
         folder.mkdir(parents=True, exist_ok=True)
-        if Path(icon).exists():
-            icon_uri = f"file://{icon}"
-            cmd = ["gio", "set", str(folder), "metadata::custom-icon", icon_uri]
-            run_dmc(cmd)
+        if icon.exists():
+            run_dmc(
+                ["gio", "set", str(folder), "metadata::custom-icon", f"file://{icon}"]
+            )
 
 
-############################
-# Launch Apps
-############################
-def pass_and_input(pass_path: Path, firefox_browser: str):
+def pass_and_input(pass_path: Path, firefox_browser: str) -> None:
+    """Loads master pass into clipboard, launches extension URL, and flushes clipboard after 15s delay."""
     password = pass_path.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
-    log.info("Password copied to clipboard.")
+    log.info("Master password copied to system volatile clipboard buffer.")
     cmd = [
         firefox_browser,
         "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/",
     ]
-    subprocess.Popen(cmd).wait()
+    subprocess.Popen(cmd)
+    log.info("Waiting 15 seconds  before purge.")
+    time.sleep(15)
     pyperclip.copy("")
-    log.info("Clipboard cleared.")
     os.environ.pop("CLIPBOARD_STATE", None)
+    log.info("Sensitive clipboard stack cleared completely.")
 
 
-def launch_apps(apps=["protonmail-bridge", "betterbird", "steam"]):
-    processes = []
-    for app in apps:
-        processes.append(subprocess.Popen(app))
-    for app, process in zip(apps, processes):
+def launch_apps(apps: list[str] | None = None) -> None:
+    if apps is None:
+        apps = ["protonmail-bridge", "betterbird", "steam"]
+    processes = [subprocess.Popen(app) for app in apps if shutil.which(app)]
+    for process in processes:
         process.wait()
-        log.info(f"{app} closed")
 
 
-def scrcpy_setup(port=5555) -> None:
-    answer = yes_no("Is your Android phone connected?")
-    if not answer:
-        log.info("Please connect your device via USB first.")
+def scrcpy_setup(port: int = 5555) -> None:
+    if not yes_no("Is your Android device actively mounted via USB interface?"):
+        log.info(
+            "Please assert active connectivity via hardwire link lines before running network bridge."
+        )
         return
+    route_output = run_dmc(["adb", "shell", "ip", "route"])
+    lines = (
+        route_output.stdout.splitlines() if route_output and route_output.stdout else []
+    )
     ip = next(
         (
             line.split("src")[-1].strip()
-            for line in run_dmc(["adb", "shell", "ip", "route"]).stdout.splitlines()
+            for line in lines
             if "wlan" in line and "src" in line
-        )
+        ),
+        None,
     )
     if not ip:
-        log.warning("Could not determine device IP.")
+        log.warning("Device could not dynamically resolve ip.")
         return
     target = f"{ip}:{port}"
-    log.info(f"Trying {target}")
-    msg = run_dmc(["adb", "connect", target])
-    log.info((msg.stdout + msg.stderr).lower())
+    log.info(f"Attempting handoff sync targeting interface address: {target}")
+    if msg := run_dmc(["adb", "connect", target]):
+        log.info((msg.stdout + msg.stderr).lower())
 
 
 ############################
-# Main
+# SYSTEM COMPONENT FLOWS
 ############################
-def user_setup():
-    if shutil.which("zsh"):
-        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+def fix_network_stack() -> None:
     if Path("/etc/resolv.conf").is_symlink() and not ping():
         run_dmc(["sudo", "rm", "/etc/resolv.conf"])
         run_dmc(["sudo", "resolvconf", "-u"])
@@ -382,59 +363,66 @@ def user_setup():
         time.sleep(5)
         iwctl_scan()
         time.sleep(5)
+
+
+def handle_identities(nc: NoahConfig, nu: NoahUserProcessor) -> None:
+    if nu.ssh_path and nu.ssh_path.is_file():
+        import_ssh(nu.ssh_path)
+        configure_git()
+        ensure_github_known_hosts(nu.HOME)
+        if nc.git_repos_config:
+            clone_repos(nc.git_repos_config, nu.HOME, ssh=True)
+    elif nc.git_repos_config:
+        clone_repos(nc.git_repos_config, nu.HOME, ssh=False)
+    if nu.gpg_path and nu.gpg_path.is_file():
+        import_gpg(nu.gpg_path)
+
+
+############################
+# MAIN FLOW
+############################
+def user_setup() -> None:
+    if shutil.which("zsh"):
+        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    fix_network_stack()
     if shutil.which("tuned"):
         run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
     nc = NoahConfig.from_config(noah_json)
     nu = NoahUserProcessor(nc)
     if shutil.which("mariadb"):
-        user = pwd.getpwuid(os.getuid()).pw_name
-        enable_mariadb(user)
-    log.info(nu.ssh_path)
-    if ssh_path := nu.ssh_path:
-        if ssh_path.is_file():
-            import_ssh(ssh_path)
-            configure_git()
-            ensure_github_known_hosts(nu.HOME)
-            if git_conf := nc.git_repos_config:
-                clone_repos(git_conf, nu.HOME, ssh=True)
-    else:
-        if git_conf := nc.git_repos_config:
-            clone_repos(git_conf, nu.HOME, ssh=False)
-    if gpg_path := nu.gpg_path:
-        if gpg_path.is_file():
-            import_gpg(gpg_path)
-    if nu.ENCRYPTED and not (nu.ENCRYPTED / "gocryptfs.conf").exists():
-        if shutil.which("gocryptfs"):
+        enable_mariadb()
+    handle_identities(nc, nu)
+    if nu.ENCRYPTED and shutil.which("gocryptfs"):
+        if not (nu.ENCRYPTED / "gocryptfs.conf").exists():
             init_gocrypt(nu.ENCRYPTED)
     if nu.dirs_icons:
         set_folder_icons(nu.dirs_icons)
     for plugin in nc.yazi_plugins:
         run_dmc(["ya", "pkg", "add", plugin])
-    if nu.DOTS:
-        if any((nu.DOTS).iterdir()):
-            deploy_dotfiles(nc, nu)
-            run_dmc(
-                ["uv", "add", "openmeteo-requests"],
-                cwd=f"{nu.HOME}/.local/bin/weather",
-            )
+    if nu.DOTS and any(nu.DOTS.iterdir()):
+        deploy_dotfiles(nc, nu)
+        run_dmc(
+            ["uv", "add", "openmeteo-requests"],
+            cwd=str(nu.HOME / ".local" / "bin" / "weather"),
+        )
     if shutil.which("scrcpy"):
         scrcpy_setup()
-    if masterpass := nu.masterpass_path:
-        if masterpass.is_file() and nc.firefox_browser:
-            pass_and_input(masterpass, nc.firefox_browser)
-            launch_apps()
+    if nu.masterpass_path and nu.masterpass_path.is_file() and nc.firefox_browser:
+        pass_and_input(nu.masterpass_path, nc.firefox_browser)
+        launch_apps()
     run_dmc(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
         interactive=True,
     )
-    for d in [(nu.HOME / "archinstall")]:
-        if d.exists():
-            shutil.rmtree(d)
-    if yes_no("Reboot now?", default=False):
+    archinstall_dir = nu.HOME / "archinstall"
+    if archinstall_dir.exists():
+        shutil.rmtree(archinstall_dir)
+    if yes_no("Finished. Reboot system interface now?", default=False):
         run_dmc(["systemctl", "reboot"])
-        log.info("Reboot cancelled.")
-        return
+    else:
+        log.info("System restart deferred manually.")
 
 
 if __name__ == "__main__":
     user_setup()
+
