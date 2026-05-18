@@ -196,6 +196,9 @@ def perform_installation(
                 multi_user_funcs(installation, user, nc, script_d.name)
         if services := config.services:
             installation.enable_service(services)
+        if config.bootloader_config:
+            if config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER:
+                bootloader_handling(installation, config.bootloader_config)
 
         installation.disable_service(list(nc.disable_svcs))
 

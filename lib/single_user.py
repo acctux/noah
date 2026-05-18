@@ -125,6 +125,21 @@ def auto_add_user_groups(
     installation.arch_chroot(f"usermod -aG {group_str} {username}")
 
 
+def copy_root_to_mnt(nc: NoahConfig, username: str):
+    if key_conf := nc.key_copy_config:
+        list_tuple_paths = key_conf.root_to_mnt(username)
+        for src, dest in list_tuple_paths:
+            copy_file(src, dest)
+    if usb_file_conf := nc.additional_usb_to_cp_config:
+        for copy in usb_file_conf.copies:
+            for src, dest in copy.root_to_mnt(username):
+                copy_file(src, dest)
+    if usb_dir_conf := nc.dir_contents_to_cp_config:
+        for copy in usb_dir_conf.copies:
+            for src, dest in copy.root_to_mnt(username):
+                copy_dir(src, dest)
+
+
 def single_user_and_user_list(
     installation: Installer,
     users: list[User],
@@ -138,7 +153,4 @@ def single_user_and_user_list(
     auto_add_user_groups(installation, user_1, base_pkgs)
     create_automount(installation, user_1)
     copy_dir(script_d, (installation.target / "home" / user_1 / script_d.name))
-    if nc.key_copy_config:
-        path_tuple_list = nc.key_copy_config.root_to_mnt(user_1)
-        for src, dest in path_tuple_list:
-            copy_file(src, dest)
+    copy_root_to_mnt(nc, user_1)

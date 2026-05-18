@@ -121,7 +121,6 @@ def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path):
     run_dmc(["udevadm", "settle"])
     time.sleep(1)
     copy_usb_to_root(nc)
-    log.info("Missing files copied from USB to /root.")
     if yes_no("Files copied, unmount?"):
         unmount_usb(usb_mnt)
 
@@ -142,12 +141,15 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 
 def init_arch_conf(arch_config_json: dict, auth_conf_path: str) -> ArchConfigHandler:
     arch_config_handler = ArchConfigHandler()
+
     arch_config = ArchConfig.from_config(arch_config_json, Arguments(None))
+
     if Path(auth_conf_path).is_file():
         with open(auth_conf_path, "r") as f:
             users_dict = json.load(f)
             auth_conf = ArchConfig.from_config(users_dict, Arguments(None))
             arch_config_handler.config.auth_config = auth_conf.auth_config
+
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
@@ -160,6 +162,7 @@ def init_arch_conf(arch_config_json: dict, auth_conf_path: str) -> ArchConfigHan
     arch_config_handler.config.kernels = arch_config.kernels
     arch_config_handler.config.services = arch_config.services
     arch_config_handler.config.app_config = arch_config.app_config
+
     return arch_config_handler
 
 
