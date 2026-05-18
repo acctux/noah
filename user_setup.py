@@ -365,8 +365,8 @@ def user_setup():
     if shutil.which("mariadb"):
         user = pwd.getpwuid(os.getuid()).pw_name
         enable_mariadb(user)
+    log.info(nu.ssh_path)
     if ssh_path := nu.ssh_path:
-        log.info(ssh_path, nu.ssh_path)
         if ssh_path.is_file():
             import_ssh(ssh_path)
             configure_git()
