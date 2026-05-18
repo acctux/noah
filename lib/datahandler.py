@@ -84,7 +84,7 @@ class KeyCopyConfiguration:
 
     def usb_to_root(self) -> list[tuple[Path, Path]]:
         src_base = self.resolver.usb / self.source_dir
-        dst_base = self.resolver.root / self.target_dir
+        dst_base = self.resolver.root / self.target_dir.lstrip("/")
 
         transfers: list[tuple[Path, Path]] = []
         for _, name in self.keys.items():
@@ -92,7 +92,7 @@ class KeyCopyConfiguration:
         return transfers
 
     def root_to_mnt(self, username: str) -> list[tuple[Path, Path]]:
-        src_base = self.resolver.root / self.target_dir
+        src_base = self.resolver.root / self.target_dir.lstrip("/")
         dst_base = self.resolver.resolve_mnt_base(self.target_dir, username)
 
         transfers: list[tuple[Path, Path]] = []
