@@ -105,9 +105,7 @@ def create_automount(installation: Installer, username: str):
 
 
 def auto_add_user_groups(
-    installation: Installer,
-    username: str,
-    base_pkgs: list[str],
+    installation: Installer, username: str, base_pkgs: list[str]
 ) -> None:
     pkg_groups = {
         "realtime-privileges": "realtime",

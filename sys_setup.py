@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-from lib.init_setup import init_setup
+from archinstall.lib.mirror.mirror_handler import MirrorListHandler
+from archinstall.lib.translationhandler import tr
+from archinstall.lib.packages.util import check_version_upgrade
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
 from archinstall.lib.applications.application_handler import ApplicationHandler
@@ -13,7 +15,11 @@ from archinstall.lib.general.general_menu import (
     select_post_installation,
 )
 from archinstall.lib.global_menu import GlobalMenu
-from archinstall.lib.installer import Installer, run_custom_user_commands
+from archinstall.lib.installer import (
+    Installer,
+    run_custom_user_commands,
+    accessibility_tools_in_use,
+)
 from archinstall.lib.menu.util import delayed_warning
 from archinstall.lib.models import Bootloader
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
@@ -23,6 +29,7 @@ from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
 from utils import run_dmc, copy_file
+from lib.init_setup import init_setup
 from lib.datahandler import NoahConfig
 from lib.bootloaders import bootloader_handling
 from lib.pacman import chaotic_repo, modify_pacman_conf
@@ -62,6 +69,13 @@ def handle_reflector(reflector_country: str | None = "US"):
 # Archinstall
 ###################################
 def show_menu(arch_config_handler: ArchConfigHandler) -> None:
+    upgrade = check_version_upgrade()
+    title_text = "Archlinux"
+
+    if upgrade:
+        text = tr("New version available") + f": {upgrade}"
+        title_text += f" ({text})"
+
     global_menu = GlobalMenu(arch_config_handler.config)
     global_menu.disable_all()
     global_menu.set_enabled("disk_config", True)
@@ -180,6 +194,8 @@ def perform_installation(
         if config.ntp:
             installation.activate_time_synchronization()
 
+        if accessibility_tools_in_use():
+            installation.enable_espeakup()
         if config.auth_config and config.auth_config.root_enc_password:
             root_user = User("root", config.auth_config.root_enc_password, False)
             installation.set_user_password(root_user)
@@ -200,7 +216,7 @@ def perform_installation(
             if config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER:
                 bootloader_handling(installation, config.bootloader_config)
 
-        installation.disable_service(list(nc.disable_svcs))
+        installation.disable_service(nc.disable_svcs)
 
         if disk_config.has_default_btrfs_vols():
             btrfs_options = disk_config.btrfs_options
@@ -238,22 +254,22 @@ def perform_installation(
                         pass
 
 
-def sys_setup() -> None:
+def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
+    if arch_config_handler is None:
+        arch_config_handler = ArchConfigHandler()
     arch_config_handler, nc, gfx_drivers = init_setup(
         arch_config_json=json_conf.archinstall_json,
         auth_conf_path="/root/keys/users.json",
         noahconf_json=json_conf.noah_json,
-        base_pkgs=(
-            pp.base
-            + pp.hardware
-            + pp.hyprland
-            + pp.language
-            + pp.media
-            + pp.monitoring
-            + pp.network
-            + pp.personal
-            + pc.base_chaotic_pkgs
-        ),
+        base_pkgs=pp.base
+        + pp.hardware
+        + pp.hyprland
+        + pp.language
+        + pp.media
+        + pp.monitoring
+        + pp.network
+        + pp.personal
+        + pc.base_chaotic_pkgs,
         non_vm_pkgs=pp.android
         + pp.coding
         + pp.ios
@@ -261,8 +277,10 @@ def sys_setup() -> None:
         + pc.additional_chaotic_pkgs
         + pc.game_chaotic_pkgs
         + pc.waydroid_pkgs,
+        arch_config_handler=arch_config_handler,
     )
-    show_menu(arch_config_handler)
+    if not arch_config_handler.args.silent:
+        show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
@@ -273,11 +291,11 @@ def sys_setup() -> None:
             debug("Installation aborted")
             aborted = True
         if aborted:
-            return sys_setup()
+            return main(arch_config_handler)
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
         if not delayed_warning("Starting device modifications in "):
-            return sys_setup()
+            return main()
         fs_handler.perform_filesystem_operations()
     perform_installation(
         arch_config_handler=arch_config_handler,
@@ -289,4 +307,7 @@ def sys_setup() -> None:
 
 
 if __name__ == "__main__":
-    sys_setup()
+    # main()
+    mirror_handle = MirrorListHandler()
+    k = mirror_handle.get_status_by_region("US", True)
+    print(k)

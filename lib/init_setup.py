@@ -142,17 +142,10 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
     ]
 
 
-def init_arch_conf(arch_config_json: dict, auth_conf_path: str) -> ArchConfigHandler:
-    arch_config_handler = ArchConfigHandler()
-
+def init_arch_conf(
+    arch_config_json: dict, auth_conf_path: str, arch_config_handler: ArchConfigHandler
+) -> ArchConfigHandler:
     arch_config = ArchConfig.from_config(arch_config_json, Arguments(None))
-
-    if Path(auth_conf_path).is_file():
-        with open(auth_conf_path, "r") as f:
-            users_dict = json.load(f)
-            auth_conf = ArchConfig.from_config(users_dict, Arguments(None))
-            arch_config_handler.config.auth_config = auth_conf.auth_config
-
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.swap = arch_config.swap
@@ -165,8 +158,13 @@ def init_arch_conf(arch_config_json: dict, auth_conf_path: str) -> ArchConfigHan
     arch_config_handler.config.kernels = arch_config.kernels
     arch_config_handler.config.services = arch_config.services
     arch_config_handler.config.app_config = arch_config.app_config
-
-    return arch_config_handler
+    if not Path(auth_conf_path).is_file():
+        return arch_config_handler
+    with open(auth_conf_path, "r") as f:
+        users_dict = json.load(f)
+        auth_conf = ArchConfig.from_config(users_dict, Arguments(None))
+        arch_config_handler.config.auth_config = auth_conf.auth_config
+        return arch_config_handler
 
 
 def init_setup(
@@ -175,6 +173,7 @@ def init_setup(
     noahconf_json: dict,
     base_pkgs: list[str],
     non_vm_pkgs: list[str],
+    arch_config_handler: ArchConfigHandler,
     usb_mnt: Path = Path("/mnt/usb"),
 ) -> tuple[ArchConfigHandler, NoahConfig, list[GfxDriver]]:
 
@@ -190,7 +189,9 @@ def init_setup(
     else:
         log.info("All files to copy from USB found.")
 
-    arch_config_handler = init_arch_conf(arch_config_json, auth_conf_path)
+    arch_config_handler = init_arch_conf(
+        arch_config_json, auth_conf_path, arch_config_handler
+    )
 
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
 
