@@ -193,7 +193,7 @@ def perform_installation(
                 installation, users, nc, script_d, config.packages
             )
             for user in users:
-                multi_user_funcs(installation, user, nc)
+                multi_user_funcs(installation, user, nc, script_d.name)
         if services := config.services:
             installation.enable_service(services)
 

@@ -13,6 +13,37 @@ from pathlib import Path
 log = get_logger("Noah")
 
 
+def check_missing(config: NoahConfig) -> list[str]:
+    missing: list[str] = []
+    if key_conf := config.key_copy_config:
+        src_base = key_conf.resolver.root / key_conf.target_dir
+        for name in config.key_copy_config.keys.values():
+            path = src_base / name
+            if not path.exists():
+                missing.append(path.name)
+    if extra_cp_conf := config.additional_usb_to_cp_config:
+        for copy in extra_cp_conf.copies:
+            src_base = copy.resolver.root / copy.target_dir
+            for name in copy.names:
+                path = src_base / name
+                if not path.exists():
+                    missing.append(path.name)
+    if contents_to_cp := config.dir_contents_to_cp_config:
+        for copy in contents_to_cp.copies:
+            src_base = copy.resolver.root / copy.target_dir
+            for name in copy.names:
+                path = src_base / name
+                if not path.exists():
+                    missing.append(path.name)
+    return missing
+
+
+def unmount_usb(usb_mnt: Path):
+    run_dmc(["umount", str(usb_mnt)], check=True)
+    run_dmc(["udevadm", "settle"])
+    time.sleep(1)
+
+
 def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
     def recurse(devices):
         for dev in devices:
@@ -78,34 +109,21 @@ def copy_usb_to_root(nc: NoahConfig):
                 copy_dir(src, dest)
 
 
-def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path = Path("/mnt/usb")):
+def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path):
     """
     Ensure USB files are copied to /root and return a CopyProcessor instance.
     """
-
-    def unmount_usb():
-        run_dmc(["umount", str(usb_mnt)], check=True)
-        run_dmc(["udevadm", "settle"])
-        time.sleep(1)
-
-    if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
-        unmount_usb()
-    missing = check_missing(nc)
-    if missing:
-        log.warning("Not yet present: " + ", ".join(missing))
-        if not yes_no("Mount USB?"):
-            return
-        selected = get_device()
-        usb_mnt.mkdir(parents=True, exist_ok=True)
-        run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
-        run_dmc(["udevadm", "settle"])
-        time.sleep(1)
-        copy_usb_to_root(nc)
-        log.info("Missing files copied from USB to /root.")
-        if yes_no("Files copied, unmount?"):
-            unmount_usb()
-    else:
-        log.info("All files to copy from USB found.")
+    if not yes_no("Mount USB?"):
+        return
+    selected = get_device()
+    usb_mnt.mkdir(parents=True, exist_ok=True)
+    run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
+    run_dmc(["udevadm", "settle"])
+    time.sleep(1)
+    copy_usb_to_root(nc)
+    log.info("Missing files copied from USB to /root.")
+    if yes_no("Files copied, unmount?"):
+        unmount_usb(usb_mnt)
 
 
 def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
@@ -120,31 +138,6 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
         driver_map.get(device.lower().split()[0], GfxDriver.VMOpenSource)
         for device in graphics_devices
     ]
-
-
-def check_missing(config: NoahConfig) -> list[str]:
-    missing: list[str] = []
-    if key_conf := config.key_copy_config:
-        src_base = key_conf.resolver.root / key_conf.target_dir
-        for name in config.key_copy_config.keys.values():
-            path = src_base / name
-            if not path.exists():
-                missing.append(path.name)
-    if extra_cp_conf := config.additional_usb_to_cp_config:
-        for copy in extra_cp_conf.copies:
-            src_base = copy.resolver.root / copy.target_dir
-            for name in copy.names:
-                path = src_base / name
-                if not path.exists():
-                    missing.append(path.name)
-    if contents_to_cp := config.dir_contents_to_cp_config:
-        for copy in contents_to_cp.copies:
-            src_base = copy.resolver.root / copy.target_dir
-            for name in copy.names:
-                path = src_base / name
-                if not path.exists():
-                    missing.append(path.name)
-    return missing
 
 
 def init_arch_conf(arch_config_json: dict, auth_conf_path: str) -> ArchConfigHandler:
@@ -176,14 +169,30 @@ def init_setup(
     noahconf_json: dict,
     base_pkgs: list[str],
     non_vm_pkgs: list[str],
+    usb_mnt: Path = Path("/mnt/usb"),
 ) -> tuple[ArchConfigHandler, NoahConfig, list[GfxDriver]]:
+
     nc = NoahConfig.from_config(noahconf_json)
-    mnt_cp_keys(nc)
+
+    if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
+        unmount_usb(usb_mnt)
+
+    missing = check_missing(nc)
+    if missing:
+        log.warning("Not yet present: " + ", ".join(missing))
+        mnt_cp_keys(nc, usb_mnt)
+    else:
+        log.info("All files to copy from USB found.")
+
     arch_config_handler = init_arch_conf(arch_config_json, auth_conf_path)
+
     gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
+
     if GfxDriver.VMOpenSource in gfx_drivers:
         base_pkgs.extend(["spice-vdagent", "qemu-guest-agent"])
     else:
         base_pkgs.extend(non_vm_pkgs)
+
     arch_config_handler.config.packages = base_pkgs
+
     return arch_config_handler, nc, gfx_drivers
