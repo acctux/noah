@@ -141,7 +141,7 @@ def perform_installation(
             ):
                 installation.generate_key_files()
 
-        # handle_reflector(nc.reflector_country)
+        handle_reflector(nc.reflector_country)
         modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
         installation.minimal_installation(
             optional_repositories=optional_repositories,
@@ -150,9 +150,9 @@ def perform_installation(
             locale_config=locale,
             pacman_config=config.pacman_config,
         )
-        # copy_file(
-        #     Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        # )
+        copy_file(
+            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
+        )
         modify_pacman_conf(mnt_point=mountpoint, no_extracts=nc.no_extracts)
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)
