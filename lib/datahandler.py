@@ -1,249 +1,408 @@
-from utils import copy_file, copy_dir
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 
-@dataclass(slots=True)
-class GitRepos:
-    username: str = ""
-    repos: list[dict] = field(default_factory=list)
+@dataclass
+class PathResolver:
+    usb: Path = Path("/mnt/usb")
+    root: Path = Path("/root")
+    mnt: Path = Path("/mnt")
+
+    def resolve_mnt_base(self, target_dir: str, username: str) -> Path:
+        if not target_dir:
+            return self.mnt / "home" / username
+        target = Path(target_dir)
+        if target.is_absolute():
+            target = target.relative_to("/")
+        else:
+            target = Path("home") / username / target
+        return self.mnt / target
 
 
-@dataclass(slots=True)
-class UsbTargetCopy:
-    dest: str = ""
-    names: list[str] = field(default_factory=list)
+# =============================================================================
+# Leaf Models
+# =============================================================================
+@dataclass
+class GitRepo:
+    username: str
+    repos: dict[str, str]
+
+    @property
+    def full_repos(self) -> list[str]:
+        return [f"{self.username}/{repo}" for repo in self.repos.values()]
 
 
-@dataclass(slots=True)
-class UsbFileCopy:
-    source_dir: str = ""
-    target_dirs: list[UsbTargetCopy] = field(default_factory=list)
-
-
-@dataclass(slots=True)
-class UsbDirCopy:
-    source_dir: str = ""
-    target_dir: str = ""
-    dir_names: list[str] = field(default_factory=list)
-
-
-@dataclass(slots=True)
-class UsrSrv:
+@dataclass
+class UserService:
     source: str
     target: str
-    services: list[str]
+    serv: list[str]
+
+    def source_paths(self, username: str) -> list[Path]:
+        source = Path(self.source)
+        if not source.is_absolute():
+            source = Path("/home") / username / source
+        return [source / s for s in self.serv]
+
+    def target_paths(self, username: str) -> list[Path]:
+        base = (
+            Path("/home")
+            / username
+            / f".config/systemd/user/{self.target}.target.wants"
+        )
+        return [base / s for s in self.serv]
 
 
-@dataclass(slots=True)
-class UserServices:
-    services: list[UsrSrv] = field(default_factory=list)
+# =============================================================================
+# Configurations
+# =============================================================================
+@dataclass
+class GitReposConfiguration:
+    repositories: list[GitRepo] = field(default_factory=list)
 
     @classmethod
-    def parse_arg(cls, data=None):
-        parsed = []
-        for entry in data or []:
-            source = entry.get("source", "")
-            for target in entry.get("targets", []):
-                parsed.append(
-                    UsrSrv(
-                        source=source,
-                        target=target.get("target", ""),
-                        services=target.get("serv", []),
-                    )
+    def parse_arg(cls, arg: dict[str, dict[str, str]]):
+        return cls(
+            repositories=[
+                GitRepo(
+                    username=username,
+                    repos=repos,
                 )
-        return cls(parsed)
-
-
-def parse_list(cls, data: list[dict] | None) -> list:
-    """Parse a list of dicts into a list of dataclass instances."""
-    return [cls(**item) for item in (data or [])]
-
-
-def parse_usb_file_copy_list(data: list[dict] | None) -> list[UsbFileCopy]:
-    """Parse a list of dicts into UsbFileCopy instances with nested UsbTargetCopy."""
-    result = []
-    for item in data or []:
-        t_dirs = parse_list(UsbTargetCopy, item.get("target_dirs") or [])
-        result.append(
-            UsbFileCopy(source_dir=item.get("source_dir", ""), target_dirs=t_dirs)
+                for username, repos in arg.items()
+            ]
         )
-    return result
 
 
-@dataclass(slots=True)
+@dataclass
+class KeyCopyConfiguration:
+    source_dir: str
+    target_dir: str
+    keys: dict[str, str]
+
+    resolver: PathResolver = field(default_factory=PathResolver)
+
+    def usb_to_root(self) -> list[tuple[Path, Path]]:
+        src_base = self.resolver.usb / self.source_dir
+        dst_base = self.resolver.root / self.target_dir
+
+        transfers: list[tuple[Path, Path]] = []
+        for _, name in self.keys.items():
+            transfers.append((src_base / name, dst_base / name))
+        return transfers
+
+    def root_to_mnt(self, username: str) -> list[tuple[Path, Path]]:
+        src_base = self.resolver.root / self.target_dir
+        dst_base = self.resolver.resolve_mnt_base(self.target_dir, username)
+
+        transfers: list[tuple[Path, Path]] = []
+        for _, name in self.keys.items():
+            transfers.append((src_base / name, dst_base / name))
+        return transfers
+
+    @classmethod
+    def parse_arg(cls, arg: dict[str, Any]):
+        return cls(
+            source_dir=arg["source_dir"],
+            target_dir=arg["target_dir"],
+            keys=arg["keys"],
+        )
+
+
+@dataclass
+class FlatCopy:
+    source_dir: str
+    target_dir: str
+    names: list[str]
+    resolver: PathResolver = field(default_factory=PathResolver)
+
+    def usb_to_root(self) -> list[tuple[Path, Path]]:
+        src_base = self.resolver.usb / self.source_dir
+        dst_base = self.resolver.root / self.target_dir
+        return [(src_base / name, dst_base / name) for name in self.names]
+
+    def root_expected(self) -> list[Path]:
+        """What should exist under /root after copy."""
+        base = self.resolver.root / self.target_dir
+        return [base / name for name in self.names]
+
+    def root_to_mnt(self, username: str) -> list[tuple[Path, Path]]:
+        src_base = self.resolver.root / self.target_dir
+        dst_base = self.resolver.resolve_mnt_base(self.target_dir, username)
+        return [(src_base / name, dst_base / name) for name in self.names]
+
+
+@dataclass
+class ExtraCopyConfiguration:
+    copies: list[FlatCopy] = field(default_factory=list)
+
+    @classmethod
+    def parse_arg(cls, arg: list[dict[str, Any]]):
+        return cls(
+            copies=[
+                FlatCopy(
+                    source_dir=v["source_dir"],
+                    target_dir=v["target_dir"],
+                    names=v["names"],
+                )
+                for v in arg
+            ]
+        )
+
+
+@dataclass
+class DirContentsCopyConfiguration:
+    copies: list[FlatCopy] = field(default_factory=list)
+
+    @classmethod
+    def parse_arg(cls, arg: list[dict[str, Any]]):
+        return cls(
+            copies=[
+                FlatCopy(
+                    source_dir=v["source_dir"],
+                    target_dir=v["target_dir"],
+                    names=v["names"],
+                )
+                for v in arg
+            ]
+        )
+
+
+@dataclass
+class UserServicesConfiguration:
+    services: list[UserService] = field(default_factory=list)
+
+    @classmethod
+    def parse_arg(cls, arg: list[dict[str, Any]]):
+        return cls(
+            services=[
+                UserService(
+                    source=v["source"],
+                    target=v["target"],
+                    serv=v.get("serv", v.get("servs", [])),
+                )
+                for v in arg
+            ]
+        )
+
+
+# =============================================================================
+# Main Config
+# =============================================================================
+@dataclass
 class NoahConfig:
     terminal: str = "kitty"
-    firefox_browser: str = ""
-    dots_repo: str = ""
-    reflector_country: str = ""
-    git_user: str = ""
-    encrypted_dir: str = "Desktop/Encrypted"
-    ssh_key_file: UsbFileCopy = field(default_factory=lambda: UsbFileCopy())
-    gpg_key_file: UsbFileCopy = field(default_factory=lambda: UsbFileCopy())
-    master_pass_file: UsbFileCopy = field(default_factory=lambda: UsbFileCopy())
-    auth_conf: UsbFileCopy = field(default_factory=lambda: UsbFileCopy())
-    all_files_to_cp: list[UsbFileCopy] = field(default_factory=list)
+    firefox_browser: str | None = None
+    git_user: str | None = None
+    dots_repo: str | None = None
+    reflector_country: str | None = None
+    encrypted_dir: str | None = None
     parallel_downloads: int = 10
-    dir_contents_to_cp: list[UsbDirCopy] = field(default_factory=list)
-    groups: list[str] = field(default_factory=list)
-    dirs_icons: dict[str, str] = field(default_factory=dict)
-    mkinit_hooks: list[str] = field(default_factory=list)
-    reflector_options: list[str] = field(default_factory=list)
     disable_svcs: list[str] = field(default_factory=list)
     sudo_defaults: list[str] = field(default_factory=list)
     apps_to_hide: list[str] = field(default_factory=list)
     no_extracts: list[str] = field(default_factory=list)
     yazi_plugins: list[str] = field(default_factory=list)
-    git_repos: list[GitRepos] = field(default_factory=list)
-    user_services: UserServices = field(default_factory=lambda: UserServices([]))
     dirs_to_link: list[str] = field(default_factory=list)
+    dirs_icons: dict[str, str] = field(default_factory=dict)
+    git_repos_config: GitReposConfiguration | None = None
+    key_copy_config: KeyCopyConfiguration | None = None
+    additional_usb_to_cp_config: ExtraCopyConfiguration | None = None
+    dir_contents_to_cp_config: DirContentsCopyConfiguration | None = None
+    user_services_config: UserServicesConfiguration | None = None
 
     @classmethod
-    def from_config(cls, data: dict):
-        fc = data.get("file_copy_config", {})
+    def from_config(cls, args_config: dict[str, Any]):
+        config = cls()
 
-        def parse_file(data: dict | None) -> UsbFileCopy:
-            if not data:
-                return UsbFileCopy()
-            target_dirs = parse_list(UsbTargetCopy, data.get("target_dirs") or [])
-            return UsbFileCopy(
-                source_dir=data.get("source_dir", ""), target_dirs=target_dirs
+        if terminal := args_config.get("terminal"):
+            config.terminal = terminal
+
+        if firefox_browser := args_config.get("firefox_browser"):
+            config.firefox_browser = firefox_browser
+
+        if dots_repo := args_config.get("dots_repo"):
+            config.dots_repo = dots_repo
+
+        if reflector_country := args_config.get("reflector_country"):
+            config.reflector_country = reflector_country
+
+        if git_user := args_config.get("git_user"):
+            config.git_user = git_user
+
+        if encrypted_dir := args_config.get("encrypted_dir"):
+            config.encrypted_dir = encrypted_dir
+
+        if parallel_downloads := args_config.get("parallel_downloads"):
+            config.parallel_downloads = parallel_downloads
+
+        if disable_svcs := args_config.get("disable_svcs", []):
+            config.disable_svcs = disable_svcs
+
+        if sudo_defaults := args_config.get("sudo_defaults", []):
+            config.sudo_defaults = sudo_defaults
+
+        if apps_to_hide := args_config.get("apps_to_hide", []):
+            config.apps_to_hide = apps_to_hide
+
+        if no_extracts := args_config.get("no_extracts", []):
+            config.no_extracts = no_extracts
+
+        if yazi_plugins := args_config.get("yazi_plugins", []):
+            config.yazi_plugins = yazi_plugins
+
+        if dirs_to_link := args_config.get("dirs_to_link", []):
+            config.dirs_to_link = dirs_to_link
+
+        if dirs_icons := args_config.get("dirs_icons", {}):
+            config.dirs_icons = dirs_icons
+
+        if key_copy_config := args_config.get("key_copy_config"):
+            config.key_copy_config = KeyCopyConfiguration.parse_arg(
+                key_copy_config,
             )
 
-        ssh = parse_file(fc.get("ssh_key_file"))
-        gpg = parse_file(fc.get("gpg_key_file"))
-        master = parse_file(fc.get("master_pass_file"))
-        auth = parse_file(fc.get("auth_conf"))
-        additional_files = parse_usb_file_copy_list(
-            fc.get("additional_files_to_cp") or []
-        )
-        all_files = [ssh, gpg, master, auth] + additional_files
-        git_repos = parse_list(GitRepos, data.get("git_repos") or [])
-        dir_contents = parse_list(
-            UsbDirCopy, data.get("copy_config", {}).get("dir_contents_to_cp") or []
-        )
-        user_services = UserServices(
-            [
-                UsrSrv(s["source"], t["target"], t["serv"])
-                for s in data.get("user_services", [])
-                for t in s.get("targets", [])
-            ]
-        )
+        if additional_usb_to_cp := args_config.get("additional_usb_to_cp"):
+            config.additional_usb_to_cp_config = ExtraCopyConfiguration.parse_arg(
+                additional_usb_to_cp,
+            )
 
-        return cls(
-            terminal=data.get("terminal", "kitty"),
-            firefox_browser=data.get("firefox_browser", ""),
-            dots_repo=data.get("dots_repo", ""),
-            reflector_country=data.get("reflector_country", ""),
-            git_user=data.get("git_user", ""),
-            encrypted_dir=data.get("encrypted_dir", "Desktop/Encrypted"),
-            ssh_key_file=ssh,
-            gpg_key_file=gpg,
-            master_pass_file=master,
-            auth_conf=auth,
-            all_files_to_cp=all_files,
-            parallel_downloads=data.get("parallel_downloads", 10),
-            groups=data.get("groups", []),
-            dirs_icons=data.get("dirs_icons", {}),
-            mkinit_hooks=data.get("mkinit_hooks", []),
-            reflector_options=data.get("reflector_options", []),
-            disable_svcs=data.get("disable_svcs", []),
-            sudo_defaults=data.get("sudo_defaults", []),
-            apps_to_hide=data.get("apps_to_hide", []),
-            no_extracts=data.get("no_extracts", []),
-            yazi_plugins=data.get("yazi_plugins", []),
-            dirs_to_link=data.get("dirs_to_link", []),
-            git_repos=git_repos,
-            dir_contents_to_cp=dir_contents,
-            user_services=user_services,
-        )
+        if dir_contents_to_cp := args_config.get("dir_contents_to_cp"):
+            config.dir_contents_to_cp_config = DirContentsCopyConfiguration.parse_arg(
+                dir_contents_to_cp,
+            )
+
+        if user_services := args_config.get("user_services"):
+            config.user_services_config = UserServicesConfiguration.parse_arg(
+                user_services,
+            )
+
+        if git_repos := args_config.get("git_repos"):
+            config.git_repos_config = GitReposConfiguration.parse_arg(
+                git_repos,
+            )
+
+        return config
 
 
-@dataclass(slots=True)
-class CopyProcessor:
-    config: "NoahConfig"
-    usb_mnt: Path = Path("/mnt/usb")
-    chroot_mnt: Path = Path("/mnt")
-    root: Path = Path("/root")
-
-    # ----------------- PATH HELPERS -----------------
-    def _make_path(self, dest: Path, name: str, base: Path) -> Path:
-        """Compute full path for a file/dir."""
-        dest_path = Path(getattr(dest, "dest", dest) if hasattr(dest, "dest") else dest)
-        return (
-            base / dest_path.relative_to("/") / name
-            if dest_path.is_absolute()
-            else base / dest_path / name
-        )
-
-    def _compute_file_paths(self, items, base: Path) -> list[Path]:
-        """Compute full file paths from UsbFileCopy list."""
-        paths = []
-        for item in items:
-            for t in item.target_dirs:
-                names = t.names or item.names
-                for name in names:
-                    paths.append(self._make_path(t, name, base))
-        return paths
-
-    def _compute_dir_paths(self, items, base: Path) -> list[Path]:
-        """Compute full dir paths from UsbDirCopy list."""
-        paths = []
-        for item in items:
-            names = item.dir_names
-            for name in names:
-                paths.append(self._make_path(item.target_dir, name, base))
-        return paths
-
-    # ----------------- FILE / DIR PATHS -----------------
-    def usb_file_paths(self) -> list[Path]:
-        return self._compute_file_paths(self.config.all_files_to_cp, self.usb_mnt)
-
-    def root_file_paths(self) -> list[Path]:
-        return self._compute_file_paths(self.config.all_files_to_cp, self.root)
-
-    def usb_dir_paths(self) -> list[Path]:
-        return self._compute_dir_paths(self.config.dir_contents_to_cp, self.usb_mnt)
-
-    def root_dir_paths(self) -> list[Path]:
-        return self._compute_dir_paths(self.config.dir_contents_to_cp, self.root)
-
-    # ----------------- COPY LOGIC -----------------
-    @staticmethod
-    def copy_paths(paths: list[tuple[Path, Path]]):
-        for src, dest in paths:
-            if src.is_file():
-                copy_file(src, dest)
-            elif src.is_dir():
-                copy_dir(src, dest)
-
-    def get_missing_root(
-        self,
-    ) -> tuple[list[tuple[Path, Path]], list[tuple[Path, Path]]]:
-        """Return USB files and directories missing in /root."""
-        missing_files = [
-            (u, r)
-            for u, r in zip(self.usb_file_paths(), self.root_file_paths())
-            if not r.exists()
-        ]
-        missing_dirs = [
-            (u, r)
-            for u, r in zip(self.usb_dir_paths(), self.root_dir_paths())
-            if not r.exists()
-        ]
-        return missing_files, missing_dirs
-
-    def copy_usb_to_root(self):
-        """Copy missing USB → /root."""
-        missing_files, missing_dirs = self.get_missing_root()
-        self.copy_paths(missing_files)
-        self.copy_paths(missing_dirs)
-
-    def copy_root_to_mnt(self, username: str):
-        """Copy /root → /mnt/home/username."""
-        home = self.chroot_mnt / "home" / username
-        files = [(r, home / r.relative_to("/")) for r in self.root_file_paths()]
-        dirs = [(d, home / d.relative_to("/")) for d in self.root_dir_paths()]
-        self.copy_paths(files)
-        self.copy_paths(dirs)
+# =============================================================================
+# 3. OPERATION SERVICE (Execution Engine)
+# =============================================================================
+#
+#
+# class CopyProcessor:
+#     """Handles execution isolation and deployment of file operations."""
+#
+#     def __init__(
+#         self,
+#         config: NoahConfig,
+#         usb_mnt: str | Path = "/mnt/usb",
+#         chroot_mnt: str | Path = "/mnt",
+#         root: str | Path = "/root",
+#     ):
+#         self.config = config
+#         self.usb_mnt = Path(usb_mnt)
+#         self.chroot_mnt = Path(chroot_mnt)
+#         self.root = Path(root)
+#
+#     def _sanitize_target(self, target_dest: str) -> Path:
+#         """Saves absolute string inputs from escaping destination base environments."""
+#         p = Path(target_dest)
+#         return p.relative_to("/") if p.is_absolute() else p
+#
+#     # ----------------- DIRECT DATA PIPELINE STREAMERS -----------------
+#     def _stream_file_pairs(
+#         self, target_base: Path
+#     ) -> Generator[tuple[Path, Path], None, None]:
+#         """Yields exact path matches: (absolute_source, absolute_destination)."""
+#         for item in self.config.all_files_to_cp:
+#             source_dir = self.usb_mnt / item.source_dir
+#             for target in item.target_dirs:
+#                 dest_dir = target_base / self._sanitize_target(target.dest)
+#                 for name in target.names:
+#                     yield source_dir / name, dest_dir / name
+#
+#     def _stream_dir_pairs(
+#         self, target_base: Path
+#     ) -> Generator[tuple[Path, Path], None, None]:
+#         """Yields folder mapping path combinations explicitly."""
+#         for item in self.config.dir_contents_to_cp:
+#             source_dir = self.usb_mnt / item.source_dir
+#             dest_dir = target_base / self._sanitize_target(item.target_dir)
+#             for name in item.names:
+#                 yield source_dir / name, dest_dir / name
+#
+#     # ----------------- COMPATIBILITY PUBLIC INTERFACE -----------------
+#     def usb_file_paths(self) -> list[Path]:
+#         return [src for src, _ in self._stream_file_pairs(self.root)]
+#
+#     def root_file_paths(self) -> list[Path]:
+#         return [tgt for _, tgt in self._stream_file_pairs(self.root)]
+#
+#     def usb_dir_paths(self) -> list[Path]:
+#         return [src for src, _ in self._stream_dir_pairs(self.root)]
+#
+#     def root_dir_paths(self) -> list[Path]:
+#         return [tgt for _, tgt in self._stream_dir_pairs(self.root)]
+#
+#     # ----------------- PIPELINE EXECUTION -----------------
+#     @staticmethod
+#     def execute_copy(pairs: list[tuple[Path, Path]]) -> None:
+#         """Dispatches operational asset definitions down to targeted filesystem utilities."""
+#         for src, dest in pairs:
+#             if src.is_file():
+#                 copy_file(src, dest)
+#             elif src.is_dir():
+#                 copy_dir(src, dest)
+#
+#     def copy_usb_to_root(self) -> None:
+#         """Deploys mission-critical keys and configurations out from USB to /root."""
+#         missing_assets = []
+#
+#         # Collect unpopulated items safely
+#         all_pairs = list(self._stream_file_pairs(self.root)) + list(
+#             self._stream_dir_pairs(self.root)
+#         )
+#         for src, tgt in all_pairs:
+#             if not tgt.exists():
+#                 missing_assets.append((src, tgt))
+#
+#         self.execute_copy(missing_assets)
+#
+#     def copy_root_to_mnt(self, username: str) -> None:
+#         """Mirrors configuration trees to target system mounts without environment bleed."""
+#
+#         user_home_base = self.chroot_mnt / "home" / username
+#         mnt_base = self.chroot_mnt  # or Path("/mnt") if you prefer strict absolute
+#
+#         mirrored_assets: list[tuple[Path, Path]] = []
+#
+#         for src, root_path in self._stream_file_pairs(self.root):
+#             if not root_path.exists():
+#                 continue
+#
+#             dest = Path(root_path)
+#
+#             if dest.is_absolute():
+#                 # /etc/foo -> /mnt/etc/foo
+#                 final_dest = mnt_base / dest.relative_to("/")
+#             else:
+#                 # foo/bar -> /home/user/foo/bar
+#                 final_dest = user_home_base / dest
+#
+#             mirrored_assets.append((root_path, final_dest))
+#
+#         for src, root_path in self._stream_dir_pairs(self.root):
+#             if not root_path.exists():
+#                 continue
+#
+#             dest = Path(root_path)
+#
+#             if dest.is_absolute():
+#                 final_dest = mnt_base / dest.relative_to("/")
+#             else:
+#                 final_dest = user_home_base / dest
+#
+#             mirrored_assets.append((root_path, final_dest))
+#
+#         self.execute_copy(mirrored_assets)

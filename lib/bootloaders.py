@@ -1,6 +1,8 @@
+from archinstall.lib.models.bootloader import BootloaderConfiguration
+from archinstall.lib.models import Bootloader
 from textwrap import dedent
 from archinstall.lib.installer import Installer
-from utils import copy_file, log, write_etc_file
+from utils import copy_file, log, write_etc_file, modify_mkinit
 from pathlib import Path
 import re
 
@@ -126,3 +128,39 @@ def install_sysd(mnt_point: Path):
         ),
     }
     write_etc_file(mnt_point, sysd_bootloader_files)
+
+
+def inst_apparmor(installation: Installer):
+    installation.add_additional_packages(["apparmor", "apparmor.d-git"])
+    write_limine_opt(
+        installation, "apparmor", "lsm=landlock,lockdown,yama,integrity,apparmor,bpf"
+    )
+    content = {
+        "etc/apparmor/parser.conf": dedent(
+            """\
+            write-cache
+            cache-loc /etc/apparmor/earlypolicy/
+            Optimize=compress-fast
+            """
+        )
+    }
+    write_etc_file(installation.target, content)
+    installation.enable_service("apparmor")
+
+
+def inst_plymouth(installation: Installer):
+    installation.add_additional_packages("plymouth")
+    write_limine_opt(installation, filename="plymouth", kernel_params="quiet splash")
+    modify_mkinit(installation.target, hook="plymouth", after="kms")
+
+
+def bootloader_handling(installation: Installer, boot_config: BootloaderConfiguration):
+    if boot_config.bootloader == Bootloader.Systemd:
+        if not boot_config.uki:
+            modify_mkinit(installation.target, "sd-numlock", "sd-vconsole")
+            sysd_boot_params(installation.target, plymouth=True, apparmor=True)
+    elif boot_config.bootloader == Bootloader.Limine:
+        modify_mkinit(installation.target, "numlock", "consolefont")
+        install_limine(installation)
+        inst_apparmor(installation)
+        inst_plymouth(installation)

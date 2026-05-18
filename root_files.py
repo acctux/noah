@@ -105,7 +105,8 @@ network_files: dict[str, str] = {
         netgroup: files
         """
     ),
-    "etc/ssh/sshd_config.d/20-deny_root.conf": "PermitRootLogin no\n",
+}
+etc_files_to_write: dict[str, str] = {
     "etc/systemd/zram-generator.conf": dedent(
         """\
         [zram0]
@@ -121,8 +122,6 @@ network_files: dict[str, str] = {
         vm.page-cluster = 0
         """
     ),
-}
-etc_files_to_write: dict[str, str] = {
     "etc/fuse.conf": dedent(
         """\
         user_allow_other
@@ -205,29 +204,6 @@ etc_files_to_write: dict[str, str] = {
         SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="1", RUN+="/usr/local/bin/unplug_notify.py 'AC adapter plugged in'"
         # AC adapter unplugged
         SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="0", RUN+="/usr/local/bin/unplug_notify.py 'AC adapter unplugged'"
-        """
-    ),
-    "etc/polkit-1/rules.d/49-rules.rules": dedent(
-        """\
-        polkit.addRule(function(action, subject) {
-            if (
-                subject.isInGroup("storage") &&
-                (
-                    action.id == "org.freedesktop.udisks2.filesystem-mount" ||
-                    action.id == "org.freedesktop.udisks2.filesystem-mount-system" ||
-                    action.id == "org.freedesktop.udisks2.encrypted-unlock" ||
-                    action.id == "org.freedesktop.udisks2.encrypted-unlock-system"
-                )
-            ) {
-                return polkit.Result.YES;
-            }
-            if (
-                action.id === "org.kde.kpmcore.externalcommand.init" &&
-                subject.isInGroup("wheel")
-            ) {
-                return polkit.Result.YES;
-            }
-        });
         """
     ),
     "etc/logid.cfg": dedent(

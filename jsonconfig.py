@@ -1,4 +1,4 @@
-arch_config_json = {
+archinstall_json = {
     "app_config": {
         "audio_config": {"audio": "pipewire"},
         "bluetooth_config": {"enabled": True},
@@ -38,13 +38,12 @@ arch_config_json = {
     "timezone": "US/Eastern",
     "version": "4.3",
 }
-json_config = {
+noah_json = {
     "parallel_downloads": 10,
     "terminal": "kitty",
-    "firefox_browser": "floorp",
+    "firefox_browser": "librewolf",
     "dots_repo": "polka",
     "git_user": "acctux",
-    "my_pass": "users.json",
     "reflector_country": "US",
     "disable_svcs": [
         "systemd-resolved",
@@ -54,28 +53,21 @@ json_config = {
         "etc/xdg/autostart/firewall-applet.desktop",
         "usr/share/icons/capitaine-cursors/*",
     ],
-    "file_copy_config": {
-        "ssh_key_file": {
-            "source_dir": "noahinstall",
-            "target_dirs": [{"dest": ".ssh", "names": ["id_ed25519"]}],
-        },
-        "gpg_key_file": {
-            "source_dir": "noahinstall",
-            "target_dirs": [{"dest": ".gnupg", "names": ["my_sec_gpg.asc"]}],
-        },
-        "master_pass_file": {
-            "source_dir": "noahinstall",
-            "target_dirs": [{"dest": ".ssh", "names": ["pass.txt"]}],
-        },
-        "auth_conf": {
-            "source_dir": "noahinstall",
-            "target_dirs": [{"dest": "", "names": ["users.json"]}],
+    "key_copy_config": {
+        "source_dir": "noahinstall",
+        "target_dir": "keys",
+        "keys": {
+            "ssh_key": "id_ed25519",
+            "gpg_key": "my_sec_gpg.asc",
+            "master_pass": "pass.txt",
+            "auth_conf": "users.json",
         },
     },
-    "additional_files_to_cp": [
+    "additional_usb_to_cp": [
         {
             "source_dir": "noahinstall",
-            "target_dirs": [{"dest": "", "names": ["chaotic.key"]}],
+            "target_dir": "",
+            "names": ["chaotic.key"],
         }
     ],
     "dir_contents_to_cp": [
@@ -88,58 +80,51 @@ json_config = {
     "user_services": [
         {
             "source": "/usr/lib/systemd/user",
-            "targets": [
-                {
-                    "target": "default",
-                    "serv": [
-                        "psd.service",
-                    ],
-                },
-                {
-                    "target": "sockets",
-                    "serv": [
-                        "gcr-ssh-agent.socket",
-                        "mpd.socket",
-                    ],
-                },
-                {
-                    "target": "graphical-session",
-                    "serv": [
-                        "cliphist.service",
-                        "hypridle.service",
-                        "hyprsunset.service",
-                        "swaync.service",
-                        "waybar.service",
-                    ],
-                },
+            "target": "default",
+            "servs": ["psd.service"],
+        },
+        {
+            "source": "/usr/lib/systemd/user",
+            "target": "sockets",
+            "serv": [
+                "gcr-ssh-agent.socket",
+                "mpd.socket",
+            ],
+        },
+        {
+            "source": "/usr/lib/systemd/user",
+            "target": "graphical-session",
+            "serv": [
+                "cliphist.service",
+                "hypridle.service",
+                "hyprsunset.service",
+                "swaync.service",
+                "waybar.service",
             ],
         },
         {
             "source": ".config/systemd/user",
-            "targets": [
-                {
-                    "target": "graphical-session",
-                    "serv": [
-                        "ayugram.service",
-                        "clip-persist.service",
-                        "kdeconnectd.service",
-                        "kanshi.service",
-                        "playerctld.service",
-                        "polkit-gnome.service",
-                        "snixembed.service",
-                        "swayosd.service",
-                        "awww-daemon.service",
-                    ],
-                },
-                {
-                    "target": "graphical-session",
-                    "serv": [
-                        "emailcheck.timer",
-                        "task-reminder.timer",
-                        "task-schedule.timer",
-                        "wall.timer",
-                    ],
-                },
+            "target": "graphical-session",
+            "serv": [
+                "ayugram.service",
+                "clip-persist.service",
+                "kdeconnectd.service",
+                "kanshi.service",
+                "playerctld.service",
+                "polkit-gnome.service",
+                "snixembed.service",
+                "swayosd.service",
+                "awww-daemon.service",
+            ],
+        },
+        {
+            "source": ".config/systemd/user",
+            "target": "timers",
+            "serv": [
+                "emailcheck.timer",
+                "task-reminder.timer",
+                "task-schedule.timer",
+                "wall.timer",
             ],
         },
     ],
@@ -184,25 +169,13 @@ json_config = {
         "editor=/usr/sbin/nvim, !env_editor",
     ],
     "encrypted_dir": "Desktop/Private",
-    "git_repos": [
-        {
-            "username": "acctux",
-            "repos": [
-                {
-                    "repo_name": "noah",
-                    "repo_dest": "Lit/noah",
-                },
-                {
-                    "repo_name": "polka",
-                    "repo_dest": "Lit/polka",
-                },
-                {
-                    "repo_name": "docs",
-                    "repo_dest": "Lit/Docs",
-                },
-            ],
-        }
-    ],
+    "git_repos": {
+        "acctux": {
+            "noah": "Lit/noah",
+            "polka": "Lit/polka",
+            "docs": "Lit/Docs",
+        },
+    },
     "dirs_to_link": [
         "local/bin",
     ],

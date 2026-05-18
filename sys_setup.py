@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-from root_files import etc_files_to_write, new_policies
-from pkgs import pacman_pkgs, aur_pkgs
+from lib.init_setup import init_setup
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
 from archinstall.lib.applications.application_handler import ApplicationHandler
-from archinstall.lib.hardware import _sys_info, GfxDriver
-from archinstall.lib.args import ArchConfig, ArchConfigHandler, Arguments
+from archinstall.lib.hardware import GfxDriver
+from archinstall.lib.args import ArchConfig, ArchConfigHandler
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.disk.utils import disk_layouts
@@ -23,83 +22,26 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
-from utils import run_dmc, log, copy_file, copy_dir, write_etc_file
-from lib.mnt_cp import mnt_cp_keys
-from lib.datahandler import NoahConfig, CopyProcessor
-from lib.bootloaders import install_limine, sysd_boot_params
-from lib.apps import inst_plymouth, inst_snapper, inst_apparmor, realtime_priveleges
+from utils import run_dmc, copy_file
+from lib.datahandler import NoahConfig
+from lib.bootloaders import bootloader_handling
 from lib.pacman import chaotic_repo, modify_pacman_conf
-from lib.user_funcs import (
-    user_service,
-    enable_user_serv,
-    copy_skel,
-    install_icons,
-    hide_apps,
-    mpd_tmpfiles,
-)
-from typing import Any
+from lib.multi_user import multi_user_funcs
+from lib.single_user import single_user_and_user_list
+from lib.root_handle import copy_skel, handle_sys_files
+import packages.pacman as pp
+import packages.chaotic as pc
 from pathlib import Path
 import sys
 import time
 import subprocess
-import json
-import shutil
-import extraconfig as ec
+import jsonconfig as json_conf
 
 
 ###################################
 # ETC/BOOT
 ###################################
-def aur_and_remove_root(
-    installation: Installer, user_name: str, sudo_defaults: list[str]
-) -> None:
-    def write_sudoers(pless: bool) -> None:
-        defaults_block = "\n".join(f"Defaults    {line}" for line in sudo_defaults)
-        rule = f"{user_name} ALL=(ALL:ALL) {'NOPASSWD:ALL' if pless else 'ALL'}"
-        sudoers_block = "\n".join([rule, defaults_block])
-        sudoers_file = installation.target / f"etc/sudoers.d/00_{user_name}"
-        sudoers_file.write_text(sudoers_block)
-        log.info(
-            f"{'Removed' if pless else 'Created'} pass requirement for {user_name}"
-        )
-
-    write_sudoers(True)
-    installation.arch_chroot(
-        f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}", user_name
-    )
-    installation.arch_chroot("sudo passwd -dl root", user_name)
-    write_sudoers(False)
-
-
-def sys_dots(mnt_point: Path, script_dir: Path) -> None:
-    for dir_name in ["etc", "usr"]:
-        source_dir = script_dir / dir_name
-        target_dir = mnt_point / dir_name
-        log.info("Processing %s -> %s", source_dir, target_dir)
-        if not source_dir.exists():
-            log.error("Source directory not found: %s", source_dir)
-            continue
-        shutil.copytree(
-            source_dir, target_dir, dirs_exist_ok=True, copy_function=shutil.copy2
-        )
-        log.info("Copied %s to %s", source_dir, target_dir)
-
-
-def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
-    driver_map = {
-        "nvidia": GfxDriver.NvidiaOpenKernel,
-        "geforce": GfxDriver.NvidiaOpenKernel,
-        "amd": GfxDriver.AmdOpenSource,
-        "ati": GfxDriver.AmdOpenSource,
-        "intel": GfxDriver.IntelOpenSource,
-    }
-    return [
-        driver_map.get(device.lower().split()[0], GfxDriver.VMOpenSource)
-        for device in graphics_devices
-    ]
-
-
-def handle_reflector(reflector_country: str):
+def handle_reflector(reflector_country: str | None = "US"):
     reflector_options = [
         f"--country {reflector_country}",
         "--protocol https",
@@ -114,20 +56,6 @@ def handle_reflector(reflector_country: str):
             *(part for opt in reflector_options for part in opt.split()),
         ]
     )
-
-
-def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) -> None:
-    file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
-    data = {}
-    if file_path.exists():
-        try:
-            data = json.loads(file_path.read_text())
-        except json.JSONDecodeError:
-            log.warning(f"Corrupt JSON in {file_path}, resetting.")
-    data.setdefault("policies", {}).update(new_policies)
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_path.write_text(json.dumps(data, indent=2))
-    log.info(f"Policies for {browser} have been set (overwritten).")
 
 
 ###################################
@@ -159,7 +87,6 @@ def perform_installation(
     application_handler: ApplicationHandler,
     nc: NoahConfig,
     gfx_drivers: list[GfxDriver],
-    copy_handler: CopyProcessor,
 ) -> None:
     script_d = Path(__file__).resolve().parent
     start_time = time.monotonic()
@@ -225,6 +152,7 @@ def perform_installation(
                 config.bootloader_config.uki,
                 config.bootloader_config.removable,
             )
+            bootloader_handling(installation, config.bootloader_config)
 
         if config.network_config:
             install_network_config(
@@ -259,43 +187,13 @@ def perform_installation(
         for gfx_driver in gfx_drivers:
             profile_handler.install_gfx_driver(installation, gfx_driver)
         profile_handler.install_greeter(installation, GreeterType.Ly)
-        write_etc_file(mountpoint, etc_files_to_write)
-        (mountpoint / "etc/xdg/reflector/reflector.conf").write_text(
-            "\n".join(nc.reflector_options)
-        )
-        for dir_to_cp in nc.dir_contents_to_cp:
-            for name in dir_to_cp.dir_names:
-                copy_dir(
-                    Path("/root") / name, mountpoint / dir_to_cp.target_dir.lstrip("/")
-                )
-        inst_snapper(installation, config)
-        set_extensions(mountpoint, nc.firefox_browser, new_policies)
-        sys_dots(mountpoint, script_d)
-        install_icons(installation)
+        handle_sys_files(installation, nc, script_d)
         if users:
-            user_1 = users[0].username
-            aur_and_remove_root(installation, user_1, nc.sudo_defaults)
-            realtime_priveleges(installation, users)
-            copy_dir(script_d, (mountpoint / "home" / user_1 / script_d.name))
-            copy_handler.copy_root_to_mnt(user_1)
+            single_user_and_user_list(
+                installation, users, nc, script_d, config.packages
+            )
             for user in users:
-                installation.arch_chroot("xdg-user-dirs-update", user.username)
-                hide_apps(installation, user.username, nc.apps_to_hide)
-                user_service(installation, user.username, nc.terminal)
-                mpd_tmpfiles(installation, user.username)
-                enable_user_serv(installation, nc.user_services.services, user.username)
-                installation.arch_chroot(
-                    f"chown -R {user.username}:{user.username} /home/{user.username}"
-                )
-                installation.arch_chroot("chown -R root:root /usr/lib/systemd/user")
-        if boot_config := config.bootloader_config:
-            if boot_config.bootloader == Bootloader.Systemd:
-                if not boot_config.uki:
-                    sysd_boot_params(mountpoint, plymouth=True, apparmor=True)
-            elif boot_config.bootloader == Bootloader.Limine:
-                install_limine(installation)
-                inst_apparmor(installation)
-                inst_plymouth(installation)
+                multi_user_funcs(installation, user, nc)
         if services := config.services:
             installation.enable_service(services)
 
@@ -337,48 +235,29 @@ def perform_installation(
                         pass
 
 
-def setup_archinstall_conf(
-    arch_config_json: dict, auth_conf_path: str
-) -> tuple[ArchConfigHandler, list[GfxDriver]]:
-    arch_config_handler = ArchConfigHandler()
-    with open(auth_conf_path, "r") as f:
-        users_dict = json.load(f)
-    auth_conf = ArchConfig.from_config(users_dict, Arguments(None))
-    arch_config = ArchConfig.from_config(arch_config_json, Arguments(None))
-    arch_config_handler.config.hostname = arch_config.hostname
-    arch_config_handler.config.ntp = arch_config.ntp
-    arch_config_handler.config.swap = arch_config.swap
-    arch_config_handler.config.profile_config = arch_config.profile_config
-    arch_config_handler.config.network_config = arch_config.network_config
-    arch_config_handler.config.pacman_config = arch_config.pacman_config
-    arch_config_handler.config.timezone = arch_config.timezone
-    arch_config_handler.config.bootloader_config = arch_config.bootloader_config
-    arch_config_handler.config.ntp = arch_config.ntp
-    arch_config_handler.config.kernels = arch_config.kernels
-    arch_config_handler.config.services = arch_config.services
-    arch_config_handler.config.auth_config = auth_conf.auth_config
-    arch_config_handler.config.app_config = arch_config.app_config
-    gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
-    base_pkgs = (
-        pacman_pkgs["base"]
-        + pacman_pkgs["language"]
-        + pacman_pkgs["hardware"]
-        + pacman_pkgs["network"]
-        + pacman_pkgs["chaotic_repo"]
-    )
-    if GfxDriver.VMOpenSource in gfx_drivers:
-        base_pkgs.extend(["spice-vdagent", "qemu-guest-agent"])
-    else:
-        base_pkgs.extend(pacman_pkgs["extra"] + pacman_pkgs["extra_chaos"])
-    arch_config_handler.config.packages = base_pkgs
-    return arch_config_handler, gfx_drivers
-
-
 def sys_setup() -> None:
-    nc = NoahConfig.from_config(ec.json_config)
-    copy_handler = mnt_cp_keys(nc)
-    arch_config_handler, gfx_drivers = setup_archinstall_conf(
-        ec.arch_config_json, "/root/users.json"
+    arch_config_handler, nc, gfx_drivers = init_setup(
+        arch_config_json=json_conf.archinstall_json,
+        auth_conf_path="/root/users.json",
+        noahconf_json=json_conf.noah_json,
+        base_pkgs=(
+            pp.base
+            + pp.hardware
+            + pp.hyprland
+            + pp.language
+            + pp.media
+            + pp.monitoring
+            + pp.network
+            + pp.personal
+            + pc.base_chaotic_pkgs
+        ),
+        non_vm_pkgs=pp.android
+        + pp.coding
+        + pp.ios
+        + pp.office
+        + pc.additional_chaotic_pkgs
+        + pc.game_chaotic_pkgs
+        + pc.waydroid_pkgs,
     )
     show_menu(arch_config_handler)
     config = ConfigurationOutput(arch_config_handler.config)
@@ -403,7 +282,6 @@ def sys_setup() -> None:
         application_handler=ApplicationHandler(),
         nc=nc,
         gfx_drivers=gfx_drivers,
-        copy_handler=copy_handler,
     )
 
 
