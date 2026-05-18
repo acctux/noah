@@ -316,4 +316,4 @@ if __name__ == "__main__":
     # k = mirror_handle.get_mirror_regions()
     print(k)
     for i in k:
-        print(i)
+        print(i.server_url, i.ipv6)
