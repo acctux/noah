@@ -105,6 +105,17 @@ def link_path(src: Path, dst: Path) -> bool:
     return True
 
 
+def enter_pass():
+    while True:
+        password = input("Enter a password: ")
+        confirm_password = input("Confirm your password: ")
+        if password == confirm_password:
+            log.info("Password set successfully!")
+            return password
+        else:
+            log.info("Passwords do not match. Please try again.\n")
+
+
 def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
     parts = src.relative_to(source_dir).parts
     return target_dir / Path("." + parts[0], *parts[1:])
@@ -169,10 +180,9 @@ def import_ssh(key_path: Path) -> None:
 
 
 def import_gpg(gpg_path: Path) -> None:
-
     key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
-    pwd = getpass("Enter GPG Password:")
+    pwd = enter_pass()
     import_result = gpg.import_keys(key_data, pwd)
     log.info(import_result.results)
 
@@ -304,19 +314,22 @@ def set_folder_icons(
 ############################
 # Launch Apps
 ############################
-def pass_and_input(pass_path: Path):
+def pass_and_input(pass_path: Path, firefox_browser: str):
     password = pass_path.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
     log.info("Password copied to clipboard.")
-    cmd = ["firedragon", "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/"]
+    cmd = [
+        firefox_browser,
+        "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/",
+    ]
     subprocess.Popen(cmd).wait()
     pyperclip.copy("")
     log.info("Clipboard cleared.")
     os.environ.pop("CLIPBOARD_STATE", None)
 
 
-def launch_apps(apps=["floorp", "protonmail-bridge", "betterbird", "steam"]):
+def launch_apps(apps=["protonmail-bridge", "betterbird", "steam"]):
     processes = []
     for app in apps:
         processes.append(subprocess.Popen(app))
@@ -397,8 +410,8 @@ def user_setup():
     if shutil.which("scrcpy"):
         scrcpy_setup()
     if masterpass := nu.masterpass_path:
-        if masterpass.is_file():
-            pass_and_input(masterpass)
+        if masterpass.is_file() and nc.firefox_browser:
+            pass_and_input(masterpass, nc.firefox_browser)
             launch_apps()
     run_dmc(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
