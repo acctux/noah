@@ -41,7 +41,7 @@ archinstall_json = {
 noah_json = {
     "parallel_downloads": 10,
     "terminal": "kitty",
-    "firefox_browser": "librewolf",
+    "firefox_browser": "firedragon",
     "dots_repo": "polka",
     "git_user": "acctux",
     "reflector_country": "US",

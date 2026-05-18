@@ -409,10 +409,11 @@ def user_setup() -> None:
     if nu.masterpass_path and nu.masterpass_path.is_file() and nc.firefox_browser:
         pass_and_input(nu.masterpass_path, nc.firefox_browser)
         launch_apps()
-    run_dmc(
-        ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
-        interactive=True,
-    )
+    if shutil.which("gh"):
+        run_dmc(
+            ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
+            interactive=True,
+        )
     archinstall_dir = nu.HOME / "archinstall"
     if archinstall_dir.exists():
         shutil.rmtree(archinstall_dir)
