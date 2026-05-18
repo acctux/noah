@@ -122,8 +122,8 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
     ]
 
 
-def check_missing(config: NoahConfig) -> list[Path]:
-    missing: list[Path] = []
+def check_missing(config: NoahConfig) -> list[str]:
+    missing: list[str] = []
     if config.key_copy_config:
         src_base = (
             config.key_copy_config.resolver.usb / config.key_copy_config.source_dir
@@ -131,21 +131,21 @@ def check_missing(config: NoahConfig) -> list[Path]:
         for name in config.key_copy_config.keys.values():
             path = src_base / name
             if not path.exists():
-                missing.append(path)
+                missing.append(path.name)
     if config.additional_usb_to_cp_config:
         for copy in config.additional_usb_to_cp_config.copies:
             src_base = copy.resolver.usb / copy.source_dir
             for name in copy.names:
                 path = src_base / name
                 if not path.exists():
-                    missing.append(path)
+                    missing.append(path.name)
     if config.dir_contents_to_cp_config:
         for copy in config.dir_contents_to_cp_config.copies:
             src_base = copy.resolver.usb / copy.source_dir
             for name in copy.names:
                 path = src_base / name
                 if not path.exists():
-                    missing.append(path)
+                    missing.append(path.name)
     return missing
 
 
