@@ -118,7 +118,7 @@ class FlatCopy:
 
     def usb_to_root(self) -> list[tuple[Path, Path]]:
         src_base = self.resolver.usb / self.source_dir
-        dst_base = self.resolver.root / self.target_dir
+        dst_base = self.resolver.root / self.target_dir.lstrip("/")
         return [(src_base / name, dst_base / name) for name in self.names]
 
     def root_expected(self) -> list[Path]:
@@ -127,7 +127,7 @@ class FlatCopy:
         return [base / name for name in self.names]
 
     def root_to_mnt(self, username: str) -> list[tuple[Path, Path]]:
-        src_base = self.resolver.root / self.target_dir
+        src_base = self.resolver.root / self.target_dir.lstrip("/")
         dst_base = self.resolver.resolve_mnt_base(self.target_dir, username)
         return [(src_base / name, dst_base / name) for name in self.names]
 
