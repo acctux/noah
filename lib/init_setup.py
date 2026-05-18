@@ -130,8 +130,8 @@ def check_missing(config: NoahConfig) -> list[str]:
             path = src_base / name
             if not path.exists():
                 missing.append(path.name)
-    if config.additional_usb_to_cp_config:
-        for copy in config.additional_usb_to_cp_config.copies:
+    if extra_cp_conf := config.additional_usb_to_cp_config:
+        for copy in extra_cp_conf.copies:
             src_base = copy.resolver.root / copy.target_dir
             for name in copy.names:
                 path = src_base / name
