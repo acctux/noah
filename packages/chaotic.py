@@ -5,7 +5,7 @@ waydroid_pkgs: list[str] = [
 base_chaotic_pkgs: list[str] = [
     "cachyos-ananicy-rules-git",
     "downgrade",
-    "floorp",
+    "librewolf",
     "octopi",
     "paru",
     "systemd-oomd-defaults",

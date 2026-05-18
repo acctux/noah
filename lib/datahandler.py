@@ -53,7 +53,6 @@ class GitReposConfiguration:
     def from_arg(cls, arg: dict[str, dict[str, str]] | None):
         if not arg:
             return cls()
-
         return cls(
             repositories=[
                 GitRepo(username=username, repos=repos)

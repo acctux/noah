@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from utils import get_logger, run_dmc, yes_no
 import pwd
-from extraconfig import json_config
+from jsonconfig import noah_json
 from getpass import getpass
 import os
 from pathlib import Path
@@ -9,7 +9,7 @@ import time
 import gnupg
 import shutil
 import subprocess
-from lib.datahandler import NoahConfig, GitRepos
+from lib.datahandler import NoahConfig, KeyCopyConfiguration, GitReposConfiguration
 from dataclasses import dataclass, field
 import pyperclip
 
@@ -42,39 +42,49 @@ def ping(host: str = "google.com") -> bool:
 class NoahUserProcessor:
     data: NoahConfig
     username: str | None = None
+
     HOME: Path = field(init=False)
-    ENCRYPTED: Path = field(init=False)
-    DOTS: Path = field(init=False)
+    ENCRYPTED: Path | None = field(init=False)
+    DOTS: Path | None = field(init=False)
     SEC_DOTS: Path = field(init=False)
-    ssh_paths: list[Path] = field(init=False)
-    gpg_paths: list[Path] = field(init=False)
-    masterpass_paths: list[Path] = field(init=False)
-    dirs_icons: dict[Path, str] = field(init=False)
+
+    ssh_paths: list[Path] = field(init=False, default_factory=list)
+    gpg_paths: list[Path] = field(init=False, default_factory=list)
+    masterpass_paths: list[Path] = field(init=False, default_factory=list)
+
+    dirs_icons: dict[Path, str] = field(init=False, default_factory=dict)
+    key_copy_config: KeyCopyConfiguration | None = None
 
     def __post_init__(self):
+        # ---------- base home ----------
         self.HOME = (
             Path.home() if self.username is None else Path("/home") / self.username
         )
-        self.ENCRYPTED = self.HOME / self.data.encrypted_dir
-        self.DOTS = self.HOME / "Lit" / self.data.dots_repo
+        # ---------- optional config-based paths ----------
+        encrypted_dir = self.data.encrypted_dir
+        self.ENCRYPTED = self.HOME / encrypted_dir if encrypted_dir else None
+        dots_repo = self.data.dots_repo
+        self.DOTS = self.HOME / "Lit" / dots_repo if dots_repo else None
         self.SEC_DOTS = self.HOME / "Lit" / "Docs" / "secdots"
-        self.ssh_paths = [
-            self.HOME / t.dest / name
-            for t in self.data.ssh_key_file.target_dirs
-            for name in t.names
-        ]
-        self.gpg_paths = [
-            self.HOME / t.dest / name
-            for t in self.data.gpg_key_file.target_dirs
-            for name in t.names
-        ]
-        self.masterpass_paths = [
-            self.HOME / t.dest / name
-            for t in self.data.master_pass_file.target_dirs
-            for name in t.names
-        ]
+        # ---------- flattened key-based paths (safe fallback) ----------
+        key_cfg = self.key_copy_config
+        if key_cfg:
+            target = key_cfg.target_dir
+            k = key_cfg.keys
+            self.ssh_paths = (
+                [self.HOME / target / k["ssh_key"]] if "ssh_key" in k else []
+            )
+            self.gpg_paths = (
+                [self.HOME / target / k["gpg_key"]] if "gpg_key" in k else []
+            )
+            self.masterpass_paths = (
+                [self.HOME / target / k["master_pass"]] if "master_pass" in k else []
+            )
+
+        # ---------- dirs icons ----------
         self.dirs_icons = {
-            self.HOME / path: icon for path, icon in self.data.dirs_icons.items()
+            self.HOME / Path(path): icon
+            for path, icon in (self.data.dirs_icons or {}).items()
         }
 
 
@@ -122,12 +132,13 @@ def collect_candidates(
 def file_candidates(nc: NoahConfig, nu: NoahUserProcessor) -> list[tuple[Path, Path]]:
     """Return list of (src, dst) tuples to link."""
     candidates = []
-    candidates.extend(collect_candidates(nu.DOTS, nu.HOME, nc.dirs_to_link))
-    candidates.extend(collect_candidates(nu.SEC_DOTS, nu.HOME, nc.dirs_to_link))
-    for d in nc.dirs_to_link:
-        src = nu.HOME / nu.DOTS / d
-        if src.is_dir():
-            candidates.append((src, dotted_destination(src, nu.DOTS, nu.HOME)))
+    if nu.DOTS:
+        candidates.extend(collect_candidates(nu.DOTS, nu.HOME, nc.dirs_to_link))
+        candidates.extend(collect_candidates(nu.SEC_DOTS, nu.HOME, nc.dirs_to_link))
+        for d in nc.dirs_to_link:
+            src = nu.HOME / nu.DOTS / d
+            if src.is_dir():
+                candidates.append((src, dotted_destination(src, nu.DOTS, nu.HOME)))
     return candidates
 
 
@@ -135,7 +146,7 @@ def file_candidates(nc: NoahConfig, nu: NoahUserProcessor) -> list[tuple[Path, P
 # MAIN
 ##########################################
 def deploy_dotfiles(nc: NoahConfig, nu: NoahUserProcessor):
-    if not nu.DOTS.is_dir():
+    if nu.DOTS and not nu.DOTS.is_dir():
         log.error(f"Dotfiles directory not found: {nu.DOTS}")
         return
     linked = 0
@@ -236,21 +247,21 @@ def ensure_github_known_hosts(HOME: Path) -> None:
             log.warning("Failed to scan github.com for known_hosts")
 
 
-def clone_repos(git_repos: list[GitRepos], dest: Path, ssh: bool) -> None:
+def clone_repos(git_repos: GitReposConfiguration, dest: Path, ssh: bool) -> None:
     def url(user: str, repo: str) -> str:
         if ssh:
             return f"git@github.com:{user}/{repo}.git"
         return f"https://github.com/{user}/{repo}.git"
 
     dest.mkdir(parents=True, exist_ok=True)
-    for git_user in git_repos:
+    for git_user in git_repos.repositories:
         for remote_repo, local_dir in git_user.repos.items():
             repo_path = dest / Path(local_dir).name
             if repo_path.exists():
                 log.info(f"{repo_path} exists, skipping.")
                 continue
             result = subprocess.run(
-                ["git", "clone", url(git_user.user, remote_repo), str(repo_path)],
+                ["git", "clone", url(git_user.username, remote_repo), str(repo_path)],
                 capture_output=True,
                 text=True,
             )
@@ -352,20 +363,24 @@ def user_setup():
         time.sleep(5)
     if shutil.which("tuned"):
         run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
-    nc = NoahConfig.from_config(json_config)
+    nc = NoahConfig.from_config(noah_json)
     nu = NoahUserProcessor(nc)
     if shutil.which("mariadb"):
         user = pwd.getpwuid(os.getuid()).pw_name
         enable_mariadb(user)
-    if nu.ssh_path.exists():
-        import_ssh(nu.ssh_path)
-        configure_git()
-        ensure_github_known_hosts(nu.HOME)
-        clone_repos(nc.git_repos, nu.HOME, ssh=False)
+    if nu.ssh_paths:
+        for path in nu.ssh_paths:
+            import_ssh(path)
+            configure_git()
+            ensure_github_known_hosts(nu.HOME)
+            if git_conf := nc.git_repos_config:
+                clone_repos(git_conf, nu.HOME, ssh=True)
     else:
-        clone_repos(nc.git_repos, nu.HOME, ssh=False)
-    if nu.gpg_path and not nu.gpg_path.exists():
-        import_gpg(nu.gpg_path)
+        if git_conf := nc.git_repos_config:
+            clone_repos(git_conf, nu.HOME, ssh=False)
+    if nu.gpg_paths:
+        for gpg in nu.gpg_paths:
+            import_gpg(gpg)
     if nu.ENCRYPTED and not (nu.ENCRYPTED / "gocryptfs.conf").exists():
         if shutil.which("gocryptfs"):
             init_gocrypt(nu.ENCRYPTED)
@@ -373,16 +388,17 @@ def user_setup():
         set_folder_icons(nu.dirs_icons)
     for plugin in nc.yazi_plugins:
         run_dmc(["ya", "pkg", "add", plugin])
-    if any((nu.DOTS).iterdir()):
-        deploy_dotfiles(nc, nu)
-        run_dmc(
-            ["uv", "add", "openmeteo-requests"],
-            cwd=f"{nu.HOME}/.local/bin/weather",
-        )
+    if nu.DOTS:
+        if any((nu.DOTS).iterdir()):
+            deploy_dotfiles(nc, nu)
+            run_dmc(
+                ["uv", "add", "openmeteo-requests"],
+                cwd=f"{nu.HOME}/.local/bin/weather",
+            )
     if shutil.which("scrcpy"):
         scrcpy_setup()
-    if nu.masterpass_path.is_file():
-        pass_and_input(nu.masterpass_path)
+    if nu.masterpass_paths:
+        pass_and_input(nu.masterpass_paths[0])
         launch_apps()
     run_dmc(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
