@@ -172,8 +172,7 @@ def import_ssh(key_path: Path) -> None:
 def import_gpg(gpg_path: Path) -> None:
     key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
-    passphrase = enter_pass("Enter GPG Password: ")
-    import_result = gpg.import_keys(key_data, passphrase)
+    import_result = gpg.import_keys(key_data)
     log.info(f"GPG import status results: {import_result.results}")
 
 
