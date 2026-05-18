@@ -140,9 +140,10 @@ def check_missing(config: NoahConfig) -> list[str]:
 
 def init_arch_conf(arch_config_json: dict, auth_conf_path: str) -> ArchConfigHandler:
     arch_config_handler = ArchConfigHandler()
-    with open(auth_conf_path, "r") as f:
-        users_dict = json.load(f)
-    auth_conf = ArchConfig.from_config(users_dict, Arguments(None))
+    if Path(auth_conf_path).is_file():
+        with open(auth_conf_path, "r") as f:
+            users_dict = json.load(f)
+            auth_conf = ArchConfig.from_config(users_dict, Arguments(None))
     arch_config = ArchConfig.from_config(arch_config_json, Arguments(None))
     arch_config_handler.config.hostname = arch_config.hostname
     arch_config_handler.config.ntp = arch_config.ntp
