@@ -124,10 +124,8 @@ def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
 
 def check_missing(config: NoahConfig) -> list[str]:
     missing: list[str] = []
-    if config.key_copy_config:
-        src_base = (
-            config.key_copy_config.resolver.root / config.key_copy_config.target_dir
-        )
+    if key_conf := config.key_copy_config:
+        src_base = key_conf.resolver.root / key_conf.target_dir
         for name in config.key_copy_config.keys.values():
             path = src_base / name
             if not path.exists():
