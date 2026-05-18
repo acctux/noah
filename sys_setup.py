@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from archinstall.lib.models.mirrors import MirrorStatusEntryV3
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.translationhandler import tr
 from archinstall.lib.packages.util import check_version_upgrade
@@ -309,7 +310,10 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 if __name__ == "__main__":
     # main()
     mirror_handle = MirrorListHandler()
-    # k = mirror_handle.get_status_by_region("US", True)
-    k = mirror_handle.get_mirror_regions()
+    k: list[MirrorStatusEntryV3] = mirror_handle.get_status_by_region(
+        "United States", True
+    )
+    # k = mirror_handle.get_mirror_regions()
+    print(k)
     for i in k:
         print(i)
