@@ -25,7 +25,6 @@ class PathResolver:
     def home_path(self, username: str, *parts: str) -> Path:
         return self.home / username / Path(*parts)
 
-    # ---------- mnt (home-like layout) ----------
     def mnt_home_path(self, username: str, *parts: str) -> Path:
         return self.mnt / "home" / username / Path(*parts)
 
@@ -179,26 +178,48 @@ class NoahConfig:
     user_services_config: UserServicesConfiguration | None = None
 
     @classmethod
-    def from_config(cls, args: dict[str, Any]):
+    def from_config(cls, args: dict[str, Any]) -> "NoahConfig":
         noah = cls()
+
         # simple scalar fields
-        for key in [
-            "terminal",
-            "firefox_browser",
-            "git_user",
-            "dots_repo",
-            "reflector_country",
-            "encrypted_dir",
-            "parallel_downloads",
-            "disable_svcs",
-            "sudo_defaults",
-            "apps_to_hide",
-            "no_extracts",
-            "yazi_plugins",
-            "dirs_to_link",
-        ]:
-            if key in args:
-                setattr(noah, key, args[key])
+        if "terminal" in args:
+            noah.terminal = args["terminal"]
+
+        if "firefox_browser" in args:
+            noah.firefox_browser = args["firefox_browser"]
+
+        if "git_user" in args:
+            noah.git_user = args["git_user"]
+
+        if "dots_repo" in args:
+            noah.dots_repo = args["dots_repo"]
+
+        if "reflector_country" in args:
+            noah.reflector_country = args["reflector_country"]
+
+        if "encrypted_dir" in args:
+            noah.encrypted_dir = args["encrypted_dir"]
+
+        if "parallel_downloads" in args:
+            noah.parallel_downloads = args["parallel_downloads"]
+
+        if "disable_svcs" in args:
+            noah.disable_svcs = args["disable_svcs"]
+
+        if "sudo_defaults" in args:
+            noah.sudo_defaults = args["sudo_defaults"]
+
+        if "apps_to_hide" in args:
+            noah.apps_to_hide = args["apps_to_hide"]
+
+        if "no_extracts" in args:
+            noah.no_extracts = args["no_extracts"]
+
+        if "yazi_plugins" in args:
+            noah.yazi_plugins = args["yazi_plugins"]
+
+        if "dirs_to_link" in args:
+            noah.dirs_to_link = args["dirs_to_link"]
 
         if "dirs_icons" in args:
             noah.dirs_icons = args["dirs_icons"]

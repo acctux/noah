@@ -5,7 +5,7 @@ from archinstall.lib.args import ArchConfigHandler, Arguments, ArchConfig
 from archinstall.lib.hardware import GfxDriver, _sys_info
 import time
 from utils import run_dmc, yes_no, get_logger, copy_file, copy_dir
-from lib.datahandler import NoahConfig
+from lib.datahandler import NoahConfig, FlatCopy
 import subprocess
 import json
 from pathlib import Path
@@ -15,26 +15,30 @@ log = get_logger("Noah")
 
 def check_missing(config: NoahConfig) -> list[str]:
     missing: list[str] = []
+
+    def collect_missing(copies: list[FlatCopy]) -> None:
+        for copy in copies:
+            src_base = copy.resolver.root_path(copy.target_dir)
+            for name in copy.names:
+                path = src_base / name
+                if not path.exists():
+                    missing.append(name)
+
     if key_conf := config.key_copy_config:
-        src_base = key_conf.resolver.root / key_conf.target_dir
-        for name in config.key_copy_config.keys.values():
-            path = src_base / name
-            if not path.exists():
-                missing.append(path.name)
+        collect_missing(
+            [
+                FlatCopy(
+                    source_dir=key_conf.source_dir,
+                    target_dir=key_conf.target_dir,
+                    names=list(key_conf.keys.values()),
+                    resolver=key_conf.resolver,
+                )
+            ]
+        )
     if extra_cp_conf := config.additional_usb_to_cp_config:
-        for copy in extra_cp_conf.copies:
-            src_base = copy.resolver.root / copy.target_dir
-            for name in copy.names:
-                path = src_base / name
-                if not path.exists():
-                    missing.append(path.name)
+        collect_missing(extra_cp_conf.copies)
     if contents_to_cp := config.dir_contents_to_cp_config:
-        for copy in contents_to_cp.copies:
-            src_base = copy.resolver.root / copy.target_dir.lstrip("/")
-            for name in copy.names:
-                path = src_base / name
-                if not path.exists():
-                    missing.append(path.name)
+        collect_missing(contents_to_cp.copies)
     return missing
 
 
