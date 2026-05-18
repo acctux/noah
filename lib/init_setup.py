@@ -126,7 +126,7 @@ def check_missing(config: NoahConfig) -> list[str]:
     missing: list[str] = []
     if config.key_copy_config:
         src_base = (
-            config.key_copy_config.resolver.usb / config.key_copy_config.source_dir
+            config.key_copy_config.resolver.root / config.key_copy_config.target_dir
         )
         for name in config.key_copy_config.keys.values():
             path = src_base / name
