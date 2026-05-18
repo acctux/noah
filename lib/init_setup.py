@@ -98,10 +98,9 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
     return selected_path
 
 
-def copy_usb_to_root(nc: NoahConfig):
+def copy_usb_to_root(nc: NoahConfig) -> None:
     if key_conf := nc.key_copy_config:
-        list_tuple_paths = key_conf.usb_to_root()
-        for src, dest in list_tuple_paths:
+        for src, dest in key_conf.usb_to_root():
             copy_file(src, dest)
     if usb_file_conf := nc.additional_usb_to_cp_config:
         for copy in usb_file_conf.copies:

@@ -2,7 +2,7 @@ from archinstall.lib.models import User
 from textwrap import dedent
 from utils import log
 from archinstall.lib.installer import Installer
-from lib.datahandler import UserService, NoahConfig
+from lib.datahandler import UserService, NoahConfig, UserServicesConfiguration
 
 
 def hide_apps(installation: Installer, user: str, apps_to_hide: list[str]):
@@ -16,13 +16,16 @@ def hide_apps(installation: Installer, user: str, apps_to_hide: list[str]):
 ###################################
 # USR_SVC
 ###################################
-def enable_user_serv(installation: Installer, unit: UserService, username: str) -> None:
-    target_dirs = unit.target_paths(username)
-    source_paths = unit.source_paths(username)
-    for src, tgt in zip(source_paths, target_dirs):
-        installation.arch_chroot(f"mkdir -p {tgt.parent}", username)
-        installation.arch_chroot(f"ln -sfn {src} {tgt}", username)
-        log.info("%s -> %s", src, tgt)
+def enable_user_serv(
+    installation: Installer, unit: UserServicesConfiguration, username: str
+) -> None:
+    services = unit.services
+    for service in services:
+        source_paths = unit.source_paths(username)
+        for src, tgt in zip(source_paths, target_dirs):
+            installation.arch_chroot(f"mkdir -p {tgt.parent}", username)
+            installation.arch_chroot(f"ln -sfn {src} {tgt}", username)
+            log.info("%s -> %s", src, tgt)
 
 
 def user_service(

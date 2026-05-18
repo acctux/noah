@@ -42,22 +42,6 @@ class GitRepo:
         return [f"{self.username}/{repo}" for repo in self.repos.values()]
 
 
-@dataclass
-class UserService:
-    source: str
-    target: str
-    serv: list[str]
-    resolver: PathResolver = field(default_factory=PathResolver)
-
-    @classmethod
-    def from_arg(cls, v: dict[str, Any]) -> "UserService":
-        return cls(
-            source=v["source"],
-            target=v["target"],
-            serv=v.get("serv") or v.get("servs", []),
-        )
-
-
 # =============================================================================
 # Configurations
 # =============================================================================
@@ -142,13 +126,46 @@ class CopyConfiguration:
 
 
 @dataclass
+class UserService:
+    source: str
+    target: str
+    serv: list[str]
+
+    @classmethod
+    def from_arg(cls, v: dict[str, Any]) -> "UserService":
+        return cls(
+            source=v["source"],
+            target=v["target"],
+            serv=v.get("serv") or v.get("servs", []),
+        )
+
+    def source_paths(self, username: str) -> list[Path]:
+        source = Path(self.source)
+        if not source.is_absolute():
+            source = Path("/home") / username / source
+        return [source / s for s in self.serv]
+
+    def target_paths(self, username: str) -> list[Path]:
+        base = (
+            Path("/home")
+            / username
+            / f".config/systemd/user/{self.target}.target.wants"
+        )
+        return [base / s for s in self.serv]
+
+
+@dataclass(slots=True)
 class UserServicesConfiguration:
     services: list[UserService] = field(default_factory=list)
 
     @classmethod
-    def from_arg(cls, arg: list[dict[str, Any]] | None):
+    def from_arg(
+        cls,
+        arg: list[dict[str, Any]] | None,
+    ) -> "UserServicesConfiguration":
         if not arg:
             return cls()
+
         return cls(services=[UserService.from_arg(v) for v in arg])
 
 
