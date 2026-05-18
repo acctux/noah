@@ -67,7 +67,7 @@ class NoahUserProcessor:
         self.DOTS = self.HOME / "Lit" / dots_repo if dots_repo else None
         self.SEC_DOTS = self.HOME / "Lit" / "Docs" / "secdots"
         # ---------- flattened key-based paths (safe fallback) ----------
-        key_cfg = self.key_copy_config
+        key_cfg = self.data.key_copy_config
         if key_cfg:
             target = key_cfg.target_dir
             k = key_cfg.keys
@@ -78,7 +78,8 @@ class NoahUserProcessor:
         else:
             self.ssh_path = None
             self.gpg_path = None
-            self.masterpass_path = None  # ---------- dirs icons ----------
+            self.masterpass_path = None
+
         self.dirs_icons = {
             self.HOME / Path(path): icon
             for path, icon in (self.data.dirs_icons or {}).items()
