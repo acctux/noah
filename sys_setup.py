@@ -238,7 +238,7 @@ def perform_installation(
 def sys_setup() -> None:
     arch_config_handler, nc, gfx_drivers = init_setup(
         arch_config_json=json_conf.archinstall_json,
-        auth_conf_path="/root/users.json",
+        auth_conf_path="/root/keys/users.json",
         noahconf_json=json_conf.noah_json,
         base_pkgs=(
             pp.base
