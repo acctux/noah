@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import datetime
 from archinstall.lib.models.mirrors import MirrorStatusEntryV3
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.translationhandler import tr
@@ -316,4 +317,17 @@ if __name__ == "__main__":
     # k = mirror_handle.get_mirror_regions()
     print(k)
     for i in k:
-        print(i.server_url, i.ipv6)
+        if i.completion_pct and not i.completion_pct < 100:
+            if (
+                i.last_sync
+                and i.last_sync
+                >= datetime.datetime.now() - datetime.timedelta(hours=12)
+            ):
+                print(
+                    i.server_url,
+                    i.ipv6,
+                    i.completion_pct,
+                    i.last_sync,
+                    i.last_sync,
+                    i.protocol,
+                )
