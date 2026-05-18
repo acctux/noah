@@ -4,7 +4,7 @@
 from archinstall.lib.args import ArchConfigHandler, Arguments, ArchConfig
 from archinstall.lib.hardware import GfxDriver, _sys_info
 import time
-from utils import run_dmc, yes_no, get_logger, copy_file
+from utils import run_dmc, yes_no, get_logger, copy_file, copy_dir
 from lib.datahandler import NoahConfig
 import subprocess
 import json
@@ -75,7 +75,7 @@ def copy_usb_to_root(nc: NoahConfig):
     if usb_dir_conf := nc.dir_contents_to_cp_config:
         for copy in usb_dir_conf.copies:
             for src, dest in copy.usb_to_root():
-                copy_file(src, dest)
+                copy_dir(src, dest)
 
 
 def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path = Path("/mnt/usb")):
