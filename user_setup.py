@@ -368,13 +368,12 @@ def user_setup():
     if shutil.which("mariadb"):
         user = pwd.getpwuid(os.getuid()).pw_name
         enable_mariadb(user)
-    if nu.ssh_paths:
-        for path in nu.ssh_paths:
-            import_ssh(path)
-            configure_git()
-            ensure_github_known_hosts(nu.HOME)
-            if git_conf := nc.git_repos_config:
-                clone_repos(git_conf, nu.HOME, ssh=True)
+    if nu.ssh_paths[0].is_file():
+        import_ssh(nu.ssh_paths[0])
+        configure_git()
+        ensure_github_known_hosts(nu.HOME)
+        if git_conf := nc.git_repos_config:
+            clone_repos(git_conf, nu.HOME, ssh=True)
     else:
         if git_conf := nc.git_repos_config:
             clone_repos(git_conf, nu.HOME, ssh=False)
