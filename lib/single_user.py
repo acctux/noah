@@ -2,7 +2,7 @@ from packages.aur import aur_pkgs
 from lib.datahandler import NoahConfig
 from archinstall.lib.models import User
 from textwrap import dedent
-from utils import log, write_etc_file, modify_mkinit, copy_dir, copy_file
+from utils import log, write_etc_file, copy_dir, copy_file
 from archinstall.lib.installer import Installer
 from pathlib import Path
 
@@ -34,44 +34,6 @@ def aur_and_remove_root(
         }
         write_etc_file(installation.target, no_root_ssh)
     write_sudoers(False)
-
-
-def inst_snapper(
-    installation: Installer,
-    username: str,
-    snapper_subvolumes: dict[str, str] = {
-        "root": "/",
-        "home": "/home",
-    },
-):
-    installation.add_additional_packages("limine-snapper-sync")
-    write_etc_file(
-        installation.target,
-        {
-            "etc/systemd/system/snapper-timeline.timer.d/15-timeline.conf": dedent(
-                """\
-                [Timer]
-                OnCalendar=
-                OnCalendar=*:0/15
-                """
-            ),
-            "etc/systemd/system/snapper-cleanup.timer.d/20-cleanup.conf": dedent(
-                """\
-                [Timer]
-                OnUnitActiveSec=1h
-                """
-            ),
-        },
-    )
-    for config_name, mountpoint in snapper_subvolumes.items():
-        installation.arch_chroot(
-            f"snapper --no-dbus -c {config_name} create-config {mountpoint}"
-        )
-    installation.arch_chroot(
-        f"snapper --no-dbus -c {config_name} set-config 'ALLOW_USERS={username}' SYNC_ACL='yes'"
-    )
-    installation.enable_service(["snapper-cleanup.timer", "snapper-timeline.timer"])
-    modify_mkinit(installation.target, hook="btrfs-overlayfs", after="filesystems")
 
 
 def create_automount(installation: Installer, username: str):
@@ -146,7 +108,6 @@ def single_user_and_user_list(
     base_pkgs: list[str],
 ):
     user_1 = users[0].username
-    inst_snapper(installation, user_1)
     aur_and_remove_root(installation, user_1, nc.sudo_defaults)
     auto_add_user_groups(installation, user_1, base_pkgs)
     create_automount(installation, user_1)

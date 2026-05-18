@@ -1,10 +1,10 @@
+from archinstall.lib.args import ArchConfig
 import re
 from pathlib import Path
 from textwrap import dedent
 
 from archinstall.lib.installer import Installer
 from archinstall.lib.models import Bootloader
-from archinstall.lib.models.bootloader import BootloaderConfiguration
 from utils import copy_file, log, write_etc_file
 
 
@@ -235,24 +235,65 @@ def default_numlock(installation: Installer, sysd: bool) -> None:
         )
 
 
+def inst_snapper(
+    installation: Installer,
+    username: str | None,
+    snapper_subvolumes: dict[str, str] = {
+        "root": "/",
+        "home": "/home",
+    },
+):
+    installation.add_additional_packages("limine-snapper-sync")
+    write_etc_file(
+        installation.target,
+        {
+            "etc/systemd/system/snapper-timeline.timer.d/15-timeline.conf": dedent(
+                """\
+                [Timer]
+                OnCalendar=
+                OnCalendar=*:0/15
+                """
+            ),
+            "etc/systemd/system/snapper-cleanup.timer.d/20-cleanup.conf": dedent(
+                """\
+                [Timer]
+                OnUnitActiveSec=1h
+                """
+            ),
+        },
+    )
+    for config_name, mountpoint in snapper_subvolumes.items():
+        installation.arch_chroot(
+            f"snapper --no-dbus -c {config_name} create-config {mountpoint}"
+        )
+    if username:
+        installation.arch_chroot(
+            f"snapper --no-dbus -c {config_name} set-config 'ALLOW_USERS={username}' SYNC_ACL='yes'"
+        )
+    installation.enable_service(["snapper-cleanup.timer", "snapper-timeline.timer"])
+    modify_mkinit(installation.target, hook="btrfs-overlayfs", after_hook="filesystems")
+
+
 ###################################
 # MAIN HANDLING DISPATCHER
 ###################################
-def bootloader_handling(
-    installation: Installer, boot_config: BootloaderConfiguration
-) -> None:
+def bootloader_handling(installation: Installer, config: ArchConfig) -> None:
     """Orchestrates configuration logic maps based on chosen destination boot utilities."""
-    if boot_config.bootloader == Bootloader.Systemd:
-        if not boot_config.uki:
-            install_sysd(installation.target)
-            default_numlock(installation, sysd=True)
+    if boot_conf := config.bootloader_config:
+        if boot_conf.bootloader == Bootloader.Systemd:
+            if not boot_conf.uki:
+                install_sysd(installation.target)
+                default_numlock(installation, sysd=True)
 
-    elif boot_config.bootloader == Bootloader.Limine:
-        if not boot_config.uki:
-            default_numlock(installation, sysd=False)
-            install_limine(installation)
-            inst_apparmor(installation)
-            inst_plymouth(installation)
-            log.info("Refreshing limine-mkinitcpio hooks cleanly.")
-            installation.arch_chroot("limine-mkinitcpio")
+        elif boot_conf.bootloader == Bootloader.Limine:
+            if not boot_conf.uki:
+                default_numlock(installation, sysd=False)
+                install_limine(installation)
+                inst_apparmor(installation)
+                inst_plymouth(installation)
+                log.info("Refreshing limine-mkinitcpio hooks cleanly.")
+                installation.arch_chroot("limine-mkinitcpio")
 
+    if auth_conf := config.auth_config:
+        username = auth_conf.users[0].username
+    inst_snapper(installation, username)
