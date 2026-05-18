@@ -224,7 +224,7 @@ def ensure_github_known_hosts(home_path: Path) -> None:
     kh.touch(exist_ok=True)
     content = kh.read_text(errors="ignore")
     if "github.com" not in content:
-        scan = run_dmc(["ssh-keyscan", "-H", "github.com"])
+        scan = run_dmc(["ssh-keyscan", "-H", "github.com"], check=True)
         if scan and scan.stdout:
             kh.write_text(content + scan.stdout)
             log.info("Appended github.com validation signature to known_hosts")
@@ -367,8 +367,8 @@ def fix_network_stack() -> None:
 
 def handle_identities(nc: NoahConfig, nu: NoahUserProcessor) -> None:
     if nu.ssh_path and nu.ssh_path.is_file():
-        import_ssh(nu.ssh_path)
-        configure_git()
+        # import_ssh(nu.ssh_path)
+        # configure_git()
         ensure_github_known_hosts(nu.HOME)
         if nc.git_repos_config:
             clone_repos(nc.git_repos_config, nu.HOME, ssh=True)
@@ -382,15 +382,15 @@ def handle_identities(nc: NoahConfig, nu: NoahUserProcessor) -> None:
 # MAIN FLOW
 ############################
 def user_setup() -> None:
-    if shutil.which("zsh"):
-        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    fix_network_stack()
-    if shutil.which("tuned"):
-        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
+    # if shutil.which("zsh"):
+    #     run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    # fix_network_stack()
+    # if shutil.which("tuned"):
+    #     run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
     nc = NoahConfig.from_config(noah_json)
     nu = NoahUserProcessor(nc)
-    if shutil.which("mariadb"):
-        enable_mariadb()
+    # if shutil.which("mariadb"):
+    #     enable_mariadb()
     handle_identities(nc, nu)
     if nu.ENCRYPTED and shutil.which("gocryptfs"):
         if not (nu.ENCRYPTED / "gocryptfs.conf").exists():
