@@ -154,12 +154,21 @@ def inst_plymouth(installation: Installer):
     modify_mkinit(installation.target, hook="plymouth", after="kms")
 
 
+def default_numlock(installation: Installer, sysd: bool):
+    installation.add_additional_packages("mkinitcpio-numlock")
+    if sysd:
+        modify_mkinit(installation.target, "sd-numlock", "sd-vconsole")
+    else:
+        modify_mkinit(installation.target, "numlock", "consolefont")
+
+
 def bootloader_handling(installation: Installer, boot_config: BootloaderConfiguration):
     if boot_config.bootloader == Bootloader.Systemd:
         if not boot_config.uki:
-            modify_mkinit(installation.target, "sd-numlock", "sd-vconsole")
             sysd_boot_params(installation.target, plymouth=True, apparmor=True)
+            default_numlock(installation, sysd=True)
     elif boot_config.bootloader == Bootloader.Limine:
+        default_numlock(installation, sysd=False)
         modify_mkinit(installation.target, "numlock", "consolefont")
         install_limine(installation)
         inst_apparmor(installation)
