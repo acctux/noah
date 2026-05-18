@@ -126,21 +126,3 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
         with full_path.open("w") as file:
             file.write(content)
         log.info(f"Content written to: {full_path}")
-
-
-def modify_mkinit(mnt_point: Path, hook: str, after: str) -> None:
-    mkinit_conf = f"/{mnt_point}/etc/mkinitcpio.conf"
-    with open(mkinit_conf, "r") as mkinit:
-        content = mkinit.read().splitlines()
-    for i, line in enumerate(content):
-        if line.startswith("HOOKS="):
-            start = line.find("(") + 1
-            end = line.find(")")
-            inside_parens = line[start:end]
-            hooks = inside_parens.split()
-            if hook not in hooks:
-                next_index = hooks.index(after) + 1
-                hooks.insert(next_index, hook)
-            content[i] = f"HOOKS=({' '.join(hooks)})"
-    with open(mkinit_conf, "w") as mkinit:
-        mkinit.write("\n".join(content) + "\n")
