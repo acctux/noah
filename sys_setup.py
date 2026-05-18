@@ -309,5 +309,7 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 if __name__ == "__main__":
     # main()
     mirror_handle = MirrorListHandler()
-    k = mirror_handle.get_status_by_region("US", True)
-    print(k)
+    # k = mirror_handle.get_status_by_region("US", True)
+    k = mirror_handle.get_mirror_regions()
+    for i in k:
+        print(i)
