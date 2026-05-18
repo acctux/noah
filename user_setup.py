@@ -48,9 +48,9 @@ class NoahUserProcessor:
     DOTS: Path | None = field(init=False)
     SEC_DOTS: Path = field(init=False)
 
-    ssh_paths: list[Path] = field(init=False, default_factory=list)
-    gpg_paths: list[Path] = field(init=False, default_factory=list)
-    masterpass_paths: list[Path] = field(init=False, default_factory=list)
+    ssh_path: Path | None = field(init=False, default=None)
+    gpg_path: Path | None = field(init=False, default=None)
+    masterpass_path: Path | None = field(init=False, default=None)
 
     dirs_icons: dict[Path, str] = field(init=False, default_factory=dict)
     key_copy_config: KeyCopyConfiguration | None = None
@@ -71,11 +71,14 @@ class NoahUserProcessor:
         if key_cfg:
             target = key_cfg.target_dir
             k = key_cfg.keys
-            self.ssh_paths = [self.HOME / target / k["ssh_key"]] or []
-            self.gpg_paths = [self.HOME / target / k["gpg_key"]] or []
-            self.masterpass_paths = [self.HOME / target / k["master_pass"]] or []
 
-        # ---------- dirs icons ----------
+            self.ssh_path = self.HOME / target / k["ssh_key"]
+            self.gpg_path = self.HOME / target / k["gpg_key"]
+            self.masterpass_path = self.HOME / target / k["master_pass"]
+        else:
+            self.ssh_path = None
+            self.gpg_path = None
+            self.masterpass_path = None  # ---------- dirs icons ----------
         self.dirs_icons = {
             self.HOME / Path(path): icon
             for path, icon in (self.data.dirs_icons or {}).items()
@@ -362,18 +365,19 @@ def user_setup():
     if shutil.which("mariadb"):
         user = pwd.getpwuid(os.getuid()).pw_name
         enable_mariadb(user)
-    if nu.ssh_paths[0].is_file():
-        import_ssh(nu.ssh_paths[0])
-        configure_git()
-        ensure_github_known_hosts(nu.HOME)
-        if git_conf := nc.git_repos_config:
-            clone_repos(git_conf, nu.HOME, ssh=True)
+    if ssh_path := nu.ssh_path:
+        if ssh_path.is_file():
+            import_ssh(ssh_path)
+            configure_git()
+            ensure_github_known_hosts(nu.HOME)
+            if git_conf := nc.git_repos_config:
+                clone_repos(git_conf, nu.HOME, ssh=True)
     else:
         if git_conf := nc.git_repos_config:
             clone_repos(git_conf, nu.HOME, ssh=False)
-    if nu.gpg_paths:
-        for gpg in nu.gpg_paths:
-            import_gpg(gpg)
+    if gpg_path := nu.gpg_path:
+        if gpg_path.is_file():
+            import_gpg(gpg_path)
     if nu.ENCRYPTED and not (nu.ENCRYPTED / "gocryptfs.conf").exists():
         if shutil.which("gocryptfs"):
             init_gocrypt(nu.ENCRYPTED)
@@ -390,9 +394,10 @@ def user_setup():
             )
     if shutil.which("scrcpy"):
         scrcpy_setup()
-    if nu.masterpass_paths:
-        pass_and_input(nu.masterpass_paths[0])
-        launch_apps()
+    if masterpass := nu.masterpass_path:
+        if masterpass.is_file():
+            pass_and_input(masterpass)
+            launch_apps()
     run_dmc(
         ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
         interactive=True,
