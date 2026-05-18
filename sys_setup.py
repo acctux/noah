@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import datetime
-from archinstall.lib.models.mirrors import MirrorStatusEntryV3
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.translationhandler import tr
 from archinstall.lib.packages.util import check_version_upgrade
@@ -45,6 +43,7 @@ import sys
 import time
 import subprocess
 import jsonconfig as json_conf
+# from archinstall.lib.bootloader.utils import validate_bootloader_layout
 
 
 ###################################
@@ -100,6 +99,7 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
 def perform_installation(
     arch_config_handler: ArchConfigHandler,
     auth_handler: AuthenticationHandler,
+    mirror_list_handler: MirrorListHandler,
     application_handler: ApplicationHandler,
     nc: NoahConfig,
     gfx_drivers: list[GfxDriver],
@@ -118,6 +118,7 @@ def perform_installation(
     optional_repositories = (
         config.mirror_config.optional_repositories if config.mirror_config else []
     )
+    mountpoint = disk_config.mountpoint if disk_config.mountpoint else mountpoint
     with Installer(
         mountpoint,
         disk_config,
@@ -140,8 +141,8 @@ def perform_installation(
             ):
                 installation.generate_key_files()
 
-        handle_reflector(nc.reflector_country)
-        modify_pacman_conf(None, no_extracts=nc.no_extracts)
+        # handle_reflector(nc.reflector_country)
+        modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
         installation.minimal_installation(
             optional_repositories=optional_repositories,
             mkinitcpio=run_mkinitcpio,
@@ -149,13 +150,15 @@ def perform_installation(
             locale_config=locale,
             pacman_config=config.pacman_config,
         )
-        copy_file(
-            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        )
-        modify_pacman_conf(mountpoint, nc.no_extracts)
+        # copy_file(
+        #     Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
+        # )
+        modify_pacman_conf(mnt_point=mountpoint, no_extracts=nc.no_extracts)
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)
 
+        if mirror_config := config.mirror_config:
+            installation.set_mirrors(mirror_list_handler, mirror_config, on_target=True)
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
 
@@ -198,6 +201,7 @@ def perform_installation(
 
         if accessibility_tools_in_use():
             installation.enable_espeakup()
+
         if config.auth_config and config.auth_config.root_enc_password:
             root_user = User("root", config.auth_config.root_enc_password, False)
             installation.set_user_password(root_user)
@@ -259,6 +263,12 @@ def perform_installation(
 def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     if arch_config_handler is None:
         arch_config_handler = ArchConfigHandler()
+
+    mirror_list_handler = MirrorListHandler(
+        offline=arch_config_handler.args.offline,
+        verbose=arch_config_handler.args.verbose,
+    )
+    mirror_list_handler.get_status_by_region(region="United States", speed_sort=True)
     arch_config_handler, nc, gfx_drivers = init_setup(
         arch_config_json=json_conf.archinstall_json,
         auth_conf_path="/root/keys/users.json",
@@ -286,6 +296,12 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
+    #    if failure := validate_bootloader_layout(
+    # 	arch_config_handler.config.bootloader_config,
+    # 	arch_config_handler.config.disk_config,
+    # ):
+    # 	error(failure.description)
+    # 	return
     if not arch_config_handler.args.silent:
         aborted = False
         res: bool = tui.run(config.confirm_config)
@@ -296,11 +312,12 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
             return main(arch_config_handler)
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-        if not delayed_warning("Starting device modifications in "):
+        if not delayed_warning(tr("Starting device modifications in ")):
             return main()
         fs_handler.perform_filesystem_operations()
     perform_installation(
         arch_config_handler=arch_config_handler,
+        mirror_list_handler=mirror_list_handler,
         auth_handler=AuthenticationHandler(),
         application_handler=ApplicationHandler(),
         nc=nc,
@@ -309,25 +326,4 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 
 
 if __name__ == "__main__":
-    # main()
-    mirror_handle = MirrorListHandler()
-    k: list[MirrorStatusEntryV3] = mirror_handle.get_status_by_region(
-        "United States", True
-    )
-    # k = mirror_handle.get_mirror_regions()
-    print(k)
-    for i in k:
-        if i.completion_pct and not i.completion_pct < 100:
-            if (
-                i.last_sync
-                and i.last_sync
-                >= datetime.datetime.now() - datetime.timedelta(hours=12)
-            ):
-                print(
-                    i.server_url,
-                    i.ipv6,
-                    i.completion_pct,
-                    i.last_sync,
-                    i.last_sync,
-                    i.protocol,
-                )
+    main()
