@@ -165,7 +165,6 @@ class UserServicesConfiguration:
     ) -> "UserServicesConfiguration":
         if not arg:
             return cls()
-
         return cls(services=[UserService.from_arg(v) for v in arg])
 
 
