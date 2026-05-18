@@ -134,14 +134,14 @@ def check_missing(config: NoahConfig) -> list[str]:
                 missing.append(path.name)
     if config.additional_usb_to_cp_config:
         for copy in config.additional_usb_to_cp_config.copies:
-            src_base = copy.resolver.usb / copy.source_dir
+            src_base = copy.resolver.root / copy.target_dir
             for name in copy.names:
                 path = src_base / name
                 if not path.exists():
                     missing.append(path.name)
-    if config.dir_contents_to_cp_config:
-        for copy in config.dir_contents_to_cp_config.copies:
-            src_base = copy.resolver.usb / copy.source_dir
+    if contents_to_cp := config.dir_contents_to_cp_config:
+        for copy in contents_to_cp.copies:
+            src_base = copy.resolver.root / copy.target_dir
             for name in copy.names:
                 path = src_base / name
                 if not path.exists():
