@@ -282,6 +282,16 @@ def clone_repos(git_repos: GitReposConfiguration, dest: Path, ssh: bool) -> None
 
 
 def configure_git() -> None:
+    def git_config_check(key: str):
+        result = run_dmc(["git", "config", "--global", "--get", key], check=False)
+        value = result.stdout.strip() if result and result.stdout else ""
+        return value or None
+
+    existing_email = git_config_check("user.email")
+    existing_name = git_config_check("user.name")
+    if existing_email and existing_name:
+        log.info(f"Git already configured: {existing_name} <{existing_email}>")
+        return
     result = run_dmc(["ssh-add", "-l"])
     lines = result.stdout.strip().splitlines()
     if not lines:
