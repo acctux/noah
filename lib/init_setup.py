@@ -30,7 +30,7 @@ def check_missing(config: NoahConfig) -> list[str]:
                     missing.append(path.name)
     if contents_to_cp := config.dir_contents_to_cp_config:
         for copy in contents_to_cp.copies:
-            src_base = copy.resolver.root / copy.target_dir
+            src_base = copy.resolver.root / copy.target_dir.lstrip("/")
             for name in copy.names:
                 path = src_base / name
                 if not path.exists():
