@@ -83,9 +83,8 @@ def multi_user_funcs(
     user_service(installation, user.username, nc.terminal, script_dir)
     mpd_tmpfiles(installation, user.username)
     if serv_conf := nc.user_services_config:
-        for user_serv in serv_conf.services:
-            serv = UserServicesConfiguration([user_serv])
-            enable_user_serv(installation, serv, user.username)
+        servs = UserServicesConfiguration(serv_conf.services)
+        enable_user_serv(installation, servs, user.username)
     installation.arch_chroot(
         f"chown -R {user.username}:{user.username} /home/{user.username}"
     )
