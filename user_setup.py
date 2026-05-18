@@ -71,15 +71,9 @@ class NoahUserProcessor:
         if key_cfg:
             target = key_cfg.target_dir
             k = key_cfg.keys
-            self.ssh_paths = (
-                [self.HOME / target / k["ssh_key"]] if "ssh_key" in k else []
-            )
-            self.gpg_paths = (
-                [self.HOME / target / k["gpg_key"]] if "gpg_key" in k else []
-            )
-            self.masterpass_paths = (
-                [self.HOME / target / k["master_pass"]] if "master_pass" in k else []
-            )
+            self.ssh_paths = [self.HOME / target / k["ssh_key"]] or []
+            self.gpg_paths = [self.HOME / target / k["gpg_key"]] or []
+            self.masterpass_paths = [self.HOME / target / k["master_pass"]] or []
 
         # ---------- dirs icons ----------
         self.dirs_icons = {
