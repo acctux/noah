@@ -373,17 +373,17 @@ def scrcpy_setup(port=5555) -> None:
 # Main
 ############################
 def user_setup():
-    # if shutil.which("zsh"):
-    #     run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    # if Path("/etc/resolv.conf").is_symlink() and not ping():
-    #     run_dmc(["sudo", "rm", "/etc/resolv.conf"])
-    #     run_dmc(["sudo", "resolvconf", "-u"])
-    #     run_dmc(["sudo", "systemctl", "restart", "iwd"])
-    #     time.sleep(5)
-    #     iwctl_scan()
-    #     time.sleep(5)
-    # if shutil.which("tuned"):
-    #     run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
+    if shutil.which("zsh"):
+        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    if Path("/etc/resolv.conf").is_symlink() and not ping():
+        run_dmc(["sudo", "rm", "/etc/resolv.conf"])
+        run_dmc(["sudo", "resolvconf", "-u"])
+        run_dmc(["sudo", "systemctl", "restart", "iwd"])
+        time.sleep(5)
+        iwctl_scan()
+        time.sleep(5)
+    if shutil.which("tuned"):
+        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
     nc = NoahConfig.from_config(noah_json)
     nu = NoahUserProcessor(nc)
     if shutil.which("mariadb"):
