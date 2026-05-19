@@ -28,7 +28,7 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
-from utils import run_dmc, copy_file
+from utils import copy_file, handle_reflector
 from lib.init_setup import init_setup
 from lib.datahandler import NoahConfig
 from lib.bootloaders import bootloader_handling
@@ -43,27 +43,6 @@ import sys
 import time
 import subprocess
 import jsonconfig as json_conf
-# from archinstall.lib.bootloader.utils import validate_bootloader_layout
-
-
-###################################
-# ETC/BOOT
-###################################
-def handle_reflector(reflector_country: str | None = "US"):
-    reflector_options = [
-        f"--country {reflector_country}",
-        "--protocol https",
-        "--latest 15",
-        "--sort rate",
-        "--number 3",
-        "--save /etc/pacman.d/mirrorlist",
-    ]
-    run_dmc(
-        [
-            "reflector",
-            *(part for opt in reflector_options for part in opt.split()),
-        ]
-    )
 
 
 ###################################
@@ -214,7 +193,8 @@ def perform_installation(
             if users:
                 profile_config.profile.provision(installation, users)
 
-        # profile_handler.install_greeter(installation, GreeterType.Ly)
+        profile_handler.install_greeter(installation, GreeterType.Ly)
+        profile_handler.install_gfx_driver(installation, GfxDriver.NvidiaOpenKernel)
         bootloader_handling(installation, config)
         handle_sys_files(installation, nc, script_d)
         if users:
@@ -299,12 +279,6 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     config = ConfigurationOutput(arch_config_handler.config)
     config.write_debug()
     config.save()
-    #    if failure := validate_bootloader_layout(
-    # 	arch_config_handler.config.bootloader_config,
-    # 	arch_config_handler.config.disk_config,
-    # ):
-    # 	error(failure.description)
-    # 	return
     if not arch_config_handler.args.silent:
         aborted = False
         res: bool = tui.run(config.confirm_config)

@@ -126,3 +126,20 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
         with full_path.open("w") as file:
             file.write(content)
         log.info(f"Content written to: {full_path}")
+
+
+def handle_reflector(reflector_country: str | None = "US"):
+    reflector_options = [
+        f"--country {reflector_country}",
+        "--protocol https",
+        "--latest 15",
+        "--sort rate",
+        "--number 3",
+        "--save /etc/pacman.d/mirrorlist",
+    ]
+    run_dmc(
+        [
+            "reflector",
+            *(part for opt in reflector_options for part in opt.split()),
+        ]
+    )

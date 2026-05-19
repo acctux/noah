@@ -52,9 +52,6 @@ class GitRepo:
 # =============================================================================
 # Configurations
 # =============================================================================
-# =============================================================================
-# Configurations
-# =============================================================================
 @dataclass
 class DotfilesConfiguration:
     dotfiles_dir: str | None = None
@@ -141,11 +138,11 @@ class CopyConfiguration:
         return cls(
             copies=[
                 FlatCopy(
-                    source_dir=v["source_dir"],
-                    target_dir=v["target_dir"],
-                    names=v["names"],
+                    source_dir=copy_target["source_dir"],
+                    target_dir=copy_target["target_dir"],
+                    names=copy_target["names"],
                 )
-                for v in arg
+                for copy_target in arg
             ]
         )
 
@@ -161,7 +158,7 @@ class UserService:
         return cls(
             source=v["source"],
             target=v["target"],
-            serv=v.get("serv") or v.get("servs", []),
+            serv=v.get("serv", []),
         )
 
     def source_paths(self, username: str) -> list[Path]:

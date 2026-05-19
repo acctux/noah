@@ -86,7 +86,7 @@ noah_json = {
         {
             "source": "/usr/lib/systemd/user",
             "target": "default",
-            "servs": ["psd.service"],
+            "serv": ["psd.service"],
         },
         {
             "source": "/usr/lib/systemd/user",

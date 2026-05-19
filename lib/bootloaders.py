@@ -275,7 +275,7 @@ def inst_snapper(
 
 
 ###################################
-# MAIN HANDLING DISPATCHER
+# MAIN HANDLING
 ###################################
 def bootloader_handling(installation: Installer, config: ArchConfig) -> None:
     """Orchestrates configuration logic maps based on chosen destination boot utilities."""
