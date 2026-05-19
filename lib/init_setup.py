@@ -49,14 +49,32 @@ def unmount_usb(usb_mnt: Path):
 
 
 def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
+    # Ensure allowed types are tracked cleanly
+    allowed_fs = {usb_fs_type, "exfat"}
+
     def recurse(devices):
         for dev in devices:
+            # FIX 1: Explicitly parse size digits out to handle '20G', '500M', '1T' safely
+            size_str = dev.get("size", "0G")
+            try:
+                # Strip any trailing unit character and convert to float
+                size_val = float(
+                    "".join(c for c in size_str if c.isdigit() or c == ".")
+                )
+                # If size string ends with 'M' (Megabytes), scale it down to Gigabytes
+                if size_str.endswith("M"):
+                    size_val /= 1024
+                elif size_str.endswith("T"):
+                    size_val *= 1024
+            except ValueError:
+                size_val = 0.0
+
+            # FIX 2: Wrapped the filesystem checks cleanly in parentheses
             if (
                 dev["type"] == "part"
-                and dev.get("fstype") == usb_fs_type
-                or "exfat"
+                and (dev.get("fstype") in allowed_fs)
                 and dev.get("mountpoint") is None
-                and float(dev["size"][:-1]) > min_gb
+                and size_val >= min_gb
             ):
                 candidates.append(
                     (
@@ -75,6 +93,11 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
     )
     candidates = []
     recurse(data["blockdevices"])
+
+    if not candidates:
+        print(f"\033[91mNo valid ext4 or exfat partitions found >= {min_gb}GB.\033[0m")
+        return ""
+
     while True:
         print(
             f"\033[91m{'No.':<5}\033[0m "
@@ -92,7 +115,9 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
             )
         choice = input(f"\033[92mEnter 1-{len(candidates)}: \033[0m").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(candidates)):
-            log.error("Enter valid number.")
+            print(
+                "Enter valid number."
+            )  # dynamically fallback if log object isn't configured
             continue
         selected_path = f"/dev/{candidates[int(choice) - 1][0]}"
         break
@@ -120,6 +145,8 @@ def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path):
     if not yes_no("Mount USB?"):
         return
     selected = get_device()
+    if not selected:
+        return
     usb_mnt.mkdir(parents=True, exist_ok=True)
     run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
     run_dmc(["udevadm", "settle"])
