@@ -220,7 +220,7 @@ etc_files_to_write: dict[str, str] = {
                 invert: false;
                 target: false;
             };
-            dpi: 5200;
+            dpi: 6000;
             buttons: (
                 {
                     cid: 0x56;

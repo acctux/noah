@@ -193,6 +193,7 @@ def perform_installation(
             if users:
                 profile_config.profile.provision(installation, users)
 
+        profile_handler.install_gfx_driver(installation, GfxDriver.AmdOpenSource)
         profile_handler.install_greeter(installation, GreeterType.Ly)
         profile_handler.install_gfx_driver(installation, GfxDriver.NvidiaOpenKernel)
         bootloader_handling(installation, config)
