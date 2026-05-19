@@ -20,7 +20,7 @@ archinstall_json = {
     "profile_config": {
         "gfx_driver": "AMD / ATI (open-source)",
         "greeter": "ly",
-        "profile": {"main": ["Minimal"]},
+        "profile": {"details": ["Minimal"]},
     },
     "services": [
         "ananicy-cpp",
