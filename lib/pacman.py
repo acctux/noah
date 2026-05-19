@@ -7,9 +7,9 @@ from pathlib import Path
 def modify_pacman_conf(
     mnt_point: Path | None, no_extracts: list[str], value: int = 10
 ) -> None:
-    pacman_conf = "/etc/pacman.conf"
-    if mnt_point:
-        pacman_conf = mnt_point / "etc/pacman.conf"
+    pacman_conf = (
+        (mnt_point / "etc/pacman.conf") if mnt_point else Path("/etc/pacman.conf")
+    )
     with open(pacman_conf) as pacman:
         content = pacman.read().splitlines()
     i = 0
@@ -21,11 +21,14 @@ def modify_pacman_conf(
             content[i] = "Color"
             if content[i + 1] != "ILoveCandy":
                 content.insert(i + 1, "ILoveCandy")
-        elif stripped.startswith("#NoExtract") or stripped.startswith("NoExtract"):
+        elif stripped.startswith(("#NoExtract", "NoExtract")):
             content[i] = f"NoExtract = {' '.join(no_extracts)}"
         elif stripped == "[chaotic-aur]":
             del content[i : i + 2]
-            continue  # maintain same index
+            continue
+        elif stripped == "#[multilib]":
+            content[i] = "[multilib]"
+            content[i + 1] = content[i + 1].strip("#")
         i += 1
     with open(pacman_conf, "w") as pacman:
         pacman.write("\n".join(content) + "\n")

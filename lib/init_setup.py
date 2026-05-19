@@ -14,8 +14,6 @@ log = get_logger("Noah")
 
 
 def check_missing(config: NoahConfig) -> list[str]:
-    missing: list[str] = []
-
     def collect_missing(copies: list[FlatCopy]) -> None:
         for copy in copies:
             src_base = copy.resolver.root_path(copy.target_dir)
@@ -24,6 +22,7 @@ def check_missing(config: NoahConfig) -> list[str]:
                 if not path.exists():
                     missing.append(name)
 
+    missing: list[str] = []
     if key_conf := config.key_copy_config:
         collect_missing(
             [
