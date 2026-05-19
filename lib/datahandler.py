@@ -52,28 +52,39 @@ class GitRepo:
 # =============================================================================
 # Configurations
 # =============================================================================
+# =============================================================================
+# Configurations
+# =============================================================================
+@dataclass
+class DotfilesConfiguration:
+    dotfiles_dir: str | None = None
+    secret_dotfiles_dir: str | None = None
+    dirs_to_link: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_arg(cls, arg: dict[str, Any] | None) -> "DotfilesConfiguration":
+        if not arg:
+            return cls()
+        return cls(
+            dotfiles_dir=arg.get("dotfiles_dir"),
+            secret_dotfiles_dir=arg.get("secret_dotfiles_dir"),
+            dirs_to_link=arg.get("dirs_to_link", []),
+        )
+
+
 @dataclass
 class GitReposConfiguration:
     repositories: list[GitRepo] = field(default_factory=list)
 
     @classmethod
-    def from_arg(cls, arg: dict | None):
+    def from_arg(cls, arg: dict[str, Any] | None) -> "GitReposConfiguration":
         if not arg:
             return cls()
-
-        # If the arg has 'user_name' and 'repos', convert it to list
-        if "user_name" in arg and "repos" in arg:
-            return cls(
-                repositories=[GitRepo(username=arg["user_name"], repos=arg["repos"])]
-            )
-
-        # Otherwise assume old-style dict: {username: {repo: path}}
-        return cls(
-            repositories=[
-                GitRepo(username=username, repos=repos)
-                for username, repos in arg.items()
-            ]
-        )
+        username = arg.get("user_name")
+        repos = arg.get("repos")
+        if username and repos:
+            return cls(repositories=[GitRepo(username=username, repos=repos)])
+        return cls()
 
 
 @dataclass
@@ -201,9 +212,8 @@ class NoahConfig:
     apps_to_hide: list[str] = field(default_factory=list)
     no_extracts: list[str] = field(default_factory=list)
     yazi_plugins: list[str] = field(default_factory=list)
-    dirs_to_link: list[str] = field(default_factory=list)
     dirs_icons: dict[str, str] = field(default_factory=dict)
-    git_repos_config: GitReposConfiguration | None = None
+    dotfiles_config: DotfilesConfiguration | None = None
     key_copy_config: KeyCopyConfiguration | None = None
     additional_usb_to_cp_config: CopyConfiguration | None = None
     dir_contents_to_cp_config: CopyConfiguration | None = None
@@ -213,7 +223,6 @@ class NoahConfig:
     def from_config(cls, args: dict[str, Any]) -> "NoahConfig":
         noah = cls()
 
-        # simple scalar fields
         if "terminal" in args:
             noah.terminal = args["terminal"]
 
@@ -256,15 +265,15 @@ class NoahConfig:
         if "yazi_plugins" in args:
             noah.yazi_plugins = args["yazi_plugins"]
 
-        if "dirs_to_link" in args:
-            noah.dirs_to_link = args["dirs_to_link"]
-
         if "dirs_icons" in args:
             noah.dirs_icons = args["dirs_icons"]
 
         # complex objects
         if kc := args.get("key_copy_config"):
             noah.key_copy_config = KeyCopyConfiguration(**kc)
+
+        if dc := args.get("dotfiles_config"):
+            noah.dotfiles_config = DotfilesConfiguration.from_arg(dc)
 
         if usb := args.get("additional_usb_to_cp"):
             noah.additional_usb_to_cp_config = CopyConfiguration.from_arg(usb)
@@ -274,8 +283,5 @@ class NoahConfig:
 
         if us := args.get("user_services"):
             noah.user_services_config = UserServicesConfiguration.from_arg(us)
-
-        if gr := args.get("git_repos"):
-            noah.git_repos_config = GitReposConfiguration.from_arg(gr)
 
         return noah

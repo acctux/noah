@@ -20,7 +20,7 @@ archinstall_json = {
     "profile_config": {
         "gfx_driver": "AMD / ATI (open-source)",
         "greeter": "ly",
-        "profile": {"details": ["Minimal"]},
+        "profile": {"main": ["Minimal"]},
     },
     "services": [
         "ananicy-cpp",
@@ -174,7 +174,7 @@ noah_json = {
         "editor=/usr/sbin/nvim, !env_editor",
     ],
     "encrypted_dir": "Desktop/Private",
-    "git_repos": {
+    "git_repo_config": {
         "user_name": "acctux",
         "repos": {
             "noah": "Lit/noah",
@@ -182,11 +182,13 @@ noah_json = {
             "docs": "Lit/Docs",
         },
     },
-    "dotfiles_dir": "Lit/polka",
-    "secret_dotfiles_dir": "Lit/Docs/secdots",
-    "dirs_to_link": [
-        "local/bin",
-    ],
+    "dotfiles_config": {
+        "dotfiles_dir": "Lit/polka",
+        "secret_dotfiles_dir": "Lit/Docs/secdots",
+        "dirs_to_link": [
+            "local/bin",
+        ],
+    },
     "dirs_icons": {
         "Desktop/Games": "folder-games",
         "Desktop/Encrypted": "folder-locked",

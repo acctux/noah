@@ -199,7 +199,6 @@ def init_setup(
     auth_conf_path: str,
     noahconf_json: dict,
     base_pkgs: list[str],
-    non_vm_pkgs: list[str],
     arch_config_handler: ArchConfigHandler,
     usb_mnt: Path = Path("/mnt/usb"),
 ) -> tuple[ArchConfigHandler, NoahConfig]:
