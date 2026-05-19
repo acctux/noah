@@ -185,6 +185,11 @@ def perform_installation(
                     installation, config.auth_config, config.hostname
                 )
 
+        if (profile_config := config.profile_config) and profile_config.profile:
+            profile_config.profile.post_install(installation)
+            if users:
+                profile_config.profile.provision(installation, users)
+
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
 
