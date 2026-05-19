@@ -144,11 +144,7 @@ class NoahUserProcessor:
 
     def __post_init__(self):
         self.username = self.username or pwd.getpwuid(os.getuid()).pw_name
-        self.HOME = (
-            Path.home()
-            if self.username == pwd.getpwuid(os.getuid()).pw_name
-            else Path("/home") / self.username
-        )
+        self.HOME = Path.home()
         self.ENCRYPTED = (
             self.HOME / self.data.encrypted_dir if self.data.encrypted_dir else None
         )
@@ -412,7 +408,7 @@ def pass_and_mail(pass_path: Path, firefox_browser: str) -> None:
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
     log.info("Master password copied to clipboard.")
-    run_dmc(["protonmail-bridge-core", "--cli"], interactive=True)
+    # run_dmc(["protonmail-bridge-core", "--cli"], interactive=True)
     cmd = [
         firefox_browser,
         "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/",
@@ -497,39 +493,39 @@ def handle_identities(nc: NoahConfig, nu: NoahUserProcessor) -> None:
 # MAIN FLOW
 ############################
 def user_setup(HOME: Path = Path.home()) -> None:
-    if shutil.which("zsh"):
-        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    fix_network_stack()
-    if shutil.which("tuned"):
-        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
+    # if shutil.which("zsh"):
+    #     run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    # fix_network_stack()
+    # if shutil.which("tuned"):
+    #     run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
     nc = NoahConfig.from_config(noah_json)
     nu = NoahUserProcessor(nc)
-    if shutil.which("mariadb"):
-        enable_mariadb()
-    handle_identities(nc, nu)
-    if nu.ENCRYPTED and shutil.which("gocryptfs"):
-        if not (nu.ENCRYPTED / "gocryptfs.conf").exists():
-            init_gocrypt(nu.ENCRYPTED)
-    if nu.dirs_icons:
-        set_folder_icons(nu.dirs_icons)
-    for plugin in nc.yazi_plugins:
-        run_dmc(["ya", "pkg", "add", plugin])
-    if nu.DOTS and any(nu.DOTS.iterdir()):
-        if nc.dotfiles_dir and nc.dotfiles_config:
-            if nc.secret_dotfiles_dir:
-                polka = PolkaConfiguration(
-                    home=HOME,
-                    dotfiles_dir_str=nc.dotfiles_dir,
-                    secdots_dir_str=nc.secret_dotfiles_dir,
-                    dirs_to_link=nc.dotfiles_config.dirs_to_link,
-                )
-                polka.deploy()
-                run_dmc(
-                    ["uv", "add", "openmeteo-requests"],
-                    cwd=str(nu.HOME / ".local" / "bin" / "weather"),
-                )
-    if shutil.which("scrcpy"):
-        scrcpy_setup()
+    # if shutil.which("mariadb"):
+    #     enable_mariadb()
+    # handle_identities(nc, nu)
+    # if nu.ENCRYPTED and shutil.which("gocryptfs"):
+    #     if not (nu.ENCRYPTED / "gocryptfs.conf").exists():
+    #         init_gocrypt(nu.ENCRYPTED)
+    # if nu.dirs_icons:
+    #     set_folder_icons(nu.dirs_icons)
+    # for plugin in nc.yazi_plugins:
+    #     run_dmc(["ya", "pkg", "add", plugin])
+    # if nu.DOTS and any(nu.DOTS.iterdir()):
+    #     if nc.dotfiles_dir and nc.dotfiles_config:
+    #         if nc.secret_dotfiles_dir:
+    #             polka = PolkaConfiguration(
+    #                 home=HOME,
+    #                 dotfiles_dir_str=nc.dotfiles_dir,
+    #                 secdots_dir_str=nc.secret_dotfiles_dir,
+    #                 dirs_to_link=nc.dotfiles_config.dirs_to_link,
+    #             )
+    #             polka.deploy()
+    #             run_dmc(
+    #                 ["uv", "add", "openmeteo-requests"],
+    #                 cwd=str(nu.HOME / ".local" / "bin" / "weather"),
+    #             )
+    # if shutil.which("scrcpy") and not (HOME / ".android" / "adbkey").is_file():
+    #     scrcpy_setup()
     if nu.masterpass_path and nc.firefox_browser:
         pass_and_mail(nu.masterpass_path, nc.firefox_browser)
     if shutil.which("gh"):

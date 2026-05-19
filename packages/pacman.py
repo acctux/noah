@@ -28,6 +28,7 @@ media: list[str] = [
     "mpd",
     "mpd-mpris",
     "mpv-mpris",
+    "obs-studio",
     "pavucontrol",
     "playerctl",
     "realtime-privileges",
@@ -126,6 +127,7 @@ personal: list[str] = [
     "python-wand",  # wallpaper script
 ]
 base: list[str] = [
+    "neomutt",
     "authenticator",
     "baobab",
     "base-devel",
