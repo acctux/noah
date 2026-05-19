@@ -102,7 +102,6 @@ def perform_installation(
     mirror_list_handler: MirrorListHandler,
     application_handler: ApplicationHandler,
     nc: NoahConfig,
-    gfx_drivers: list[GfxDriver],
 ) -> None:
     script_d = Path(__file__).resolve().parent
     start_time = time.monotonic()
@@ -205,8 +204,6 @@ def perform_installation(
             root_user = User("root", config.auth_config.root_enc_password, False)
             installation.set_user_password(root_user)
 
-        for gfx_driver in gfx_drivers:
-            profile_handler.install_gfx_driver(installation, gfx_driver)
         profile_handler.install_greeter(installation, GreeterType.Ly)
         bootloader_handling(installation, config)
         handle_sys_files(installation, nc, script_d)
@@ -265,26 +262,27 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
         offline=arch_config_handler.args.offline,
         verbose=arch_config_handler.args.verbose,
     )
-    arch_config_handler, nc, gfx_drivers = init_setup(
+    arch_config_handler, nc = init_setup(
         arch_config_json=json_conf.archinstall_json,
-        auth_conf_path="/root/keys/users.json",
+        auth_conf_path="/root/.ssh/users.json",
         noahconf_json=json_conf.noah_json,
         base_pkgs=pp.base
+        + pp.android
+        + pp.coding
         + pp.hardware
         + pp.hyprland
+        + pp.ios
         + pp.language
         + pp.media
         + pp.monitoring
         + pp.network
-        + pp.personal
-        + pc.base_chaotic_pkgs,
-        non_vm_pkgs=pp.android
-        + pp.coding
-        + pp.ios
         + pp.office
+        + pp.personal
         + pc.additional_chaotic_pkgs
+        + pc.base_chaotic_pkgs
         + pc.game_chaotic_pkgs
         + pc.waydroid_pkgs,
+        non_vm_pkgs=[],
         arch_config_handler=arch_config_handler,
     )
     if not arch_config_handler.args.silent:
@@ -317,7 +315,6 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
         auth_handler=AuthenticationHandler(),
         application_handler=ApplicationHandler(),
         nc=nc,
-        gfx_drivers=gfx_drivers,
     )
 
 

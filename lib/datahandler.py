@@ -35,11 +35,18 @@ class PathResolver:
 @dataclass
 class GitRepo:
     username: str
-    repos: dict[str, str]
+    repos: dict[str, str]  # key = git repo name, value = local path
 
     @property
     def full_repos(self) -> list[str]:
-        return [f"{self.username}/{repo}" for repo in self.repos.values()]
+        # GitHub-style repo names
+        return [f"{self.username}/{name}" for name in self.repos.keys()]
+
+    def local_paths(self, home: Path) -> list[Path]:
+        """
+        Return the destination paths as Path objects, resolved relative to 'home'.
+        """
+        return [home / dest for dest in self.repos.values()]
 
 
 # =============================================================================
@@ -50,9 +57,17 @@ class GitReposConfiguration:
     repositories: list[GitRepo] = field(default_factory=list)
 
     @classmethod
-    def from_arg(cls, arg: dict[str, dict[str, str]] | None):
+    def from_arg(cls, arg: dict | None):
         if not arg:
             return cls()
+
+        # If the arg has 'user_name' and 'repos', convert it to list
+        if "user_name" in arg and "repos" in arg:
+            return cls(
+                repositories=[GitRepo(username=arg["user_name"], repos=arg["repos"])]
+            )
+
+        # Otherwise assume old-style dict: {username: {repo: path}}
         return cls(
             repositories=[
                 GitRepo(username=username, repos=repos)
@@ -174,6 +189,8 @@ class UserServicesConfiguration:
 class NoahConfig:
     terminal: str = "kitty"
     firefox_browser: str | None = None
+    dotfiles_dir: str | None = None
+    secret_dotfiles_dir: str | None = None
     git_user: str | None = None
     dots_repo: str | None = None
     reflector_country: str | None = None
@@ -202,6 +219,12 @@ class NoahConfig:
 
         if "firefox_browser" in args:
             noah.firefox_browser = args["firefox_browser"]
+
+        if "dotfiles_dir" in args:
+            noah.dotfiles_dir = args["dotfiles_dir"]
+
+        if "secret_dotfiles_dir" in args:
+            noah.secret_dotfiles_dir = args["secret_dotfiles_dir"]
 
         if "git_user" in args:
             noah.git_user = args["git_user"]

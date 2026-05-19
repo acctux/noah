@@ -17,6 +17,11 @@ archinstall_json = {
     "ntp": True,
     "packages": [],
     "pacman_config": {"color": True, "parallel_downloads": 10},
+    "profile_config": {
+        "gfx_driver": "AMD / ATI (open-source)",
+        "greeter": "ly",
+        "profile": {"details": ["Minimal"]},
+    },
     "services": [
         "ananicy-cpp",
         "iwd",
@@ -55,7 +60,7 @@ noah_json = {
     ],
     "key_copy_config": {
         "source_dir": "noahinstall",
-        "target_dir": "keys",
+        "target_dir": ".ssh",
         "keys": {
             "ssh_key": "id_ed25519",
             "gpg_key": "my_sec_gpg.asc",
@@ -170,12 +175,15 @@ noah_json = {
     ],
     "encrypted_dir": "Desktop/Private",
     "git_repos": {
-        "acctux": {
+        "user_name": "acctux",
+        "repos": {
             "noah": "Lit/noah",
             "polka": "Lit/polka",
             "docs": "Lit/Docs",
         },
     },
+    "dotfiles_dir": "Lit/polka",
+    "secret_dotfiles_dir": "Lit/Docs/secdots",
     "dirs_to_link": [
         "local/bin",
     ],

@@ -128,18 +128,18 @@ def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path):
         unmount_usb(usb_mnt)
 
 
-def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
-    driver_map = {
-        "nvidia": GfxDriver.NvidiaOpenKernel,
-        "geforce": GfxDriver.NvidiaOpenKernel,
-        "amd": GfxDriver.AmdOpenSource,
-        "ati": GfxDriver.AmdOpenSource,
-        "intel": GfxDriver.IntelOpenSource,
-    }
-    return [
-        driver_map.get(device.lower().split()[0], GfxDriver.VMOpenSource)
-        for device in graphics_devices
-    ]
+# def get_gfx_drivers(graphics_devices: dict[str, str]) -> list[GfxDriver]:
+#     driver_map = {
+#         "nvidia": GfxDriver.NvidiaOpenKernel,
+#         "geforce": GfxDriver.NvidiaOpenKernel,
+#         "amd": GfxDriver.AmdOpenSource,
+#         "ati": GfxDriver.AmdOpenSource,
+#         "intel": GfxDriver.IntelOpenSource,
+#     }
+#     return [
+#         driver_map.get(device.lower().split()[0], GfxDriver.VMOpenSource)
+#         for device in graphics_devices
+#     ]
 
 
 def init_arch_conf(
@@ -175,7 +175,7 @@ def init_setup(
     non_vm_pkgs: list[str],
     arch_config_handler: ArchConfigHandler,
     usb_mnt: Path = Path("/mnt/usb"),
-) -> tuple[ArchConfigHandler, NoahConfig, list[GfxDriver]]:
+) -> tuple[ArchConfigHandler, NoahConfig]:
 
     nc = NoahConfig.from_config(noahconf_json)
 
@@ -193,13 +193,12 @@ def init_setup(
         arch_config_json, auth_conf_path, arch_config_handler
     )
 
-    gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
-
-    if GfxDriver.VMOpenSource in gfx_drivers:
-        base_pkgs.extend(["spice-vdagent", "qemu-guest-agent"])
-    else:
-        base_pkgs.extend(non_vm_pkgs)
+    # gfx_drivers = get_gfx_drivers(_sys_info.graphics_devices)
+    # if GfxDriver.VMOpenSource in gfx_drivers:
+    #     base_pkgs.extend(["spice-vdagent", "qemu-guest-agent"])
+    # else:
+    # base_pkgs.extend(non_vm_pkgs)
 
     arch_config_handler.config.packages = base_pkgs
 
-    return arch_config_handler, nc, gfx_drivers
+    return arch_config_handler, nc

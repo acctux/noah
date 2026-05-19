@@ -40,6 +40,94 @@ def ping(host: str = "google.com") -> bool:
         return False
 
 
+class PolkaConfiguration:
+    def __init__(
+        self,
+        home: Path,
+        dotfiles_dir_str: str,
+        secdots_dir_str: str,
+        dirs_to_link: list[str],
+    ):
+        self.home = home
+        self.dotfiles_dir_str = dotfiles_dir_str
+        self.secdots_dir_str = secdots_dir_str
+        self.dirs_to_link = dirs_to_link
+        self.dotfile_path = self.home / dotfiles_dir_str
+        self.secdot_path = self.home / secdots_dir_str
+
+    def link_path(self, src: Path, dst: Path) -> bool:
+        """Create a symlink, replacing existing files/folders if necessary."""
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        rel = os.path.relpath(src, dst.parent)
+
+        if dst.is_symlink() and os.readlink(dst) == rel:
+            return False
+
+        if dst.exists() or dst.is_symlink():
+            if dst.is_dir() and not dst.is_symlink():
+                shutil.rmtree(dst)
+            else:
+                dst.unlink()
+            log.info(f"Removed: {dst}")
+
+        dst.symlink_to(rel, target_is_directory=src.is_dir())
+        log.info(f"Linked: {dst} → {rel}")
+        return True
+
+    def dotted_destination(self, src: Path, source_dir: Path) -> Path:
+        """Return the destination path with a dot-prefixed top-level folder."""
+        parts = src.relative_to(source_dir).parts
+        return self.home / Path("." + parts[0], *parts[1:])
+
+    def collect_candidates(self, base_dir: Path) -> list[tuple[Path, Path]]:
+        """Collect all files in base_dir, skipping unwanted dirs."""
+        candidates = []
+        for src in base_dir.rglob("*"):
+            if not src.is_file():
+                continue
+            rel = src.relative_to(base_dir)
+            if rel.parts[0] == ".git":
+                continue
+            if any(rel.parts[0] == d.split("/")[0] for d in self.dirs_to_link):
+                continue
+            candidates.append((src, self.dotted_destination(src, base_dir)))
+        return candidates
+
+    def file_candidates(self) -> list[tuple[Path, Path]]:
+        """Get all candidate files and directories for linking from dotfiles and secdots."""
+        candidates: list[tuple[Path, Path]] = []
+
+        # Collect files from dotfiles and secret dotfiles
+        candidates.extend(self.collect_candidates(self.dotfile_path))
+        candidates.extend(self.collect_candidates(self.secdot_path))
+
+        # Collect top-level directories listed in dirs_to_link (from dotfiles or secdots)
+        for base in [self.dotfile_path, self.secdot_path]:
+            for d in self.dirs_to_link:
+                src = base / d
+                if src.exists():  # include both files and directories
+                    candidates.append((src, self.dotted_destination(src, base)))
+
+        return candidates
+
+    def deploy(self):
+        """Automate the linking of all dotfiles."""
+        if not self.dotfile_path.is_dir():
+            log.error(f"Dotfiles directory not found: {self.dotfile_path}")
+            return
+
+        linked = 0
+        for src, dst in self.file_candidates():
+            if self.link_path(src, dst):
+                linked += 1
+
+        if shutil.which("hyprctl"):
+            subprocess.run(["hyprctl", "reload"], check=False)
+            log.info("Hyprland reloaded")
+
+        log.info(f"Total linked: {linked}")
+
+
 @dataclass(slots=True)
 class NoahUserProcessor:
     data: NoahConfig
@@ -81,10 +169,9 @@ class NoahUserProcessor:
 
 
 ##########################################
-# SYMLINK & FILE CANDIDATE HELPERS
+# DOTFILES
 ##########################################
 def link_path(src: Path, dst: Path) -> bool:
-    """Safely create relative atomic symlinks."""
     dst.parent.mkdir(parents=True, exist_ok=True)
     rel = os.path.relpath(src, dst.parent)
     if dst.is_symlink() and os.readlink(dst) == rel:
@@ -94,12 +181,75 @@ def link_path(src: Path, dst: Path) -> bool:
             shutil.rmtree(dst)
         else:
             dst.unlink()
-        log.info(f"Removed old target destination: {dst}")
+        log.info(f"Removed: {dst}")
     dst.symlink_to(rel, target_is_directory=src.is_dir())
     log.info(f"Linked: {dst} → {rel}")
     return True
 
 
+def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
+    parts = src.relative_to(source_dir).parts
+    return target_dir / Path("." + parts[0], *parts[1:])
+
+
+def collect_candidates(
+    base_dir: Path, home: Path, dirs_to_skip: list[str]
+) -> list[tuple[Path, Path]]:
+    """Return list of (src, dst) tuples for all files in base_dir, skipping certain dirs."""
+    candidates = []
+    for src in base_dir.rglob("*"):
+        if not src.is_file():
+            continue
+        rel = src.relative_to(base_dir)
+        if rel.parts[0] == ".git":
+            continue
+        if any(rel.parts[0] == d.split("/")[0] for d in dirs_to_skip):
+            continue
+        candidates.append((src, dotted_destination(src, base_dir, home)))
+    return candidates
+
+
+def file_candidates(
+    dirs_to_link: list[str], dotfiles_dir: Path, home: Path, secdots_dir: Path
+) -> list[tuple[Path, Path]]:
+    """Return list of (src, dst) tuples to link."""
+    candidates = []
+    candidates.extend(collect_candidates(dotfiles_dir, home, dirs_to_link))
+    candidates.extend(collect_candidates(secdots_dir, home, dirs_to_link))
+    for d in dirs_to_link:
+        src = dotfiles_dir / d
+        if src.is_dir():
+            candidates.append((src, dotted_destination(src, dotfiles_dir, home)))
+    return candidates
+
+
+def deploy_dotfiles(
+    dotfiles_dir: Path, dirs_to_link: list[str], home: Path, secdots_dir: Path
+):
+    if not dotfiles_dir.is_dir():
+        log.error(f"Dotfiles directory not found: {dotfiles_dir}")
+        return
+    linked = 0
+    for src, dst in file_candidates(
+        dirs_to_link=dirs_to_link,
+        dotfiles_dir=dotfiles_dir,
+        home=home,
+        secdots_dir=secdots_dir,
+    ):
+        if link_path(src, dst):
+            linked += 1
+    if shutil.which("hyprctl"):
+        subprocess.run(["hyprctl", "reload"], check=False)
+        log.info("Hyprland reloaded")
+    log.info(f"Total linked:\033[0m {linked}")
+
+
+##########################################
+# HELPERS
+##########################################
+##########################################
+# ENTRY
+##########################################
 def enter_pass(prompt_str: str) -> str:
     """Secure masked entry utility for credential setting."""
     while True:
@@ -111,61 +261,19 @@ def enter_pass(prompt_str: str) -> str:
         log.warning("Passwords do not match or empty. Try again.\n")
 
 
-def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
-    parts = src.relative_to(source_dir).parts
-    return target_dir / Path("." + parts[0], *parts[1:])
-
-
-def collect_candidates(
-    base_dir: Path, home: Path, dirs_to_skip: list[str]
-) -> list[tuple[Path, Path]]:
-    """Return filtered list of (src, dst) mapping tuples for directory files."""
-    candidates = []
-    skip_roots = {d.split("/")[0] for d in dirs_to_skip} | {".git"}
-    for src in base_dir.rglob("*"):
-        if not src.is_file():
-            continue
-        rel_parts = src.relative_to(base_dir).parts
-        if rel_parts and rel_parts[0] in skip_roots:
-            continue
-        candidates.append((src, dotted_destination(src, base_dir, home)))
-    return candidates
-
-
-def file_candidates(nc: NoahConfig, nu: NoahUserProcessor) -> list[tuple[Path, Path]]:
-    """Generate master stack of all expected files and folders to target link."""
-    if not nu.DOTS:
-        return []
-    candidates = []
-    candidates.extend(collect_candidates(nu.DOTS, nu.HOME, nc.dirs_to_link))
-    candidates.extend(collect_candidates(nu.SEC_DOTS, nu.HOME, nc.dirs_to_link))
-    for d in nc.dirs_to_link:
-        src = nu.DOTS / d
-        if src.is_dir():
-            candidates.append((src, dotted_destination(src, nu.DOTS, nu.HOME)))
-    return candidates
-
-
-def deploy_dotfiles(nc: NoahConfig, nu: NoahUserProcessor) -> None:
-    if nu.DOTS and not nu.DOTS.is_dir():
-        log.error(f"Dotfiles directory missing: {nu.DOTS}")
-        return
-    linked = sum(1 for src, dst in file_candidates(nc, nu) if link_path(src, dst))
-    if shutil.which("hyprctl"):
-        subprocess.run(["hyprctl", "reload"], check=False)
-        log.info("Hyprland reloaded configuration.")
-    log.info(f"Total files synchronized and linked: {linked}")
-
-
 ############################
 # ENCRYPTION / KEYS
 ############################
 def import_ssh(key_path: Path) -> None:
     socket_path = Path(f"/run/user/{os.getuid()}/gcr/ssh")
     if not socket_path.exists():
+        socket_path.mkdir(parents=True, exist_ok=True)
+        os.chmod(socket_path, 0o700)  # Owner only
         run_dmc(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
         run_dmc(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-    run_dmc(["ssh-add", str(key_path)], check=False)
+    if key_path.exists():
+        os.chmod(key_path, 0o600)  # Owner read/write only
+    run_dmc(["ssh-add", str(key_path)], check=True)
     log.info(f"SSH identity processed for: {key_path}")
 
 
@@ -241,25 +349,25 @@ def clone_repos(git_repos: GitReposConfiguration, dest: Path, ssh: bool) -> None
 
     dest.mkdir(parents=True, exist_ok=True)
     for git_user in git_repos.repositories:
-        for remote_repo, local_dir in git_user.repos.items():
-            repo_path = dest / Path(local_dir).name
-            if repo_path.exists():
-                log.info(f"Repository destination '{repo_path}' exists, skipping.")
+        for repo_name, local_path in git_user.repos.items():
+            repo_dest = dest / local_path
+            if any(repo_dest.iterdir()):
+                log.info(f"Repository destination '{repo_dest}' exists, skipping.")
                 continue
-            result = subprocess.run(
-                [
-                    "git",
-                    "clone",
-                    get_url(git_user.username, remote_repo),
-                    str(repo_path),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                log.info(f"Successfully cloned {remote_repo}")
-            else:
-                log.warning(f"Aborted {remote_repo}: {result.stderr.strip()}")
+            try:
+                run_dmc(
+                    [
+                        "git",
+                        "clone",
+                        get_url(git_user.username, repo_name),
+                        str(repo_dest),
+                    ],
+                    check=True,
+                    cwd=dest,
+                )
+                log.info(f"Successfully cloned {repo_name} to {repo_dest}")
+            except subprocess.CalledProcessError as e:
+                log.warning(f"Failed to clone {repo_name}: {e}")
 
 
 def configure_git() -> None:
@@ -298,19 +406,18 @@ def set_folder_icons(
             )
 
 
-def pass_and_input(pass_path: Path, firefox_browser: str) -> None:
+def pass_and_mail(pass_path: Path, firefox_browser: str) -> None:
     """Loads master pass into clipboard, launches extension URL, and flushes clipboard after 15s delay."""
     password = pass_path.read_text().strip()
     os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
-    log.info("Master password copied to system volatile clipboard buffer.")
+    log.info("Master password copied to clipboard.")
+    run_dmc(["protonmail-bridge-core", "--cli"], interactive=True)
     cmd = [
         firefox_browser,
         "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/",
     ]
     subprocess.Popen(cmd)
-    log.info("Waiting 15 seconds  before purge.")
-    time.sleep(15)
     pyperclip.copy("")
     os.environ.pop("CLIPBOARD_STATE", None)
     log.info("Sensitive clipboard stack cleared completely.")
@@ -318,7 +425,10 @@ def pass_and_input(pass_path: Path, firefox_browser: str) -> None:
 
 def launch_apps(apps: list[str] | None = None) -> None:
     if apps is None:
-        apps = ["protonmail-bridge", "betterbird", "steam"]
+        apps = [
+            "betterbird",
+            "steam",
+        ]
     processes = [subprocess.Popen(app) for app in apps if shutil.which(app)]
     for process in processes:
         process.wait()
@@ -330,10 +440,12 @@ def scrcpy_setup(port: int = 5555) -> None:
             "Please assert active connectivity via hardwire link lines before running network bridge."
         )
         return
+
     route_output = run_dmc(["adb", "shell", "ip", "route"])
     lines = (
         route_output.stdout.splitlines() if route_output and route_output.stdout else []
     )
+    print("Route lines:", lines)
     ip = next(
         (
             line.split("src")[-1].strip()
@@ -343,12 +455,15 @@ def scrcpy_setup(port: int = 5555) -> None:
         None,
     )
     if not ip:
-        log.warning("Device could not dynamically resolve ip.")
+        log.warning("Device could not dynamically resolve IP from adb output.")
         return
     target = f"{ip}:{port}"
     log.info(f"Attempting handoff sync targeting interface address: {target}")
-    if msg := run_dmc(["adb", "connect", target]):
-        log.info((msg.stdout + msg.stderr).lower())
+    msg = run_dmc(["adb", "connect", target])
+    if msg:
+        stdout = msg.stdout.strip() if msg.stdout else ""
+        stderr = msg.stderr.strip() if msg.stderr else ""
+        log.info(f"ADB connect stdout: {stdout.lower()}, stderr: {stderr.lower()}")
 
 
 ############################
@@ -366,30 +481,31 @@ def fix_network_stack() -> None:
 
 def handle_identities(nc: NoahConfig, nu: NoahUserProcessor) -> None:
     if nu.ssh_path and nu.ssh_path.is_file():
-        # import_ssh(nu.ssh_path)
-        # configure_git()
+        import_ssh(nu.ssh_path)
+        configure_git()
         ensure_github_known_hosts(nu.HOME)
         if nc.git_repos_config:
             clone_repos(nc.git_repos_config, nu.HOME, ssh=True)
-    elif nc.git_repos_config:
-        clone_repos(nc.git_repos_config, nu.HOME, ssh=False)
-    if nu.gpg_path and nu.gpg_path.is_file():
-        import_gpg(nu.gpg_path)
+    else:
+        if git_conf := nc.git_repos_config:
+            clone_repos(git_conf, nu.HOME, ssh=False)
+    # if nu.gpg_path and nu.gpg_path.is_file():
+    #     import_gpg(nu.gpg_path)
 
 
 ############################
 # MAIN FLOW
 ############################
-def user_setup() -> None:
-    # if shutil.which("zsh"):
-    #     run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    # fix_network_stack()
-    # if shutil.which("tuned"):
-    #     run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
+def user_setup(HOME: Path = Path.home()) -> None:
+    if shutil.which("zsh"):
+        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    fix_network_stack()
+    if shutil.which("tuned"):
+        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
     nc = NoahConfig.from_config(noah_json)
     nu = NoahUserProcessor(nc)
-    # if shutil.which("mariadb"):
-    #     enable_mariadb()
+    if shutil.which("mariadb"):
+        enable_mariadb()
     handle_identities(nc, nu)
     if nu.ENCRYPTED and shutil.which("gocryptfs"):
         if not (nu.ENCRYPTED / "gocryptfs.conf").exists():
@@ -399,16 +515,23 @@ def user_setup() -> None:
     for plugin in nc.yazi_plugins:
         run_dmc(["ya", "pkg", "add", plugin])
     if nu.DOTS and any(nu.DOTS.iterdir()):
-        deploy_dotfiles(nc, nu)
-        run_dmc(
-            ["uv", "add", "openmeteo-requests"],
-            cwd=str(nu.HOME / ".local" / "bin" / "weather"),
-        )
+        if nc.dotfiles_dir and nc.dirs_to_link:
+            if nc.secret_dotfiles_dir:
+                polka = PolkaConfiguration(
+                    home=HOME,
+                    dotfiles_dir_str=nc.dotfiles_dir,
+                    secdots_dir_str=nc.secret_dotfiles_dir,
+                    dirs_to_link=nc.dirs_to_link,
+                )
+                polka.deploy()
+                run_dmc(
+                    ["uv", "add", "openmeteo-requests"],
+                    cwd=str(nu.HOME / ".local" / "bin" / "weather"),
+                )
     if shutil.which("scrcpy"):
         scrcpy_setup()
-    if nu.masterpass_path and nu.masterpass_path.is_file() and nc.firefox_browser:
-        pass_and_input(nu.masterpass_path, nc.firefox_browser)
-        launch_apps()
+    if nu.masterpass_path and nc.firefox_browser:
+        pass_and_mail(nu.masterpass_path, nc.firefox_browser)
     if shutil.which("gh"):
         run_dmc(
             ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
