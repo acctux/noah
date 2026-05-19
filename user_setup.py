@@ -515,13 +515,13 @@ def user_setup(HOME: Path = Path.home()) -> None:
     for plugin in nc.yazi_plugins:
         run_dmc(["ya", "pkg", "add", plugin])
     if nu.DOTS and any(nu.DOTS.iterdir()):
-        if nc.dotfiles_dir and nc.dirs_to_link:
+        if nc.dotfiles_dir and nc.dotfiles_config:
             if nc.secret_dotfiles_dir:
                 polka = PolkaConfiguration(
                     home=HOME,
                     dotfiles_dir_str=nc.dotfiles_dir,
                     secdots_dir_str=nc.secret_dotfiles_dir,
-                    dirs_to_link=nc.dirs_to_link,
+                    dirs_to_link=nc.dotfiles_config.dirs_to_link,
                 )
                 polka.deploy()
                 run_dmc(

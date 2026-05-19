@@ -213,6 +213,7 @@ class NoahConfig:
     no_extracts: list[str] = field(default_factory=list)
     yazi_plugins: list[str] = field(default_factory=list)
     dirs_icons: dict[str, str] = field(default_factory=dict)
+    git_repos_config: GitReposConfiguration | None = None
     dotfiles_config: DotfilesConfiguration | None = None
     key_copy_config: KeyCopyConfiguration | None = None
     additional_usb_to_cp_config: CopyConfiguration | None = None
@@ -223,6 +224,7 @@ class NoahConfig:
     def from_config(cls, args: dict[str, Any]) -> "NoahConfig":
         noah = cls()
 
+        # simple scalar fields
         if "terminal" in args:
             noah.terminal = args["terminal"]
 
@@ -283,5 +285,8 @@ class NoahConfig:
 
         if us := args.get("user_services"):
             noah.user_services_config = UserServicesConfiguration.from_arg(us)
+
+        if gr := args.get("git_repos"):
+            noah.git_repos_config = GitReposConfiguration.from_arg(gr)
 
         return noah
