@@ -86,6 +86,7 @@ def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     global_menu.set_enabled("bootloader_config", True)
     global_menu.set_enabled("ntp", True)
     global_menu.set_enabled("kernels", True)
+    global_menu.set_enabled("profile_config", True)
     global_menu.set_enabled("hostname", True)
     global_menu.set_enabled("auth_config", True)
     global_menu.set_enabled("app_config", True)
@@ -158,6 +159,7 @@ def perform_installation(
 
         if mirror_config := config.mirror_config:
             installation.set_mirrors(mirror_list_handler, mirror_config, on_target=True)
+
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
 
