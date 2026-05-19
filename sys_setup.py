@@ -187,13 +187,11 @@ def perform_installation(
                     installation, config.auth_config, config.hostname
                 )
 
-        if (profile_config := config.profile_config) and profile_config.profile:
-            profile_config.profile.post_install(installation)
-            if users:
-                profile_config.profile.provision(installation, users)
-
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
+
+        if profile_config := config.profile_config:
+            profile_handler.install_profile_config(installation, profile_config)
 
         if config.packages and config.packages[0] != "":
             installation.add_additional_packages(config.packages)
@@ -210,6 +208,11 @@ def perform_installation(
         if config.auth_config and config.auth_config.root_enc_password:
             root_user = User("root", config.auth_config.root_enc_password, False)
             installation.set_user_password(root_user)
+
+        if (profile_config := config.profile_config) and profile_config.profile:
+            profile_config.profile.post_install(installation)
+            if users:
+                profile_config.profile.provision(installation, users)
 
         profile_handler.install_greeter(installation, GreeterType.Ly)
         bootloader_handling(installation, config)
