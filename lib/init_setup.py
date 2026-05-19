@@ -54,6 +54,7 @@ def get_device(min_gb: int = 20, usb_fs_type: str = "ext4") -> str:
             if (
                 dev["type"] == "part"
                 and dev.get("fstype") == usb_fs_type
+                or "exfat"
                 and dev.get("mountpoint") is None
                 and float(dev["size"][:-1]) > min_gb
             ):
