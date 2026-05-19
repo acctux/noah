@@ -214,7 +214,7 @@ def perform_installation(
             if users:
                 profile_config.profile.provision(installation, users)
 
-        profile_handler.install_greeter(installation, GreeterType.Ly)
+        # profile_handler.install_greeter(installation, GreeterType.Ly)
         bootloader_handling(installation, config)
         handle_sys_files(installation, nc, script_d)
         if users:
