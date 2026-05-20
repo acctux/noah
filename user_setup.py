@@ -478,54 +478,60 @@ def fix_network_stack() -> None:
 def handle_identities(nc: NoahConfig, nu: NoahUserProcessor) -> None:
     if nu.ssh_path and nu.ssh_path.is_file():
         import_ssh(nu.ssh_path)
-        configure_git()
-        ensure_github_known_hosts(nu.HOME)
-        if nc.git_repos_config:
-            clone_repos(nc.git_repos_config, nu.HOME, ssh=True)
+    configure_git()
+    ensure_github_known_hosts(nu.HOME)
+    if nc.git_repos_config:
+        clone_repos(nc.git_repos_config, nu.HOME, ssh=True)
     else:
         if git_conf := nc.git_repos_config:
             clone_repos(git_conf, nu.HOME, ssh=False)
-    # if nu.gpg_path and nu.gpg_path.is_file():
-    #     import_gpg(nu.gpg_path)
+    if nu.gpg_path and nu.gpg_path.is_file():
+        import_gpg(nu.gpg_path)
 
 
 ############################
 # MAIN FLOW
 ############################
 def user_setup(HOME: Path = Path.home()) -> None:
-    # if shutil.which("zsh"):
-    #     run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    # fix_network_stack()
-    # if shutil.which("tuned"):
-    #     run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
+    run_dmc(["rfkill", "unblock", "wlan"])
+    run_dmc(["rfkill", "unblock", "bluetooth"])
+    # CHECK NAME
+    # run_dmc(["systemctl", "--user", "disable", "user-setup"])
+    if shutil.which("zsh"):
+        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    fix_network_stack()
+    if shutil.which("tuned"):
+        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
     nc = NoahConfig.from_config(noah_json)
     nu = NoahUserProcessor(nc)
-    # if shutil.which("mariadb"):
-    #     enable_mariadb()
-    # handle_identities(nc, nu)
-    # if nu.ENCRYPTED and shutil.which("gocryptfs"):
-    #     if not (nu.ENCRYPTED / "gocryptfs.conf").exists():
-    #         init_gocrypt(nu.ENCRYPTED)
-    # if nu.dirs_icons:
-    #     set_folder_icons(nu.dirs_icons)
-    # for plugin in nc.yazi_plugins:
-    #     run_dmc(["ya", "pkg", "add", plugin])
-    # if nu.DOTS and any(nu.DOTS.iterdir()):
-    #     if nc.dotfiles_dir and nc.dotfiles_config:
-    #         if nc.secret_dotfiles_dir:
-    #             polka = PolkaConfiguration(
-    #                 home=HOME,
-    #                 dotfiles_dir_str=nc.dotfiles_dir,
-    #                 secdots_dir_str=nc.secret_dotfiles_dir,
-    #                 dirs_to_link=nc.dotfiles_config.dirs_to_link,
-    #             )
-    #             polka.deploy()
-    #             run_dmc(
-    #                 ["uv", "add", "openmeteo-requests"],
-    #                 cwd=str(nu.HOME / ".local" / "bin" / "weather"),
-    #             )
-    # if shutil.which("scrcpy") and not (HOME / ".android" / "adbkey").is_file():
-    #     scrcpy_setup()
+    if shutil.which("mariadb"):
+        enable_mariadb()
+    handle_identities(nc, nu)
+    if nu.ENCRYPTED and shutil.which("gocryptfs"):
+        if not (nu.ENCRYPTED / "gocryptfs.conf").exists():
+            init_gocrypt(nu.ENCRYPTED)
+    if nu.dirs_icons:
+        set_folder_icons(nu.dirs_icons)
+    for plugin in nc.yazi_plugins:
+        run_dmc(["ya", "pkg", "add", plugin])
+    if nu.DOTS and any(nu.DOTS.iterdir()):
+        if nu.DOTS and any(nu.DOTS.iterdir()):
+            if nc.dotfiles_config and nc.dotfiles_config.dotfiles_dir:
+                if nc.dotfiles_config.secret_dotfiles_dir:
+                    polka = PolkaConfiguration(
+                        home=HOME,
+                        dotfiles_dir_str=nc.dotfiles_config.dotfiles_dir,
+                        secdots_dir_str=nc.dotfiles_config.secret_dotfiles_dir,
+                        dirs_to_link=nc.dotfiles_config.dirs_to_link,
+                    )
+                polka.deploy()
+
+            run_dmc(
+                ["uv", "add", "openmeteo-requests"],
+                cwd=str(nu.HOME / ".local" / "bin" / "weather"),
+            )
+    if shutil.which("scrcpy") and not (HOME / ".android" / "adbkey").is_file():
+        scrcpy_setup()
     if nu.masterpass_path and nc.firefox_browser:
         pass_and_mail(nu.masterpass_path, nc.firefox_browser)
     if shutil.which("gh"):

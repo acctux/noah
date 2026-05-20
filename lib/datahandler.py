@@ -283,7 +283,7 @@ class NoahConfig:
         if us := args.get("user_services"):
             noah.user_services_config = UserServicesConfiguration.from_arg(us)
 
-        if gr := args.get("git_repos"):
+        if gr := args.get("git_repo_config"):
             noah.git_repos_config = GitReposConfiguration.from_arg(gr)
 
         return noah
