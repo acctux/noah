@@ -164,86 +164,7 @@ class NoahUserProcessor:
         }
 
 
-##########################################
-# DOTFILES
-##########################################
-def link_path(src: Path, dst: Path) -> bool:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    rel = os.path.relpath(src, dst.parent)
-    if dst.is_symlink() and os.readlink(dst) == rel:
-        return False
-    if dst.exists() or dst.is_symlink():
-        if dst.is_dir() and not dst.is_symlink():
-            shutil.rmtree(dst)
-        else:
-            dst.unlink()
-        log.info(f"Removed: {dst}")
-    dst.symlink_to(rel, target_is_directory=src.is_dir())
-    log.info(f"Linked: {dst} → {rel}")
-    return True
-
-
-def dotted_destination(src: Path, source_dir: Path, target_dir: Path) -> Path:
-    parts = src.relative_to(source_dir).parts
-    return target_dir / Path("." + parts[0], *parts[1:])
-
-
-def collect_candidates(
-    base_dir: Path, home: Path, dirs_to_skip: list[str]
-) -> list[tuple[Path, Path]]:
-    """Return list of (src, dst) tuples for all files in base_dir, skipping certain dirs."""
-    candidates = []
-    for src in base_dir.rglob("*"):
-        if not src.is_file():
-            continue
-        rel = src.relative_to(base_dir)
-        if rel.parts[0] == ".git":
-            continue
-        if any(rel.parts[0] == d.split("/")[0] for d in dirs_to_skip):
-            continue
-        candidates.append((src, dotted_destination(src, base_dir, home)))
-    return candidates
-
-
-def file_candidates(
-    dirs_to_link: list[str], dotfiles_dir: Path, home: Path, secdots_dir: Path
-) -> list[tuple[Path, Path]]:
-    """Return list of (src, dst) tuples to link."""
-    candidates = []
-    candidates.extend(collect_candidates(dotfiles_dir, home, dirs_to_link))
-    candidates.extend(collect_candidates(secdots_dir, home, dirs_to_link))
-    for d in dirs_to_link:
-        src = dotfiles_dir / d
-        if src.is_dir():
-            candidates.append((src, dotted_destination(src, dotfiles_dir, home)))
-    return candidates
-
-
-def deploy_dotfiles(
-    dotfiles_dir: Path, dirs_to_link: list[str], home: Path, secdots_dir: Path
-):
-    if not dotfiles_dir.is_dir():
-        log.error(f"Dotfiles directory not found: {dotfiles_dir}")
-        return
-    linked = 0
-    for src, dst in file_candidates(
-        dirs_to_link=dirs_to_link,
-        dotfiles_dir=dotfiles_dir,
-        home=home,
-        secdots_dir=secdots_dir,
-    ):
-        if link_path(src, dst):
-            linked += 1
-    if shutil.which("hyprctl"):
-        subprocess.run(["hyprctl", "reload"], check=False)
-        log.info("Hyprland reloaded")
-    log.info(f"Total linked:\033[0m {linked}")
-
-
-##########################################
-# HELPERS
-##########################################
-##########################################
+###########################################################
 # ENTRY
 ##########################################
 def enter_pass(prompt_str: str) -> str:
@@ -393,6 +314,15 @@ def set_folder_icons(
     custom_folder_icons: dict[Path, str],
     icon_dir: str = "/usr/share/icons/WhiteSur-dark/places/scalable",
 ) -> None:
+    run_dmc(
+        [
+            "gsettings",
+            "set",
+            "org.gnome.desktop.interface",
+            "icon-theme",
+            "'WhiteSur-dark'",
+        ]
+    )
     for folder, icon_name in custom_folder_icons.items():
         icon = Path(icon_dir) / f"{icon_name}.svg"
         folder.mkdir(parents=True, exist_ok=True)
@@ -495,8 +425,7 @@ def handle_identities(nc: NoahConfig, nu: NoahUserProcessor) -> None:
 def user_setup(HOME: Path = Path.home()) -> None:
     run_dmc(["rfkill", "unblock", "wlan"])
     run_dmc(["rfkill", "unblock", "bluetooth"])
-    # CHECK NAME
-    # run_dmc(["systemctl", "--user", "disable", "user-setup"])
+    run_dmc(["systemctl", "--user", "disable", "user_setup"])
     if shutil.which("zsh"):
         run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
     fix_network_stack()

@@ -1,5 +1,6 @@
-from root_files import etc_files_to_write, new_policies
-from typing import Any
+from archinstall.lib.args import ArchConfig
+from archinstall.lib.models.application import Firewall
+from root_files import etc_files_to_write
 import json
 from lib.datahandler import NoahConfig
 from utils import log, run_dmc, copy_dir, write_etc_file
@@ -43,7 +44,24 @@ def copy_skel(mountpoint: Path, nc: NoahConfig):
         copy_dir(tmp, mountpoint / "etc" / "skel")
 
 
-def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) -> None:
+def set_extensions(
+    mnt_point: Path,
+    browser: str,
+    extension_ids: list[str] = [
+        "return-youtube-dislikes",
+        "leechblock-ng",
+        "proton-pass",
+        "firefox-color",
+        "darkreader",
+        "flagfox",
+        "ublock-origin",
+    ],
+) -> None:
+    """Set Firefox extensions from a list of extension IDs."""
+    new_install = [
+        f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
+        for ext in extension_ids
+    ]
     file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
     data = {}
     if file_path.exists():
@@ -51,15 +69,20 @@ def set_extensions(mnt_point: Path, browser: str, new_policies: dict[str, Any]) 
             data = json.loads(file_path.read_text())
         except json.JSONDecodeError:
             log.warning(f"Corrupt JSON in {file_path}, resetting.")
-
-    data.setdefault("policies", {}).update(new_policies)
+    policies = data.setdefault("policies", {})
+    extensions = policies.setdefault("Extensions", {})
+    extensions["Install"] = new_install
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(json.dumps(data, indent=2))
-    log.info(f"Policies for {browser} have been set (overwritten).")
+    log.info(f"'Extensions.Install' for {browser} has been overwritten.")
 
 
-def sys_dots(mnt_point: Path, script_dir: Path) -> None:
-    for dir_name in ["etc", "usr"]:
+def sys_dots(
+    mnt_point: Path,
+    script_dir: Path,
+    dirs_to_cp: list[str] = ["etc", "usr"],
+) -> None:
+    for dir_name in dirs_to_cp:
         source_dir = script_dir / dir_name
         target_dir = mnt_point / dir_name
         log.info("Processing %s -> %s", source_dir, target_dir)
@@ -67,12 +90,32 @@ def sys_dots(mnt_point: Path, script_dir: Path) -> None:
             log.error("Source directory not found: %s", source_dir)
             continue
         shutil.copytree(
-            source_dir, target_dir, dirs_exist_ok=True, copy_function=shutil.copy2
+            source_dir,
+            target_dir,
+            dirs_exist_ok=True,
+            copy_function=shutil.copy2,
         )
         log.info("Copied %s to %s", source_dir, target_dir)
 
 
-def handle_sys_files(installation: Installer, nc: NoahConfig, script_d: Path):
+def handle_firewall(
+    installation: Installer,
+    config: ArchConfig,
+    ports_to_open: list[str] = ["KDEConnect", "Deluge", "51820/udp"],
+):
+    if app_config := config.app_config:
+        if firewall_conf := app_config.firewall_config:
+            if firewall_conf.firewall == Firewall("ufw"):
+                for allow_port in ports_to_open:
+                    installation.arch_chroot(f"ufw allow {allow_port}")
+
+
+def handle_sys_files(
+    installation: Installer,
+    nc: NoahConfig,
+    config: ArchConfig,
+    script_d: Path,
+):
     write_etc_file(installation.target, etc_files_to_write)
     if nc.reflector_country:
         reflector_options = [
@@ -87,6 +130,7 @@ def handle_sys_files(installation: Installer, nc: NoahConfig, script_d: Path):
             "\n".join(reflector_options)
         )
     if nc.firefox_browser:
-        set_extensions(installation.target, nc.firefox_browser, new_policies)
+        set_extensions(installation.target, nc.firefox_browser)
     sys_dots(installation.target, script_d)
     install_icons(installation)
+    handle_firewall(installation, config)

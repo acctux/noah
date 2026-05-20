@@ -194,10 +194,10 @@ def perform_installation(
                 profile_config.profile.provision(installation, users)
 
         profile_handler.install_gfx_driver(installation, GfxDriver.AmdOpenSource)
-        profile_handler.install_greeter(installation, GreeterType.Ly)
         profile_handler.install_gfx_driver(installation, GfxDriver.NvidiaOpenKernel)
+        profile_handler.install_greeter(installation, GreeterType.Ly)
         bootloader_handling(installation, config)
-        handle_sys_files(installation, nc, script_d)
+        handle_sys_files(installation, nc, config, script_d)
         if users:
             single_user_and_user_list(
                 installation, users, nc, script_d, config.packages
@@ -260,6 +260,7 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
         base_pkgs=pp.base
         + pp.android
         + pp.coding
+        + pp.gaming
         + pp.hardware
         + pp.hyprland
         + pp.ios

@@ -155,14 +155,14 @@ etc_files_to_write: dict[str, str] = {
         PICTURES=Desktop/Pictures
         BOOKS=Desktop/Books
         SCREENSHOTS=Desktop/Pictures/Screenshots
-        GAMES=Games
+        GAMES=Desktop/Games
         WALLPAPERS=Desktop/Pictures/Wallpapers
         VIDEOS=Desktop/Videos
         DOWNLOAD=Desktop/Downloads
         TEMPLATES=Desktop/Templates
         PRIVATE=Desktop/Private
         PUBLICSHARE=Desktop/Public
-        PROJECTS="Lit"
+        PROJECTS=Lit
         """
     ),
     "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
@@ -443,59 +443,4 @@ etc_files_to_write: dict[str, str] = {
         xsessions = /usr/share/xsessions
         """
     ),
-}
-new_policies = {
-    "DisableAppUpdate": True,
-    "DisableDeveloperTools": False,
-    "DisableFeedbackCommands": True,
-    "DisableFirefoxStudies": True,
-    "DisablePocket": True,
-    "DisableProfileImport": False,
-    "DisableSetDesktopBackground": False,
-    "DisableTelemetry": True,
-    "OverrideFirstRunPage": "about:welcome",
-    "OverridePostUpdatePage": "",
-    "DNSOverHTTPS": {"Enabled": False, "ProviderURL": "", "Locked": False},
-    "HardwareAcceleration": True,
-    "WebsiteFilter": {
-        "Block": ["https://localhost/*"],
-        "Exceptions": ["https://localhost/*"],
-    },
-    "Extensions": {
-        "Install": [
-            "https://addons.mozilla.org/firefox/downloads/latest/return-youtube-dislikes/latest.xpi",
-            "https://addons.mozilla.org/firefox/downloads/latest/leechblock-ng/latest.xpi",
-            "https://addons.mozilla.org/firefox/downloads/latest/proton-pass/latest.xpi",
-            "https://addons.mozilla.org/firefox/downloads/latest/firefox-color/latest.xpi",
-            "https://addons.mozilla.org/firefox/downloads/latest/darkreader/latest.xpi",
-            "https://addons.mozilla.org/firefox/downloads/latest/flagfox/latest.xpi",
-            "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi",
-        ],
-        "Uninstall": [
-            "google",
-            "bing",
-            "amazondotcom",
-            "ebay",
-            "twitter",
-        ],
-    },
-    "3rdparty": {
-        "Extensions": {
-            "uBlock0@raymondhill.net": {
-                "adminSettings": {
-                    "assetsBootstrapLocation": "https://codeberg.org/librewolf/source/raw/branch/main/assets/uBOAssets.json"
-                }
-            }
-        }
-    },
-    "SearchEngines": {
-        "PreventInstalls": False,
-        "Default": "DuckDuckGo",
-        "Remove": [
-            "Bing",
-            "Amazon.com",
-            "eBay",
-            "Twitter",
-        ],
-    },
 }
