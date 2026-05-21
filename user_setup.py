@@ -20,13 +20,6 @@ log = get_logger("Noah")
 ############################
 # USER SETUP HELPERS
 ############################
-def iwctl_scan() -> bool:
-    """Trigger a background station scan via iwctl."""
-    result = run_dmc(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
-    time.sleep(10)
-    return result.returncode == 0 if result else False
-
-
 def ping(host: str = "google.com") -> bool:
     """Check network connectivity via single ping."""
     try:
@@ -391,6 +384,11 @@ def scrcpy_setup(port: int = 5555) -> None:
 # SYSTEM COMPONENT FLOWS
 ############################
 def fix_network_stack() -> None:
+    def iwctl_scan():
+        result = run_dmc(["sudo", "iwctl", "station", "wlan0", "scan"], check=False)
+        time.sleep(10)
+        return result.returncode == 0 if result else False
+
     run_dmc(["rfkill", "unblock", "wlan"])
     run_dmc(["rfkill", "unblock", "bluetooth"])
     if Path("/etc/resolv.conf").is_symlink() and not ping():
@@ -398,8 +396,9 @@ def fix_network_stack() -> None:
         run_dmc(["sudo", "resolvconf", "-u"])
         run_dmc(["sudo", "systemctl", "restart", "iwd"])
         time.sleep(5)
-        iwctl_scan()
-        time.sleep(5)
+        if not iwctl_scan():
+            time.sleep(10)
+            iwctl_scan()
 
 
 ############################
@@ -457,9 +456,6 @@ def user_setup(HOME: Path = Path.home()) -> None:
             ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
             interactive=True,
         )
-    archinstall_dir = nu.HOME / "archinstall"
-    if archinstall_dir.exists():
-        shutil.rmtree(archinstall_dir)
     if yes_no("Finished. Reboot system interface now?", default=False):
         run_dmc(["systemctl", "reboot"])
     else:
