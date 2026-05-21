@@ -185,13 +185,10 @@ noah_json = {
     "dotfiles_config": {
         "dotfiles_dir": "Lit/polka",
         "secret_dotfiles_dir": "Lit/Docs/secdots",
-        "dirs_to_link": [
-            "local/bin",
-        ],
     },
     "dirs_icons": {
         "Desktop/Games": "folder-games",
-        "Desktop/Encrypted": "folder-locked",
+        "Desktop/Private": "folder-locked",
         "Lit": "folder-github",
         "Lit/noah": "folder-root",
         "Lit/Docs": "folder-bookmark",

@@ -48,7 +48,6 @@ monitoring: list[str] = [
     "logrotate",
     "powertop",
     "systemctl-tui",
-    "wireshark-cli",
 ]
 coding: list[str] = [
     "ugrep",
@@ -123,16 +122,17 @@ personal: list[str] = [
     "python-pandas",  # weather
     "python-pydantic",  # noah
     "python-pyperclip",  # noah
+    "python-libtmux",
     "python-systemd",  # loggy
     "python-wand",  # wallpaper script
+    "qrencode",  # qr codes
+    "zbar",  # qr codes
 ]
 base: list[str] = [
-    "neomutt",
     "authenticator",
     "baobab",
     "base-devel",
     "bat-extras",
-    "bustle",
     "capitaine-cursors",
     "deluge-gtk",
     "eza",
@@ -147,7 +147,6 @@ base: list[str] = [
     "otf-firamono-nerd",
     "partitionmanager",
     "pkgfile",
-    "qrencode",  # qr codes
     "rebuild-detector",
     "reflector",
     "ripgrep-all",
@@ -155,14 +154,12 @@ base: list[str] = [
     "seahorse",
     "starship",
     "taskwarrior-tui",
-    "tmuxp",
     "trash-cli",
     "unrar",  # File roller
     "zsh-autocomplete",
     "zsh-completions",
     "zsh-syntax-highlighting",
     "yazi",
-    "zbar",  # qr codes
     "zoxide",
 ]
 language: list[str] = [
@@ -190,6 +187,7 @@ office: list[str] = [
     "gnucash",
     "evince",
     "libreoffice-fresh",
+    "neomutt",
     "protonmail-bridge-core",
     "coin-or-mp",  # LibreOffice Calc Solver
     "qalculate-qt",

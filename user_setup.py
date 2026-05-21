@@ -349,12 +349,7 @@ def pass_and_mail(pass_path: Path, firefox_browser: str) -> None:
     log.info("Sensitive clipboard stack cleared completely.")
 
 
-def launch_apps(apps: list[str] | None = None) -> None:
-    if apps is None:
-        apps = [
-            "betterbird",
-            "steam",
-        ]
+def launch_apps(apps: list[str] = ["steam"]) -> None:
     processes = [subprocess.Popen(app) for app in apps if shutil.which(app)]
     for process in processes:
         process.wait()
@@ -396,6 +391,8 @@ def scrcpy_setup(port: int = 5555) -> None:
 # SYSTEM COMPONENT FLOWS
 ############################
 def fix_network_stack() -> None:
+    run_dmc(["rfkill", "unblock", "wlan"])
+    run_dmc(["rfkill", "unblock", "bluetooth"])
     if Path("/etc/resolv.conf").is_symlink() and not ping():
         run_dmc(["sudo", "rm", "/etc/resolv.conf"])
         run_dmc(["sudo", "resolvconf", "-u"])
@@ -405,7 +402,20 @@ def fix_network_stack() -> None:
         time.sleep(5)
 
 
-def handle_identities(nc: NoahConfig, nu: NoahUserProcessor) -> None:
+############################
+# MAIN FLOW
+############################
+def user_setup(HOME: Path = Path.home()) -> None:
+    run_dmc(["systemctl", "--user", "disable", "user_setup"])
+    if shutil.which("zsh"):
+        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+    fix_network_stack()
+    if shutil.which("tuned"):
+        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
+    nc = NoahConfig.from_config(noah_json)
+    nu = NoahUserProcessor(nc)
+    if shutil.which("mariadb"):
+        enable_mariadb()
     if nu.ssh_path and nu.ssh_path.is_file():
         import_ssh(nu.ssh_path)
     configure_git()
@@ -417,25 +427,6 @@ def handle_identities(nc: NoahConfig, nu: NoahUserProcessor) -> None:
             clone_repos(git_conf, nu.HOME, ssh=False)
     if nu.gpg_path and nu.gpg_path.is_file():
         import_gpg(nu.gpg_path)
-
-
-############################
-# MAIN FLOW
-############################
-def user_setup(HOME: Path = Path.home()) -> None:
-    run_dmc(["rfkill", "unblock", "wlan"])
-    run_dmc(["rfkill", "unblock", "bluetooth"])
-    run_dmc(["systemctl", "--user", "disable", "user_setup"])
-    if shutil.which("zsh"):
-        run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
-    fix_network_stack()
-    if shutil.which("tuned"):
-        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
-    nc = NoahConfig.from_config(noah_json)
-    nu = NoahUserProcessor(nc)
-    if shutil.which("mariadb"):
-        enable_mariadb()
-    handle_identities(nc, nu)
     if nu.ENCRYPTED and shutil.which("gocryptfs"):
         if not (nu.ENCRYPTED / "gocryptfs.conf").exists():
             init_gocrypt(nu.ENCRYPTED)
@@ -444,21 +435,19 @@ def user_setup(HOME: Path = Path.home()) -> None:
     for plugin in nc.yazi_plugins:
         run_dmc(["ya", "pkg", "add", plugin])
     if nu.DOTS and any(nu.DOTS.iterdir()):
-        if nu.DOTS and any(nu.DOTS.iterdir()):
-            if nc.dotfiles_config and nc.dotfiles_config.dotfiles_dir:
-                if nc.dotfiles_config.secret_dotfiles_dir:
-                    polka = PolkaConfiguration(
-                        home=HOME,
-                        dotfiles_dir_str=nc.dotfiles_config.dotfiles_dir,
-                        secdots_dir_str=nc.dotfiles_config.secret_dotfiles_dir,
-                        dirs_to_link=nc.dotfiles_config.dirs_to_link,
-                    )
+        if nc.dotfiles_config and nc.dotfiles_config.dotfiles_dir:
+            if nc.dotfiles_config.secret_dotfiles_dir:
+                polka = PolkaConfiguration(
+                    home=HOME,
+                    dotfiles_dir_str=nc.dotfiles_config.dotfiles_dir,
+                    secdots_dir_str=nc.dotfiles_config.secret_dotfiles_dir,
+                    dirs_to_link=nc.dotfiles_config.dirs_to_link,
+                )
                 polka.deploy()
-
-            run_dmc(
-                ["uv", "add", "openmeteo-requests"],
-                cwd=str(nu.HOME / ".local" / "bin" / "weather"),
-            )
+    run_dmc(
+        ["uv", "add", "openmeteo-requests"],
+        cwd=str(nu.HOME / ".local" / "bin" / "weather"),
+    )
     if shutil.which("scrcpy") and not (HOME / ".android" / "adbkey").is_file():
         scrcpy_setup()
     if nu.masterpass_path and nc.firefox_browser:

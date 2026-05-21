@@ -17,42 +17,10 @@ network_files: dict[str, str] = {
         ReadWritePaths=/etc/resolv.conf
         """
     ),
-    "etc/systemd/system/wg-quick@.service.d/override.conf": dedent(
-        """\
-        [Unit]
-        After=
-        Wants=
-        """
-    ),
-    "etc/systemd/network/20-usb-tether.network": dedent(
-        """\
-        [Match]
-        Name=enp*
-
-        [Network]
-        DHCP=yes
-        IPv6AcceptRA=yes
-        """
-    ),
     "etc/resolvconf.conf": dedent(
         """\
         resolv_conf=/etc/resolv.conf
         name_servers="::1 127.0.0.1"
-        """
-    ),
-    "etc/firewalld/zones/block.xml": dedent(
-        """\
-        <?xml version="1.0" encoding="utf-8"?>
-        <zone target="%%REJECT%%">
-          <short>Block</short>
-          <description>Unsolicited incoming network packets are rejected. Incoming packets that are related to outgoing network connections are accepted. Outgoing network connections are allowed.</description>
-          <service name="kdeconnect"/>
-          <service name="ssh"/>
-          <service name="wireguard"/>
-          <port port="6881-6889" protocol="tcp"/>
-          <port port="6881-6889" protocol="udp"/>
-          <forward/>
-        </zone>
         """
     ),
     "etc/named.conf": dedent(
@@ -87,22 +55,6 @@ network_files: dict[str, str] = {
             type master;
             file "127.0.0.zone";
         };
-        """
-    ),
-    "etc/nsswitch.conf": dedent(
-        """\
-        passwd: files systemd
-        group: files [SUCCESS=merge] systemd
-        shadow: files systemd
-        gshadow: files systemd
-        publickey: files
-        hosts: mymachines mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] files myhostname dns
-        networks: files
-        protocols: files
-        services: files
-        ethers: files
-        rpc: files
-        netgroup: files
         """
     ),
 }
@@ -375,72 +327,6 @@ etc_files_to_write: dict[str, str] = {
                 }
             );
         });
-        """
-    ),
-    "etc/ly/config.ini": dedent(
-        """\
-        allow_empty_password = true
-        animation = matrix
-        animation_timeout_sec = 0
-        asterisk = *
-        auth_fails = 10
-        bg = 0x00101013
-        bigclock = none
-        blank_box = true
-        border_fg = 0x00D3DAE3
-        box_title = null
-        brightness_down_cmd = /usr/bin/brightnessctl -q s 10%-
-        brightness_down_key = F5
-        brightness_up_cmd = /usr/bin/brightnessctl -q s +10%
-        brightness_up_key = F6
-        clear_password = false
-        clock = null
-        cmatrix_fg = 0x000000FF
-        cmatrix_min_codepoint = 0x21
-        cmatrix_max_codepoint = 0x7B
-        colormix_col1 = 0x0000FF00
-        colormix_col2 = 0x000000CC
-        colormix_col3 = 0x20000000
-        console_dev = /dev/console
-        default_input = login
-        doom_top_color = 0x00FF0000
-        doom_middle_color = 0x00FFFF00
-        doom_bottom_color = 0x00FFFFFF
-        error_bg = 0x00000000
-        error_fg = 0x01FF0000
-        fg = 0x00D3DAE3
-        hide_borders = false
-        hide_key_hints = false
-        initial_info_text = null
-        input_len = 34
-        lang = en
-        load = true
-        login_cmd = null
-        logout_cmd = null
-        margin_box_h = 2
-        margin_box_v = 1
-        min_refresh_delta = 5
-        numlock = true
-        path = /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-        restart_cmd = /sbin/shutdown -r now
-        restart_key = F2
-        save = true
-        service_name = ly
-        session_log = .cache/ly
-        setup_cmd = /etc/ly/setup.sh
-        shutdown_cmd = /sbin/shutdown -a now
-        shutdown_key = F1
-        sleep_cmd = null
-        sleep_key = F3
-        text_in_center = false
-        tty = 2
-        vi_default_mode = normal
-        vi_mode = false
-        waylandsessions = /usr/share/wayland-sessions
-        x_cmd = /usr/bin/X
-        xauth_cmd = /usr/bin/xauth
-        xinitrc = ~/.xinitrc
-        xsessions = /usr/share/xsessions
         """
     ),
 }

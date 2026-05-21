@@ -15,7 +15,6 @@ additional_chaotic_pkgs: list[str] = [
     "logiops",
     "ayugram-desktop-git",
     "qt6-imageformats",  # AyuGram missing dependency
-    "betterbird-bin",
     "nchat-git",
 ]
 game_chaotic_pkgs: list[str] = [

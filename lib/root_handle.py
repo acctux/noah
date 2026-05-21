@@ -1,6 +1,6 @@
 from archinstall.lib.args import ArchConfig
 from archinstall.lib.models.application import Firewall
-from root_files import etc_files_to_write
+from root_files import etc_files_to_write, network_files
 import json
 from lib.datahandler import NoahConfig
 from utils import log, run_dmc, copy_dir, write_etc_file
@@ -110,25 +110,66 @@ def handle_firewall(
                     installation.arch_chroot(f"ufw allow {allow_port}")
 
 
+def replace_hosts_line(mnt_point: Path) -> None:
+    new_hosts_line: str = "hosts: mymachines mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] files myhostname dns"
+    conf = mnt_point / "etc/nsswitch.conf"
+    lines = conf.read_text().splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("hosts"):
+            lines[i] = new_hosts_line
+            break
+    conf.write_text("\n".join(lines) + "\n")
+
+
+def write_reflector(installation: Installer, reflector_country: str):
+    reflector_options = [
+        f"--country {reflector_country}",
+        "--protocol https",
+        "--latest 15",
+        "--sort rate",
+        "--number 3",
+        "--save /etc/pacman.d/mirrorlist",
+    ]
+    (installation.target / "etc/xdg/reflector/reflector.conf").write_text(
+        "\n".join(reflector_options)
+    )
+
+
+def replace_ly_config(mnt_point: Path) -> None:
+    replacements = {
+        "animation": "matrix",
+        "bg": "0x00101013",
+        "border_fg": "0x00D3DAE3",
+        "cmatrix_fg": "0x000000FF",
+        "colormix_col1": "0x0000FF00",
+        "colormix_col2": "0x000000CC",
+        "fg": "0x00D3DAE3",
+        "numlock": "true",
+        "session_log": ".cache/ly",
+    }
+    conf = Path(mnt_point / "etc/ly/config.ini")
+    lines = conf.read_text().splitlines()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        for key, value in replacements.items():
+            if stripped.startswith(f"{key}"):
+                lines[i] = f"{key} = {value}"
+                break
+    conf.write_text("\n".join(lines) + "\n")
+
+
 def handle_sys_files(
     installation: Installer,
     nc: NoahConfig,
     config: ArchConfig,
     script_d: Path,
 ):
+    write_etc_file(installation.target, network_files)
     write_etc_file(installation.target, etc_files_to_write)
+    replace_hosts_line(installation.target)
+    replace_ly_config(installation.target)
     if nc.reflector_country:
-        reflector_options = [
-            f"--country {nc.reflector_country}",
-            "--protocol https",
-            "--latest 15",
-            "--sort rate",
-            "--number 3",
-            "--save /etc/pacman.d/mirrorlist",
-        ]
-        (installation.target / "etc/xdg/reflector/reflector.conf").write_text(
-            "\n".join(reflector_options)
-        )
+        write_reflector(installation, nc.reflector_country)
     if nc.firefox_browser:
         set_extensions(installation.target, nc.firefox_browser)
     sys_dots(installation.target, script_d)
