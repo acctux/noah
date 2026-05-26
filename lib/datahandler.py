@@ -35,16 +35,15 @@ class PathResolver:
 @dataclass
 class GitRepo:
     username: str
-    repos: dict[str, str]  # key = git repo name, value = local path
+    repos: dict[str, str]  # key = git name, value = local path
 
     @property
     def full_repos(self) -> list[str]:
-        # GitHub-style repo names
         return [f"{self.username}/{name}" for name in self.repos.keys()]
 
     def local_paths(self, home: Path) -> list[Path]:
         """
-        Return the destination paths as Path objects, resolved relative to 'home'.
+        Return Paths resolved relative to 'home'.
         """
         return [home / dest for dest in self.repos.values()]
 
@@ -204,11 +203,11 @@ class NoahConfig:
     reflector_country: str | None = None
     encrypted_dir: str | None = None
     parallel_downloads: int = 10
-    disable_svcs: list[str] = field(default_factory=list)
-    sudo_defaults: list[str] = field(default_factory=list)
-    apps_to_hide: list[str] = field(default_factory=list)
-    no_extracts: list[str] = field(default_factory=list)
-    yazi_plugins: list[str] = field(default_factory=list)
+    disable_svcs: list[str] | None = None
+    sudo_defaults: list[str] | None = None
+    apps_to_hide: list[str] | None = None
+    no_extracts: list[str] | None = None
+    yazi_plugins: list[str] | None = None
     dirs_icons: dict[str, str] = field(default_factory=dict)
     git_repos_config: GitReposConfiguration | None = None
     dotfiles_config: DotfilesConfiguration | None = None
@@ -221,7 +220,6 @@ class NoahConfig:
     def from_config(cls, args: dict[str, Any]) -> "NoahConfig":
         noah = cls()
 
-        # simple scalar fields
         if "terminal" in args:
             noah.terminal = args["terminal"]
 
@@ -267,7 +265,6 @@ class NoahConfig:
         if "dirs_icons" in args:
             noah.dirs_icons = args["dirs_icons"]
 
-        # complex objects
         if kc := args.get("key_copy_config"):
             noah.key_copy_config = KeyCopyConfiguration(**kc)
 

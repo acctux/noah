@@ -36,17 +36,18 @@ def ping(host: str = "google.com") -> bool:
 class PolkaConfiguration:
     def __init__(
         self,
-        home: Path,
         dotfiles_dir_str: str,
-        secdots_dir_str: str,
         dirs_to_link: list[str],
+        secdots_dir_str: str | None = None,
+        HOME: Path = Path.home(),
     ):
-        self.home = home
+        self.HOME = HOME
         self.dotfiles_dir_str = dotfiles_dir_str
         self.secdots_dir_str = secdots_dir_str
         self.dirs_to_link = dirs_to_link
-        self.dotfile_path = self.home / dotfiles_dir_str
-        self.secdot_path = self.home / secdots_dir_str
+        self.dotfile_path = self.HOME / dotfiles_dir_str
+        if secdots_dir_str:
+            self.secdot_path = self.HOME / secdots_dir_str
 
     def link_path(self, src: Path, dst: Path) -> bool:
         """Create a symlink, replacing existing files/folders if necessary."""
@@ -70,16 +71,18 @@ class PolkaConfiguration:
     def dotted_destination(self, src: Path, source_dir: Path) -> Path:
         """Return the destination path with a dot-prefixed top-level folder."""
         parts = src.relative_to(source_dir).parts
-        return self.home / Path("." + parts[0], *parts[1:])
+        return self.HOME / Path("." + parts[0], *parts[1:])
 
-    def collect_candidates(self, base_dir: Path) -> list[tuple[Path, Path]]:
+    def collect_candidates(
+        self, base_dir: Path, skip_base=[".git", "__pycache__", ".venv"]
+    ) -> list[tuple[Path, Path]]:
         """Collect all files in base_dir, skipping unwanted dirs."""
         candidates = []
         for src in base_dir.rglob("*"):
             if not src.is_file():
                 continue
             rel = src.relative_to(base_dir)
-            if rel.parts[0] == ".git":
+            if rel.parts[0] in skip_base:
                 continue
             if any(rel.parts[0] == d.split("/")[0] for d in self.dirs_to_link):
                 continue
@@ -89,18 +92,14 @@ class PolkaConfiguration:
     def file_candidates(self) -> list[tuple[Path, Path]]:
         """Get all candidate files and directories for linking from dotfiles and secdots."""
         candidates: list[tuple[Path, Path]] = []
-
-        # Collect files from dotfiles and secret dotfiles
         candidates.extend(self.collect_candidates(self.dotfile_path))
-        candidates.extend(self.collect_candidates(self.secdot_path))
-
-        # Collect top-level directories listed in dirs_to_link (from dotfiles or secdots)
+        if self.secdot_path:
+            candidates.extend(self.collect_candidates(self.secdot_path))
         for base in [self.dotfile_path, self.secdot_path]:
             for d in self.dirs_to_link:
                 src = base / d
-                if src.exists():  # include both files and directories
+                if src.exists():
                     candidates.append((src, self.dotted_destination(src, base)))
-
         return candidates
 
     def deploy(self):
@@ -125,19 +124,18 @@ class PolkaConfiguration:
 class NoahUserProcessor:
     data: NoahConfig
     username: str | None = None
-    HOME: Path = field(init=False)
-    ENCRYPTED: Path | None = field(init=False)
-    DOTS: Path | None = field(init=False)
-    SEC_DOTS: Path = field(init=False)
-    ssh_path: Path | None = field(init=False, default=None)
-    gpg_path: Path | None = field(init=False, default=None)
-    masterpass_path: Path | None = field(init=False, default=None)
+    HOME = Path.home()
+    ENCRYPTED: Path | None = None
+    DOTS: Path | None = None
+    SEC_DOTS: Path | None = None
+    ssh_path: Path | None = None
+    gpg_path: Path | None = None
+    masterpass_path: Path | None = None
     dirs_icons: dict[Path, str] = field(init=False, default_factory=dict)
     key_copy_config: KeyCopyConfiguration | None = None
 
     def __post_init__(self):
         self.username = self.username or pwd.getpwuid(os.getuid()).pw_name
-        self.HOME = Path.home()
         self.ENCRYPTED = (
             self.HOME / self.data.encrypted_dir if self.data.encrypted_dir else None
         )
@@ -202,6 +200,97 @@ def init_gocrypt(enc_dir: Path) -> None:
     log.info(f"gocryptfs cleanly initialized at {enc_dir}.")
 
 
+class GitManager:
+    def __init__(self, home_path: Path, ssh_socket_dir: Path | None = None):
+        self.home_path = home_path
+        self.ssh_dir = home_path / ".ssh"
+        self.known_hosts_file = self.ssh_dir / "known_hosts"
+        self.ssh_socket_dir = ssh_socket_dir or Path(f"/run/user/{os.getuid()}/gcr/ssh")
+
+    def _run(self, cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
+        """Wrapper around subprocess.run with logging."""
+        return subprocess.run(cmd, text=True, capture_output=True, check=check)
+
+    ############################
+    # SSH / GitHub
+    ############################
+    def import_ssh(self, key_path: Path) -> None:
+        def git_config_get(key: str) -> str | None:
+            result = self._run(["git", "config", "--global", "--get", key], check=False)
+            return result.stdout.strip() if result.stdout else None
+
+        if git_config_get("user.email") and git_config_get("user.name"):
+            print("Global Git profile already configured.")
+            return
+        if not self.ssh_socket_dir.exists():
+            self.ssh_socket_dir.mkdir(parents=True, exist_ok=True)
+            os.chmod(self.ssh_socket_dir, 0o700)
+            self._run(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
+            self._run(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
+
+        if key_path.exists():
+            os.chmod(key_path, 0o600)
+
+        self._run(["ssh-add", str(key_path)], check=True)
+        print(f"SSH identity processed for: {key_path}")
+
+        result = self._run(["ssh-add", "-l"], check=False)
+        lines = result.stdout.strip().splitlines() if result.stdout else []
+        if not lines:
+            print("Cannot scan user metadata without active SSH session.")
+            return
+
+        my_email = lines[0].split()[2]
+        my_name = input("Enter your global git user.name profile identity: ").strip()
+        self._run(["git", "config", "--global", "user.email", my_email])
+        self._run(["git", "config", "--global", "user.name", my_name])
+        print(f"Created Git configuration: {my_name} <{my_email}>")
+        self.ssh_dir.mkdir(parents=True, exist_ok=True)
+        self.known_hosts_file.touch(exist_ok=True)
+        content = self.known_hosts_file.read_text(errors="ignore")
+        if "github.com" not in content:
+            scan = self._run(["ssh-keyscan", "-H", "github.com"], check=True)
+            if scan.stdout:
+                self.known_hosts_file.write_text(content + scan.stdout)
+                print("Appended github.com validation signature to known_hosts")
+            else:
+                print("Could not -keyscan to verify GitHub host identity.")
+
+    ############################
+    # Clone repositories
+    ############################
+    def clone_repos(
+        self, git_repos: GitReposConfiguration, dest: Path, ssh: bool = True
+    ) -> None:
+        def get_url(user: str, repo: str) -> str:
+            return (
+                f"git@github.com:{user}/{repo}.git"
+                if ssh
+                else f"https://github.com/{user}/{repo}.git"
+            )
+
+        dest.mkdir(parents=True, exist_ok=True)
+        for git_user in git_repos.repositories:
+            for repo_name, local_path in git_user.repos.items():
+                repo_dest = dest / local_path
+                if any(repo_dest.iterdir()):
+                    print(f"Repository destination '{repo_dest}' exists, skipping.")
+                    continue
+                try:
+                    self._run(
+                        [
+                            "git",
+                            "clone",
+                            get_url(git_user.username, repo_name),
+                            str(repo_dest),
+                        ],
+                        check=True,
+                    )
+                    print(f"Successfully cloned {repo_name} to {repo_dest}")
+                except subprocess.CalledProcessError as e:
+                    print(f"Failed to clone {repo_name}: {e}")
+
+
 ############################
 # MARIADB
 ############################
@@ -233,74 +322,6 @@ def enable_mariadb() -> None:
 
 
 ############################
-# GIT / REPOS
-############################
-def ensure_github_known_hosts(home_path: Path) -> None:
-    kh = home_path / ".ssh" / "known_hosts"
-    kh.parent.mkdir(parents=True, exist_ok=True)
-    kh.touch(exist_ok=True)
-    content = kh.read_text(errors="ignore")
-    if "github.com" not in content:
-        scan = run_dmc(["ssh-keyscan", "-H", "github.com"], check=True)
-        if scan and scan.stdout:
-            kh.write_text(content + scan.stdout)
-            log.info("Appended github.com validation signature to known_hosts")
-        else:
-            log.warning("Could not -keyscan to verify GitHub host identity.")
-
-
-def clone_repos(git_repos: GitReposConfiguration, dest: Path, ssh: bool) -> None:
-    def get_url(user: str, repo: str) -> str:
-        return (
-            f"git@github.com:{user}/{repo}.git"
-            if ssh
-            else f"https://github.com/{user}/{repo}.git"
-        )
-
-    dest.mkdir(parents=True, exist_ok=True)
-    for git_user in git_repos.repositories:
-        for repo_name, local_path in git_user.repos.items():
-            repo_dest = dest / local_path
-            if any(repo_dest.iterdir()):
-                log.info(f"Repository destination '{repo_dest}' exists, skipping.")
-                continue
-            try:
-                run_dmc(
-                    [
-                        "git",
-                        "clone",
-                        get_url(git_user.username, repo_name),
-                        str(repo_dest),
-                    ],
-                    check=True,
-                    cwd=dest,
-                )
-                log.info(f"Successfully cloned {repo_name} to {repo_dest}")
-            except subprocess.CalledProcessError as e:
-                log.warning(f"Failed to clone {repo_name}: {e}")
-
-
-def configure_git() -> None:
-    def git_config_get(key: str) -> str | None:
-        result = run_dmc(["git", "config", "--global", "--get", key], check=False)
-        return result.stdout.strip() if result and result.stdout else None
-
-    if git_config_get("user.email") and git_config_get("user.name"):
-        log.info("Global profile environment for Git already generated.")
-        return
-    result = run_dmc(["ssh-add", "-l"])
-    lines = result.stdout.strip().splitlines() if result and result.stdout else []
-    if not lines:
-        log.warning("Cannot scan user metadata without active SSH session.")
-        return
-    my_email = lines[0].split()[2]
-    my_name = input("Enter your global git user.name profile identity: ").strip()
-    run_dmc(["git", "config", "--global", "user.email", my_email])
-    run_dmc(["git", "config", "--global", "user.name", my_name])
-    log.info(f"Created configuration footprint parameters: {my_name} <{my_email}>")
-
-
-############################
 # DESKTOP ENVIRONMENT / APPS
 ############################
 def set_folder_icons(
@@ -325,27 +346,23 @@ def set_folder_icons(
             )
 
 
-def pass_and_mail(pass_path: Path, firefox_browser: str) -> None:
-    """Loads master pass into clipboard, launches extension URL, and flushes clipboard after 15s delay."""
+def launch_apps(
+    pass_path: Path,
+    firefox_browser: str,
+    apps: list[list[str]] = [["steam"], ["kitty", "protonmail-bridge-core", "--cli"]],
+) -> None:
     password = pass_path.read_text().strip()
-    os.environ["CLIPBOARD_STATE"] = "sensitive"
     pyperclip.copy(password)
-    log.info("Master password copied to clipboard.")
-    # run_dmc(["protonmail-bridge-core", "--cli"], interactive=True)
-    cmd = [
-        firefox_browser,
-        "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/",
-    ]
-    subprocess.Popen(cmd)
-    pyperclip.copy("")
-    os.environ.pop("CLIPBOARD_STATE", None)
-    log.info("Sensitive clipboard stack cleared completely.")
 
-
-def launch_apps(apps: list[str] = ["steam"]) -> None:
-    processes = [subprocess.Popen(app) for app in apps if shutil.which(app)]
-    for process in processes:
-        process.wait()
+    apps.append(
+        [
+            firefox_browser,
+            "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/",
+        ]
+    )
+    for process in apps:
+        if shutil.which(process[0]):
+            subprocess.Popen(process).wait()
 
 
 def scrcpy_setup(port: int = 5555) -> None:
@@ -411,46 +428,43 @@ def user_setup(HOME: Path = Path.home()) -> None:
     fix_network_stack()
     if shutil.which("tuned"):
         run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
-    nc = NoahConfig.from_config(noah_json)
-    nu = NoahUserProcessor(nc)
     if shutil.which("mariadb"):
         enable_mariadb()
-    if nu.ssh_path and nu.ssh_path.is_file():
-        import_ssh(nu.ssh_path)
-    configure_git()
-    ensure_github_known_hosts(nu.HOME)
-    if nc.git_repos_config:
-        clone_repos(nc.git_repos_config, nu.HOME, ssh=True)
-    else:
-        if git_conf := nc.git_repos_config:
-            clone_repos(git_conf, nu.HOME, ssh=False)
+    nc = NoahConfig.from_config(noah_json)
+    nu = NoahUserProcessor(nc)
+    run_dmc(
+        ["uv", "add", "openmeteo-requests"],
+        cwd=str(nu.HOME / ".local" / "bin" / "weather"),
+    )
     if nu.gpg_path and nu.gpg_path.is_file():
         import_gpg(nu.gpg_path)
     if nu.ENCRYPTED and shutil.which("gocryptfs"):
         if not (nu.ENCRYPTED / "gocryptfs.conf").exists():
             init_gocrypt(nu.ENCRYPTED)
-    if nu.dirs_icons:
-        set_folder_icons(nu.dirs_icons)
-    for plugin in nc.yazi_plugins:
-        run_dmc(["ya", "pkg", "add", plugin])
+    set_folder_icons(nu.dirs_icons)
+    if nc.yazi_plugins:
+        for plugin in nc.yazi_plugins:
+            run_dmc(["ya", "pkg", "add", plugin])
+    if nc.git_repos_config:
+        gm = GitManager(HOME)
+        use_ssh = False
+        if nu.ssh_path and nu.ssh_path.is_file():
+            gm.import_ssh(nu.ssh_path)
+            use_ssh = True
+        gm.clone_repos(nc.git_repos_config, nu.HOME, ssh=use_ssh)
     if nu.DOTS and any(nu.DOTS.iterdir()):
         if nc.dotfiles_config and nc.dotfiles_config.dotfiles_dir:
             if nc.dotfiles_config.secret_dotfiles_dir:
                 polka = PolkaConfiguration(
-                    home=HOME,
                     dotfiles_dir_str=nc.dotfiles_config.dotfiles_dir,
                     secdots_dir_str=nc.dotfiles_config.secret_dotfiles_dir,
                     dirs_to_link=nc.dotfiles_config.dirs_to_link,
                 )
                 polka.deploy()
-    run_dmc(
-        ["uv", "add", "openmeteo-requests"],
-        cwd=str(nu.HOME / ".local" / "bin" / "weather"),
-    )
     if shutil.which("scrcpy") and not (HOME / ".android" / "adbkey").is_file():
         scrcpy_setup()
     if nu.masterpass_path and nc.firefox_browser:
-        pass_and_mail(nu.masterpass_path, nc.firefox_browser)
+        launch_apps(nu.masterpass_path, nc.firefox_browser)
     if shutil.which("gh"):
         run_dmc(
             ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],
