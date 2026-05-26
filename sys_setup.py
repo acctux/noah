@@ -121,7 +121,8 @@ def perform_installation(
                 installation.generate_key_files()
 
         handle_reflector(nc.reflector_country)
-        modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
+        if no_extract := nc.no_extracts:
+            modify_pacman_conf(mnt_point=None, no_extracts=no_extract)
         installation.minimal_installation(
             optional_repositories=optional_repositories,
             mkinitcpio=run_mkinitcpio,
@@ -132,7 +133,8 @@ def perform_installation(
         copy_file(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        modify_pacman_conf(mnt_point=mountpoint, no_extracts=nc.no_extracts)
+        if no_extract := nc.no_extracts:
+            modify_pacman_conf(mnt_point=mountpoint, no_extracts=no_extract)
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)
 
@@ -206,8 +208,8 @@ def perform_installation(
                 multi_user_funcs(installation, user, nc, script_d.name)
         if services := config.services:
             installation.enable_service(services)
-
-        installation.disable_service(nc.disable_svcs)
+        if disable_svcs := nc.disable_svcs:
+            installation.disable_service(disable_svcs)
 
         if disk_config.has_default_btrfs_vols():
             btrfs_options = disk_config.btrfs_options
