@@ -43,7 +43,6 @@ monitoring: list[str] = [
     "rocm-smi-lib",  # btop dependency for amd gpu
     "gnome-logs",
     "jolt",
-    "nmap",
     "nvtop",
     "logrotate",
     "powertop",
@@ -86,6 +85,7 @@ coding: list[str] = [
     "tree-sitter-rust",
 ]
 hyprland: list[str] = [
+    "cliphist",
     "fuzzel",
     "gnome-keyring",
     "hypridle",
@@ -111,20 +111,18 @@ hyprland: list[str] = [
     "waybar",
     "xdg-desktop-portal-gnome",
     "xdg-desktop-portal-hyprland",
-    "cliphist",
     "xdg-user-dirs",
-    "wl-clipboard",
     "wl-clip-persist",
 ]
 personal: list[str] = [
     "acpi",  # auto hibernate
+    "archinstall",  # noah
     "python-dbus-fast",  # loggy
     "python-gnupg",  # noah
     "python-imaplib2",  # emailcheck
     "python-pandas",  # weather
     "python-pydantic",  # noah
     "python-pyperclip",  # noah
-    "python-libtmux",
     "python-systemd",  # loggy
     "python-wand",  # wallpaper script
     "qrencode",  # qr codes
@@ -132,23 +130,23 @@ personal: list[str] = [
 ]
 base: list[str] = [
     "authenticator",
-    "baobab",
     "base-devel",
     "bat-extras",
     "capitaine-cursors",
     "deluge-gtk",
+    "dust",
     "eza",
     "fd",
     "ouch",
     "fzf",
     "gocryptfs",
+    "khal",
     "kitty",
     "less",
     "man-pages",
     "mcfly",
     "otf-firamono-nerd",
     "partitionmanager",
-    "pkgfile",
     "rebuild-detector",
     "reflector",
     "ripgrep-all",
