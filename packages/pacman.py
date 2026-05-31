@@ -91,6 +91,7 @@ hyprland: list[str] = [
     "hypridle",
     "hyprland",
     "hyprlock",
+    "hyprpicker",
     "hyprshot",
     "hyprsunset",
     "kanshi",
@@ -116,6 +117,7 @@ hyprland: list[str] = [
     "wl-clip-persist",
 ]
 personal: list[str] = [
+    "acpi",  # auto hibernate
     "python-dbus-fast",  # loggy
     "python-gnupg",  # noah
     "python-imaplib2",  # emailcheck

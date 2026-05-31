@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-
 import asyncio
 import os
 import pwd
 import subprocess
 import sys
+
 from dbus_fast import Message
 from dbus_fast.aio import MessageBus
 
 
 async def main():
+    if os.path.exists("/var/lib/pacman/db.lck"):
+        sys.exit(0)
     msg = sys.argv[1] if len(sys.argv) > 1 else "Power event"
     user = subprocess.check_output(
         ["loginctl", "list-sessions", "--no-legend"],
@@ -26,7 +28,16 @@ async def main():
             interface="org.freedesktop.Notifications",
             member="Notify",
             signature="susssasa{sv}i",
-            body=["power-notify", 0, "", "Power", msg, [], {}, 3000],
+            body=[
+                "power-notify",
+                0,
+                "",
+                "Power",
+                msg,
+                [],
+                {},
+                3000,
+            ],
         )
     )
 

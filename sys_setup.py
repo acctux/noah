@@ -274,8 +274,7 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
         + pp.personal
         + pc.additional_chaotic_pkgs
         + pc.base_chaotic_pkgs
-        + pc.game_chaotic_pkgs
-        + pc.waydroid_pkgs,
+        + pc.game_chaotic_pkgs,
         arch_config_handler=arch_config_handler,
     )
     if not arch_config_handler.args.silent:
