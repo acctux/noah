@@ -139,7 +139,7 @@ base: list[str] = [
     "deluge-gtk",
     "eza",
     "fd",
-    "file-roller",
+    "ouch",
     "fzf",
     "gocryptfs",
     "kitty",
@@ -157,7 +157,6 @@ base: list[str] = [
     "starship",
     "taskwarrior-tui",
     "trash-cli",
-    "unrar",  # File roller
     "zsh-autocomplete",
     "zsh-completions",
     "zsh-syntax-highlighting",

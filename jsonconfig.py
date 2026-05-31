@@ -199,6 +199,7 @@ noah_json = {
         "uhs-robert/sshfs",
         "boydaihungst/gvfs",
         "uhs-robert/recycle-bin",
-        "h-hg/yamb",
+        "ndtoan96/ouch",
+        "yazi-rs/plugins:full-border",
     ],
 }
