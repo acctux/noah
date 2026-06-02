@@ -12,34 +12,28 @@ class ColorFormatter(logging.Formatter):
     COLORS = {
         logging.DEBUG: "\033[36m",  # cyan
         logging.INFO: "\033[34m",  # blue
-        logging.WARNING: "\033[93m",  # yellow
-        logging.ERROR: "\033[31m",  # red
-        logging.CRITICAL: "\033[41m",  # red background
+        logging.WARNING: "\033[93m",
+        logging.ERROR: "\033[31m",
     }
     RESET = "\033[0m"
-    UNDERLINE = "\033[4m"
-    NAME_COLOR = "\033[93m"  # yellow
+    NAME = "\033[93m"
 
     def format(self, record):
-        colored_name = f"{self.NAME_COLOR}{record.name}{self.RESET}"
-        level_color = self.COLORS.get(record.levelno, "")
-        colored_message = f"{level_color}{record.getMessage()}{self.RESET}"
-        message = f"{colored_name}: {colored_message}"
-        if record.levelno == logging.CRITICAL:
-            message = f"{self.UNDERLINE}{message}{self.RESET}"
-        return message
+        name = f"{self.NAME}{record.name}{self.RESET}"
+        msg = f"{self.COLORS.get(record.levelno, '')}{record.getMessage()}{self.RESET}"
+        return f"{name}: {msg}"
 
 
-def get_logger(log_name: str | None = None, level=logging.INFO):
-    logger = logging.getLogger(log_name)
-    if logger.handlers:
-        return logger
+def get_logger(log_name=None, level=logging.INFO):
+    log = logging.getLogger(log_name)
+    if log.handlers:
+        return log
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(ColorFormatter())
-    logger.addHandler(handler)
-    logger.setLevel(level)
-    logger.propagate = False
-    return logger
+    log.addHandler(handler)
+    log.setLevel(level)
+    log.propagate = False
+    return log
 
 
 log = get_logger("Noah")
@@ -122,20 +116,3 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
         with full_path.open("w") as file:
             file.write(content)
         log.info(f"Content written to: {full_path}")
-
-
-def handle_reflector(options: list[str] | None):
-    if not options:
-        options = [
-            "--protocol https",
-            "--latest 25",
-            "--sort rate",
-            "--number 3",
-            "--save /etc/pacman.d/mirrorlist",
-        ]
-    cmd = []
-    for opt in options:
-        opt = opt.split()
-        for part in opt:
-            cmd.append(part.strip())
-    run_dmc(["reflector"] + cmd)

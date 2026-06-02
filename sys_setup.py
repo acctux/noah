@@ -28,14 +28,14 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
-from utils import copy_it, handle_reflector
+from utils import copy_it
 from lib.init_setup import init_setup
 from lib.datahandler import NoahConfig
 from lib.bootloaders import bootloader_handling
 from lib.pacman import chaotic_repo, modify_pacman_conf
 from lib.multi_user import multi_user_funcs
 from lib.single_user import single_user_and_user_list
-from lib.root_handle import copy_skel, handle_sys_files
+from lib.root_handle import copy_skel, handle_sys_files, handle_reflector
 from pathlib import Path
 import sys
 import time
@@ -116,7 +116,7 @@ def perform_installation(
             ):
                 installation.generate_key_files()
 
-        handle_reflector(nc.reflector_options)
+        handle_reflector(None, nc.reflector_options)
         modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
         installation.minimal_installation(
             optional_repositories=optional_repositories,

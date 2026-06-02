@@ -111,12 +111,25 @@ def replace_hosts_line(mnt_point: Path) -> None:
     conf.write_text("\n".join(lines) + "\n")
 
 
-def write_reflector(
-    installation: Installer,
-    reflector_options: list[str],
-):
-    refl_conf = installation.target / "etc/xdg/reflector/reflector.conf"
-    refl_conf.write_text("\n".join(reflector_options))
+def handle_reflector(mountpoint: Path | None, options: list[str] | None):
+    if not options:
+        options = [
+            "--protocol https",
+            "--latest 25",
+            "--sort rate",
+            "--number 3",
+            "--save /etc/pacman.d/mirrorlist",
+        ]
+    if mountpoint:
+        refl_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
+        refl_conf.write_text("\n".join(options))
+    else:
+        cmd = []
+        for opt in options:
+            opt = opt.split()
+            for part in opt:
+                cmd.append(part.strip())
+        run_dmc(["reflector"] + cmd)
 
 
 def replace_ly_config(mnt_point: Path) -> None:
@@ -153,7 +166,7 @@ def handle_sys_files(
     replace_hosts_line(installation.target)
     replace_ly_config(installation.target)
     if nc.reflector_options:
-        write_reflector(installation, nc.reflector_options)
+        handle_reflector(installation.target, nc.reflector_options)
     if nc.firefox_browser:
         set_extensions(installation.target, nc.firefox_browser)
     sys_dots(installation.target, script_d)
