@@ -97,22 +97,18 @@ def yes_no(prompt: str, default: bool = True) -> bool:
 #########################
 # UTILS
 #########################
-def copy_file(src: Path, dest: Path) -> None:
-    if not src.is_file():
-        log.error(f"{src} does not exist")
+def copy_it(src: Path, dest: Path) -> None:
+    if not src.exists():
+        log.warning(f"{src} not found")
         return
-    dest = dest / src.name if dest.is_dir() else dest
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dest)
-    log.info(f"Copied file: {src} -> {dest}")
-
-
-def copy_dir(src: Path, dest: Path) -> None:
-    if not src.is_dir():
-        log.error(f"{src} does not exist")
-        return
-    shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
-    log.info(f"Copied directory: {src} -> {dest}")
+    if src.is_file():
+        dest = dest / src.name if dest.is_dir() else dest
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+        log.info(f"Copied file: {src} -> {dest}")
+    elif src.is_dir():
+        shutil.copytree(src, dest, dirs_exist_ok=True, ignore_dangling_symlinks=True)
+        log.info(f"Copied directory: {src} -> {dest}")
 
 
 def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
@@ -128,18 +124,18 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
         log.info(f"Content written to: {full_path}")
 
 
-def handle_reflector(reflector_country: str | None = "US"):
-    reflector_options = [
-        f"--country {reflector_country}",
-        "--protocol https",
-        "--latest 15",
-        "--sort rate",
-        "--number 3",
-        "--save /etc/pacman.d/mirrorlist",
-    ]
-    run_dmc(
-        [
-            "reflector",
-            *(part for opt in reflector_options for part in opt.split()),
+def handle_reflector(options: list[str] | None):
+    if not options:
+        options = [
+            "--protocol https",
+            "--latest 25",
+            "--sort rate",
+            "--number 3",
+            "--save /etc/pacman.d/mirrorlist",
         ]
-    )
+    cmd = []
+    for opt in options:
+        opt = opt.split()
+        for part in opt:
+            cmd.append(part.strip())
+    run_dmc(["reflector"] + cmd)

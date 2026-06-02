@@ -1,3 +1,6 @@
+import packages.pacman as pp
+import packages.chaotic as pc
+
 archinstall_json = {
     "app_config": {
         "audio_config": {"audio": "pipewire"},
@@ -15,7 +18,24 @@ archinstall_json = {
     "optional_repositories": ["multilib"],
     "network_config": {"type": "iso"},
     "ntp": True,
-    "packages": [],
+    "packages": [
+        pp.base
+        + pp.android
+        + pp.coding
+        + pp.gaming
+        + pp.hardware
+        + pp.hyprland
+        + pp.ios
+        + pp.language
+        + pp.media
+        + pp.monitoring
+        + pp.network
+        + pp.office
+        + pp.personal
+        + pc.additional_chaotic_pkgs
+        + pc.base_chaotic_pkgs
+        + pc.game_chaotic_pkgs,
+    ],
     "pacman_config": {"color": True, "parallel_downloads": 10},
     "profile_config": {
         "gfx_driver": "AMD / ATI (open-source)",
@@ -47,9 +67,15 @@ noah_json = {
     "parallel_downloads": 10,
     "terminal": "kitty",
     "firefox_browser": "firedragon",
-    "dots_repo": "polka",
-    "git_user": "acctux",
-    "reflector_country": "US",
+    "dots_git_user_repo": "acctux/polka",
+    "reflector_options": [
+        "--country US",
+        "--protocol https",
+        "--latest 15",
+        "--sort rate",
+        "--number 3",
+        "--save /etc/pacman.d/mirrorlist",
+    ],
     "disable_svcs": [
         "systemd-resolved",
         "systemd-networkd-wait-online",
@@ -59,28 +85,33 @@ noah_json = {
         "usr/share/icons/capitaine-cursors/*",
     ],
     "key_copy_config": {
-        "source_dir": "noahinstall",
-        "target_dir": ".ssh",
-        "keys": {
-            "ssh_key": "id_ed25519",
-            "gpg_key": "my_sec_gpg.asc",
-            "master_pass": "pass.txt",
-            "auth_conf": "users.json",
+        "ssh_key": {
+            "source": "noahinstall",
+            "target": ".ssh",
+            "names": ["id_ed25519"],
+        },
+        "gpg_key": {
+            "source": "noahinstall",
+            "target": ".gnupg",
+            "names": ["my_sec_gpg.asc"],
+        },
+        "auth_conf": {
+            "source": "noahinstall",
+            "target": ".ssh",
+            "names": ["users.json"],
         },
     },
     "additional_usb_to_cp": [
         {
-            "source_dir": "noahinstall",
-            "target_dir": "",
-            "names": ["chaotic.key"],
-        }
-    ],
-    "dir_contents_to_cp": [
+            "source": "noahinstall",
+            "target": ".ssh",
+            "names": ["pass.txt"],
+        },
         {
-            "source_dir": "noahinstall",
-            "target_dir": "/etc",
+            "source": "noahinstall",
+            "target": "/etc",
             "names": ["wireguard"],
-        }
+        },
     ],
     "user_services": [
         {
@@ -91,10 +122,7 @@ noah_json = {
         {
             "source": "/usr/lib/systemd/user",
             "target": "sockets",
-            "serv": [
-                "gcr-ssh-agent.socket",
-                "mpd.socket",
-            ],
+            "serv": ["gcr-ssh-agent.socket", "mpd.socket"],
         },
         {
             "source": "/usr/lib/systemd/user",
@@ -173,19 +201,12 @@ noah_json = {
         "timestamp_type=global",
         "editor=/usr/sbin/nvim, !env_editor",
     ],
-    "encrypted_dir": "Desktop/Private",
     "git_repo_config": {
         "user_name": "acctux",
-        "repos": {
-            "noah": "Lit/noah",
-            "polka": "Lit/polka",
-            "docs": "Lit/Docs",
-        },
+        "repos": {"noah": "Lit/noah", "polka": "Lit/polka", "docs": "Lit/Docs"},
     },
-    "dotfiles_config": {
-        "dotfiles_dir": "Lit/polka",
-        "secret_dotfiles_dir": "Lit/Docs/secdots",
-    },
+    "dotdirs_to_link": ["Lit/polka", "Lit/Docs/secdots"],
+    "encrypted_dir": "Desktop/Private",
     "dirs_icons": {
         "Desktop/Games": "folder-games",
         "Desktop/Private": "folder-locked",

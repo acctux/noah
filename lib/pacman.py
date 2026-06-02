@@ -5,8 +5,11 @@ from pathlib import Path
 
 
 def modify_pacman_conf(
-    mnt_point: Path | None, no_extracts: list[str], value: int = 10
+    mnt_point: Path | None, no_extracts: list[str] | None = None, value: int = 10
 ) -> None:
+    no_extracts_line = "#NoExtract"
+    if no_extracts:
+        no_extracts_line = f"NoExtract = {' '.join(no_extracts)}"
     pacman_conf = (
         (mnt_point / "etc/pacman.conf") if mnt_point else Path("/etc/pacman.conf")
     )
@@ -22,7 +25,7 @@ def modify_pacman_conf(
             if content[i + 1] != "ILoveCandy":
                 content.insert(i + 1, "ILoveCandy")
         elif stripped.startswith(("#NoExtract", "NoExtract")):
-            content[i] = f"NoExtract = {' '.join(no_extracts)}"
+            content[i] = no_extracts_line
         elif stripped == "[chaotic-aur]":
             del content[i : i + 2]
             continue

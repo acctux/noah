@@ -2,7 +2,7 @@ from packages.aur import aur_pkgs
 from lib.datahandler import NoahConfig
 from archinstall.lib.models import User
 from textwrap import dedent
-from utils import log, write_etc_file, copy_dir, copy_file
+from utils import log, write_etc_file, copy_it
 from archinstall.lib.installer import Installer
 from pathlib import Path
 
@@ -10,11 +10,13 @@ from pathlib import Path
 def aur_and_remove_root(
     installation: Installer,
     user_name: str,
-    sudo_defaults: list[str],
+    sudo_default: list[str] | None = None,
     no_root: bool = True,
 ) -> None:
-    def write_sudoers(pless: bool) -> None:
-        defaults_block = "\n".join(f"Defaults    {line}" for line in sudo_defaults)
+    def write_sudoers(pless: bool, sudo_default: list[str] | None) -> None:
+        defaults_block = ""
+        if sudo_default:
+            defaults_block = "\n".join(f"Defaults    {line}" for line in sudo_default)
         rule = f"{user_name} ALL=(ALL:ALL) {'NOPASSWD:ALL' if pless else 'ALL'}"
         sudoers_block = "\n".join([rule, defaults_block])
         sudoers_file = installation.target / f"etc/sudoers.d/00_{user_name}"
@@ -23,7 +25,7 @@ def aur_and_remove_root(
             f"{'Removed' if pless else 'Created'} pass requirement for {user_name}"
         )
 
-    write_sudoers(True)
+    write_sudoers(True, sudo_default)
     installation.arch_chroot(
         f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}", user_name
     )
@@ -33,7 +35,7 @@ def aur_and_remove_root(
             "etc/ssh/sshd_config.d/20-deny_root.conf": "PermitRootLogin no\n"
         }
         write_etc_file(installation.target, no_root_ssh)
-    write_sudoers(False)
+    write_sudoers(False, sudo_default)
 
 
 def create_automount(installation: Installer, username: str):
@@ -85,19 +87,11 @@ def auto_add_user_groups(
     installation.arch_chroot(f"usermod -aG {group_str} {username}")
 
 
-def copy_root_to_mnt(nc: NoahConfig, username: str):
+def copy_root_to_mnt(mnt_point: Path, nc: NoahConfig, username: str):
     if key_conf := nc.key_copy_config:
-        list_tuple_paths = key_conf.root_to_mnt(username)
+        list_tuple_paths = key_conf.root_to_mnt(mnt_point, username)
         for src, dest in list_tuple_paths:
-            copy_file(src, dest)
-    if usb_file_conf := nc.additional_usb_to_cp_config:
-        for copy in usb_file_conf.copies:
-            for src, dest in copy.root_to_mnt(username):
-                copy_file(src, dest)
-    if usb_dir_conf := nc.dir_contents_to_cp_config:
-        for copy in usb_dir_conf.copies:
-            for src, dest in copy.root_to_mnt(username):
-                copy_dir(src, dest)
+            copy_it(src, dest)
 
 
 def single_user_and_user_list(
@@ -111,5 +105,5 @@ def single_user_and_user_list(
     aur_and_remove_root(installation, user_1, nc.sudo_defaults)
     auto_add_user_groups(installation, user_1, base_pkgs)
     create_automount(installation, user_1)
-    copy_dir(script_d, (installation.target / "home" / user_1 / script_d.name))
-    copy_root_to_mnt(nc, user_1)
+    copy_it(script_d, (installation.target / "home" / user_1 / script_d.name))
+    copy_root_to_mnt(installation.target, nc, user_1)

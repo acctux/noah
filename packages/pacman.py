@@ -8,6 +8,7 @@ hardware: list[str] = [
     "dosfstools",
     "exfatprogs",
     "hwdetect",
+    "keyd",
     "ntfs-3g",
     "smartmontools",
     "udisks2-btrfs",
@@ -115,7 +116,6 @@ hyprland: list[str] = [
     "wl-clip-persist",
 ]
 personal: list[str] = [
-    "acpi",  # auto hibernate
     "archinstall",  # noah
     "python-dbus-fast",  # loggy
     "python-gnupg",  # noah
@@ -183,11 +183,17 @@ gaming: list[str] = [
 ]
 office: list[str] = [
     "anki",
+    "csvkit",
+    "csvlens",
     "gnucash",
     "evince",
+    "ledger",
     "libreoffice-fresh",
     "neomutt",
     "protonmail-bridge-core",
+    "python-matplotlib",
+    "python-polars",
+    "python-polars-runtime-64",
     "coin-or-mp",  # LibreOffice Calc Solver
     "qalculate-qt",
     "zathura-pdf-mupdf",
@@ -204,6 +210,12 @@ ios: list[str] = [
     "ifuse",
     "gvfs-afc",
     "gvfs-gphoto2",
+]
+basic_server: list[str] = [
+    "dbeaver",
+    "jdk-openjdk",
+    "mariadb",
+    "python-pymysql",
 ]
 printer: list[str] = [
     "cups",
@@ -235,10 +247,6 @@ server: list[str] = [
     "fail2ban",
     "docker",
     "tailscale",
-    "dbeaver",
-    "jdk-openjdk",
-    "mariadb",
-    "python-pymysql",
     # "nextcloud",
     # "jellyfin-server",
     # "seerr",

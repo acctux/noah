@@ -73,25 +73,36 @@ class PolkaDots:
 
 @dataclass(slots=True)
 class NoahUserProcessor:
-    data: NoahConfig
-    HOME = Path.home()
+    data: NoahConfig  # NoahConfig is defined elsewhere
+    HOME: Path = Path.home()
 
     def __post_init__(self) -> None:
         self.username = pwd.getpwuid(os.getuid()).pw_name
         self.encrypted_dir = self._path(self.HOME, self.data.encrypted_dir)
-        if dot_cfg := self.data.dotfiles_config:
-            self.dots_dir = self._path(self.HOME, dot_cfg.dotfiles_dir)
-            self.sec_dots_dir = self._path(self.HOME, dot_cfg.secret_dotfiles_dir)
-        if key_cfg := self.data.key_copy_config:
-            target = self.HOME / key_cfg.target_dir
-            keys = key_cfg.keys
-            self.ssh_path = self._path(target, keys.get("ssh_key"))
-            self.gpg_path = self._path(target, keys.get("gpg_key"))
-            self.masterpass_path = self._path(target, keys.get("master_pass"))
+        self.dotdirs_to_link = self.data.dotdirs_to_link
+        self.ssh_path: Path | None = None
+        self.gpg_path: Path | None = None
+        self.masterpass_path: Path | None = None
+        if self.data.key_copy_config:
+            if key_cfg := self.data.key_copy_config.key_copy_config:
+                if key_cfg.ssh_key:
+                    self.ssh_path = self._path(
+                        Path(key_cfg.ssh_key.target), key_cfg.ssh_key.names[0]
+                    )
+                if key_cfg.gpg_key:
+                    self.gpg_path = self._path(
+                        Path(key_cfg.gpg_key.target), key_cfg.gpg_key.names[0]
+                    )
+                if key_cfg.auth_conf:
+                    self.masterpass_path = self._path(
+                        Path(key_cfg.auth_conf.target), key_cfg.auth_conf.names[0]
+                    )
         self.dirs_icons = self._dirs_icons()
 
     def _path(self, base: Path, value: str | None) -> Path | None:
-        return base / value if value else None
+        if value is None:
+            return None
+        return base / value
 
     def _dirs_icons(self) -> dict[Path, str]:
         result: dict[Path, str] = {}
@@ -100,10 +111,14 @@ class NoahUserProcessor:
             return result
         for path, icon in config.items():
             resolved = self._path(self.HOME, path)
-            if resolved is None:
-                continue
-            result[resolved] = icon
+            if resolved:
+                result[resolved] = icon
         return result
+
+    def dotdirs_paths(self) -> list[Path]:
+        if not self.dotdirs_to_link:
+            return []
+        return [self.HOME / d for d in self.dotdirs_to_link]
 
 
 ###########################################################
@@ -382,8 +397,9 @@ def user_setup(HOME: Path = Path.home()) -> None:
             gm.import_ssh(nu.ssh_path)
             use_ssh = True
         gm.clone_repos(nc.git_repos_config, nu.HOME, ssh=use_ssh)
-    if nu.dots_dir and nu.sec_dots_dir:
-        PolkaDots([nu.dots_dir, nu.sec_dots_dir]).deploy()
+    if nc.dotdirs_to_link:
+        dotdirs = nu.dotdirs_paths()
+        PolkaDots(dotdirs).deploy()
     if shutil.which("scrcpy") and not (HOME / ".android" / "adbkey").is_file():
         scrcpy_setup()
     if nu.masterpass_path and nc.firefox_browser:

@@ -150,14 +150,6 @@ etc_files_to_write: dict[str, str] = {
         ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{authorized}=="0", ATTR{authorized}="1"
         """
     ),
-    "etc/udev/rules.d/99-ac-power.rules": dedent(
-        """\
-        # AC adapter plugged in
-        SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="1", RUN+="/usr/local/bin/unplug_notify.py 'AC adapter plugged in'"
-        # AC adapter unplugged
-        SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="0", RUN+="/usr/local/bin/unplug_notify.py 'AC adapter unplugged'"
-        """
-    ),
     "etc/logid.cfg": dedent(
         """\
         // Top=0xc4  Gesture=0xc3 Back=0x53 Forward=0x56

@@ -3,7 +3,7 @@ from archinstall.lib.models.application import Firewall
 from root_files import etc_files_to_write, network_files
 import json
 from lib.datahandler import NoahConfig
-from utils import log, run_dmc, copy_dir, write_etc_file
+from utils import log, run_dmc, copy_it, write_etc_file
 import shutil
 from archinstall.lib.installer import Installer
 from pathlib import Path
@@ -33,15 +33,15 @@ def install_icons(installation: Installer):
 
 
 def copy_skel(mountpoint: Path, nc: NoahConfig):
-    if nc.dots_repo:
-        tmp = mountpoint / "tmp" / nc.dots_repo
+    if nc.dots_git_user_repo:
+        tmp = mountpoint / "tmp" / "tmp_skel"
         tmp.mkdir(exist_ok=True)
-        git = f"https://github.com/{nc.git_user}/{nc.dots_repo}.git"
+        git = f"https://github.com/{nc.dots_git_user_repo}.git"
         run_dmc(["git", "clone", git, str(tmp)])
         shutil.rmtree(tmp / ".git")
         for p in tmp.iterdir():
             p.rename(p.parent / ("." + p.name))
-        copy_dir(tmp, mountpoint / "etc" / "skel")
+        copy_it(tmp, mountpoint / "etc" / "skel")
 
 
 def set_extensions(
@@ -85,17 +85,7 @@ def sys_dots(
     for dir_name in dirs_to_cp:
         source_dir = script_dir / dir_name
         target_dir = mnt_point / dir_name
-        log.info("Processing %s -> %s", source_dir, target_dir)
-        if not source_dir.exists():
-            log.error("Source directory not found: %s", source_dir)
-            continue
-        shutil.copytree(
-            source_dir,
-            target_dir,
-            dirs_exist_ok=True,
-            copy_function=shutil.copy2,
-        )
-        log.info("Copied %s to %s", source_dir, target_dir)
+        copy_it(source_dir, target_dir)
 
 
 def handle_firewall(
@@ -121,18 +111,12 @@ def replace_hosts_line(mnt_point: Path) -> None:
     conf.write_text("\n".join(lines) + "\n")
 
 
-def write_reflector(installation: Installer, reflector_country: str):
-    reflector_options = [
-        f"--country {reflector_country}",
-        "--protocol https",
-        "--latest 15",
-        "--sort rate",
-        "--number 3",
-        "--save /etc/pacman.d/mirrorlist",
-    ]
-    (installation.target / "etc/xdg/reflector/reflector.conf").write_text(
-        "\n".join(reflector_options)
-    )
+def write_reflector(
+    installation: Installer,
+    reflector_options: list[str],
+):
+    refl_conf = installation.target / "etc/xdg/reflector/reflector.conf"
+    refl_conf.write_text("\n".join(reflector_options))
 
 
 def replace_ly_config(mnt_point: Path) -> None:
@@ -168,8 +152,8 @@ def handle_sys_files(
     write_etc_file(installation.target, etc_files_to_write)
     replace_hosts_line(installation.target)
     replace_ly_config(installation.target)
-    if nc.reflector_country:
-        write_reflector(installation, nc.reflector_country)
+    if nc.reflector_options:
+        write_reflector(installation, nc.reflector_options)
     if nc.firefox_browser:
         set_extensions(installation.target, nc.firefox_browser)
     sys_dots(installation.target, script_d)

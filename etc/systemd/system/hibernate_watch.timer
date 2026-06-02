@@ -1,5 +1,0 @@
-[Timer]
-OnBootSec=20
-OnUnitActiveSec=20
-Unit=hibernate_watch.service
-Persistent=true

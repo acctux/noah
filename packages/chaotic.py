@@ -24,3 +24,12 @@ game_chaotic_pkgs: list[str] = [
     "rpcs3-git",
     "eden-git",
 ]
+not_installed: list[str] = [
+    "profile-cleaner",
+    "python-plotly",
+    "localsend",
+    "python-scipy",
+    "python-statsmodels",
+    "nwg-look",
+    "keyd",
+]

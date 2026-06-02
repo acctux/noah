@@ -1,32 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-
-@dataclass(frozen=True)
-class PathResolver:
-    usb: Path = Path("/mnt/usb")
-    root: Path = Path("/root")
-    mnt: Path = Path("/mnt")
-    home: Path = Path("/home")
-
-    # ---------- helpers ----------
-    def _clean(self, path: str) -> Path:
-        return Path(path.lstrip("/"))
-
-    # ---------- root / usb ----------
-    def usb_path(self, *parts: str) -> Path:
-        return self.usb.joinpath(*parts)
-
-    def root_path(self, *parts: str) -> Path:
-        return self.root.joinpath(*map(self._clean, parts))
-
-    # ---------- home-based ----------
-    def home_path(self, username: str, *parts: str) -> Path:
-        return self.home / username / Path(*parts)
-
-    def mnt_home_path(self, username: str, *parts: str) -> Path:
-        return self.mnt / "home" / username / Path(*parts)
 
 
 # =============================================================================
@@ -35,136 +9,192 @@ class PathResolver:
 @dataclass
 class GitRepo:
     username: str
-    repos: dict[str, str]  # key = git name, value = local path
+    repos: dict[str, str]
 
     @property
     def full_repos(self) -> list[str]:
-        return [f"{self.username}/{name}" for name in self.repos.keys()]
+        repos = []
+        for repo in self.repos.keys():
+            repos.append(f"{self.username}/{repo}")
+        return repos
 
-    def local_paths(self, home: Path) -> list[Path]:
+    def local_paths(self, HOME: Path) -> list[Path]:
         """
-        Return Paths resolved relative to 'home'.
+        Return Paths relative to 'HOME'.
         """
-        return [home / dest for dest in self.repos.values()]
+        dest_paths = []
+        for partial_dest_str in self.repos.values():
+            dest_paths.append(HOME / partial_dest_str)
+        return dest_paths
 
 
 # =============================================================================
 # Configurations
 # =============================================================================
 @dataclass
-class DotfilesConfiguration:
-    dotfiles_dir: str | None = None
-    secret_dotfiles_dir: str | None = None
-    dirs_to_link: list[str] = field(default_factory=list)
-
-    @classmethod
-    def from_arg(cls, arg: dict[str, Any] | None) -> "DotfilesConfiguration":
-        if not arg:
-            return cls()
-        return cls(
-            dotfiles_dir=arg.get("dotfiles_dir"),
-            secret_dotfiles_dir=arg.get("secret_dotfiles_dir"),
-            dirs_to_link=arg.get("dirs_to_link", []),
-        )
-
-
-@dataclass
 class GitReposConfiguration:
-    repositories: list[GitRepo] = field(default_factory=list)
+    repositories: list[GitRepo]
 
     @classmethod
-    def from_arg(cls, arg: dict[str, Any] | None) -> "GitReposConfiguration":
-        if not arg:
-            return cls()
+    def from_arg(cls, arg: dict[str, Any]) -> GitReposConfiguration | None:
+        if not arg or not isinstance(arg, dict):
+            return None
         username = arg.get("user_name")
         repos = arg.get("repos")
-        if username and repos:
-            return cls(repositories=[GitRepo(username=username, repos=repos)])
-        return cls()
+        if not username or not repos:
+            return None
+        return cls([GitRepo(username, repos)])
 
 
 @dataclass
-class KeyCopyConfiguration:
-    source_dir: str
-    target_dir: str
-    keys: dict[str, str]
-    resolver: PathResolver = field(default_factory=PathResolver)
-
-    def usb_to_root(self) -> list[tuple[Path, Path]]:
-        return FlatCopy(
-            source_dir=self.source_dir,
-            target_dir=self.target_dir,
-            names=list(self.keys.values()),
-            resolver=self.resolver,
-        ).usb_to_root()
-
-    def root_to_mnt(self, username: str) -> list[tuple[Path, Path]]:
-        return FlatCopy(
-            source_dir=self.source_dir,
-            target_dir=self.target_dir,
-            names=list(self.keys.values()),
-            resolver=self.resolver,
-        ).root_to_mnt(username)
+class CopySpec:
+    source: str
+    target: str
+    names: list
 
 
 @dataclass
-class FlatCopy:
-    source_dir: str
-    target_dir: str
-    names: list[str]
-    resolver: PathResolver = field(default_factory=PathResolver)
-
-    def usb_to_root(self) -> list[tuple[Path, Path]]:
-        src = self.resolver.usb_path(self.source_dir)
-        dst = self.resolver.root_path(self.target_dir)
-        return [(src / name, dst / name) for name in self.names]
-
-    def root_to_mnt(self, username: str) -> list[tuple[Path, Path]]:
-        src = self.resolver.root_path(self.target_dir)
-        dst = self.resolver.mnt_home_path(username, self.target_dir)
-        return [(src / name, dst / name) for name in self.names]
-
-
-@dataclass
-class CopyConfiguration:
-    copies: list[FlatCopy] = field(default_factory=list)
+class KeyCopyConfig:
+    ssh_key: CopySpec | None = None
+    gpg_key: CopySpec | None = None
+    auth_conf: CopySpec | None = None
 
     @classmethod
-    def from_arg(cls, arg: list[dict[str, Any]] | None):
-        if not arg:
-            return cls()
+    def from_arg(cls, arg: dict[str, Any]) -> "KeyCopyConfig | None":
+        if not arg or not isinstance(arg, dict):
+            return None
 
-        return cls(
-            copies=[
-                FlatCopy(
-                    source_dir=copy_target["source_dir"],
-                    target_dir=copy_target["target_dir"],
-                    names=copy_target["names"],
-                )
-                for copy_target in arg
-            ]
+        def parse(name: str) -> CopySpec | None:
+            value = arg.get(name)
+            if not isinstance(value, dict):
+                return None
+
+            source = value.get("source")
+            target = value.get("target")
+            names = value.get("names", [])
+
+            if not source or not target or not names:
+                return None
+
+            return CopySpec(source, target, names)
+
+        cfg = cls(
+            ssh_key=parse("ssh_key"),
+            gpg_key=parse("gpg_key"),
+            auth_conf=parse("auth_conf"),
         )
 
+        if not any((cfg.ssh_key, cfg.gpg_key, cfg.auth_conf)):
+            return None
 
-@dataclass
+        return cfg
+
+    def all_specs(self) -> list[CopySpec]:
+        return [
+            spec
+            for spec in (
+                self.ssh_key,
+                self.gpg_key,
+                self.auth_conf,
+            )
+            if spec is not None
+        ]
+
+
+class CopyConfiguration:
+    def __init__(
+        self,
+        copies: list[CopySpec] | None = None,
+        key_copy_config: KeyCopyConfig | None = None,
+    ):
+        self.copies = copies
+        self.key_copy_config = key_copy_config
+        self.usb = Path("/mnt/usb")
+        self.root = Path("/root")
+
+    @classmethod
+    def from_arg(cls, arg: Any = None) -> "CopyConfiguration | None":
+        if not arg:
+            return None
+        copies: list[CopySpec] = []
+        key_copy_config: KeyCopyConfig | None = None
+        if isinstance(arg, list):
+            for element in arg:
+                if isinstance(element, dict):
+                    copies.append(
+                        CopySpec(
+                            element["source"],
+                            element["target"],
+                            element.get("names", []),
+                        )
+                    )
+        elif isinstance(arg, dict):
+            key_copy_config = KeyCopyConfig.from_arg(arg)
+        if not copies and not key_copy_config:
+            return None
+        return cls(
+            copies=copies,
+            key_copy_config=key_copy_config,
+        )
+
+    def all_specs(self) -> list[CopySpec]:
+        specs: list[CopySpec] = []
+        if self.copies:
+            specs.extend(self.copies)
+        if self.key_copy_config:
+            specs.extend(self.key_copy_config.all_specs())
+        return specs
+
+    def _resolve(
+        self, src_base: Path, dst_base: Path, username: str = ""
+    ) -> list[tuple[Path, Path]]:
+        result = []
+        for spec in self.all_specs():
+            dst_base = Path(dst_base)
+            if not dst_base.is_absolute():
+                if username:
+                    dst_base = dst_base / "home" / username
+            for name in spec.names:
+                src = src_base / spec.source / name
+                dest = dst_base / spec.target.lstrip("/") / name
+                result.append((src, dest))
+        return result
+
+    def usb_to_root(self) -> list[tuple[Path, Path]]:
+        return self._resolve(self.usb, self.root)
+
+    def root_to_mnt(self, mnt_point: Path, username: str) -> list[tuple[Path, Path]]:
+        return self._resolve(src_base=self.root, dst_base=mnt_point, username=username)
+
+
+@dataclass(slots=True)
 class UserService:
     source: str
     target: str
     serv: list[str]
 
     @classmethod
-    def from_arg(cls, v: dict[str, Any]) -> "UserService":
-        return cls(
-            source=v["source"],
-            target=v["target"],
-            serv=v.get("serv", []),
-        )
+    def from_arg(cls, v: dict[str, Any]) -> UserService | None:
+        return cls(v["source"], v["target"], v.get("serv", []))
+
+    @staticmethod
+    def from_list(arg: list[dict[str, Any]] | None) -> list[UserService] | None:
+        if not arg:
+            return None
+        services: list[UserService] = []
+        for v in arg:
+            if not v:
+                continue
+            svc = UserService.from_arg(v)
+            if svc is not None:
+                services.append(svc)
+        return services or None
 
     def source_paths(self, username: str) -> list[Path]:
-        source = Path(self.source)
-        if not source.is_absolute():
-            source = Path("/home") / username / source
-        return [source / s for s in self.serv]
+        base = Path(self.source)
+        if not base.is_absolute():
+            base = Path("/home") / username / base
+        return [base / s for s in self.serv]
 
     def target_paths(self, username: str) -> list[Path]:
         base = (
@@ -175,46 +205,30 @@ class UserService:
         return [base / s for s in self.serv]
 
 
-@dataclass(slots=True)
-class UserServicesConfiguration:
-    services: list[UserService] = field(default_factory=list)
-
-    @classmethod
-    def from_arg(
-        cls,
-        arg: list[dict[str, Any]] | None,
-    ) -> "UserServicesConfiguration":
-        if not arg:
-            return cls()
-        return cls(services=[UserService.from_arg(v) for v in arg])
-
-
 # =============================================================================
 # Main Config
 # =============================================================================
 @dataclass
 class NoahConfig:
     terminal: str = "kitty"
+    parallel_downloads: int = 10
     firefox_browser: str | None = None
     dotfiles_dir: str | None = None
     secret_dotfiles_dir: str | None = None
-    git_user: str | None = None
-    dots_repo: str | None = None
-    reflector_country: str | None = None
+    dots_git_user_repo: str | None = None
     encrypted_dir: str | None = None
-    parallel_downloads: int = 10
+    reflector_options: list[str] | None = None
     disable_svcs: list[str] | None = None
     sudo_defaults: list[str] | None = None
     apps_to_hide: list[str] | None = None
     no_extracts: list[str] | None = None
     yazi_plugins: list[str] | None = None
-    dirs_icons: dict[str, str] = field(default_factory=dict)
+    dirs_icons: dict[str, str] | None = None
     git_repos_config: GitReposConfiguration | None = None
-    dotfiles_config: DotfilesConfiguration | None = None
-    key_copy_config: KeyCopyConfiguration | None = None
-    additional_usb_to_cp_config: CopyConfiguration | None = None
-    dir_contents_to_cp_config: CopyConfiguration | None = None
-    user_services_config: UserServicesConfiguration | None = None
+    dotdirs_to_link: list[str] | None = None
+    key_copy_config: CopyConfiguration | None = None
+    additional_usb_to_cp: CopyConfiguration | None = None
+    user_services_config: UserService | None = None
 
     @classmethod
     def from_config(cls, args: dict[str, Any]) -> "NoahConfig":
@@ -222,6 +236,9 @@ class NoahConfig:
 
         if "terminal" in args:
             noah.terminal = args["terminal"]
+
+        if "parallel_downloads" in args:
+            noah.parallel_downloads = args["parallel_downloads"]
 
         if "firefox_browser" in args:
             noah.firefox_browser = args["firefox_browser"]
@@ -232,26 +249,20 @@ class NoahConfig:
         if "secret_dotfiles_dir" in args:
             noah.secret_dotfiles_dir = args["secret_dotfiles_dir"]
 
-        if "git_user" in args:
-            noah.git_user = args["git_user"]
-
-        if "dots_repo" in args:
-            noah.dots_repo = args["dots_repo"]
-
-        if "reflector_country" in args:
-            noah.reflector_country = args["reflector_country"]
+        if "dots_git_user_repo" in args:
+            noah.dots_git_user_repo = args["dots_git_user_repo"]
 
         if "encrypted_dir" in args:
             noah.encrypted_dir = args["encrypted_dir"]
-
-        if "parallel_downloads" in args:
-            noah.parallel_downloads = args["parallel_downloads"]
 
         if "disable_svcs" in args:
             noah.disable_svcs = args["disable_svcs"]
 
         if "sudo_defaults" in args:
             noah.sudo_defaults = args["sudo_defaults"]
+
+        if "reflector_options" in args:
+            noah.reflector_options = args["reflector_options"]
 
         if "apps_to_hide" in args:
             noah.apps_to_hide = args["apps_to_hide"]
@@ -265,20 +276,17 @@ class NoahConfig:
         if "dirs_icons" in args:
             noah.dirs_icons = args["dirs_icons"]
 
-        if kc := args.get("key_copy_config"):
-            noah.key_copy_config = KeyCopyConfiguration(**kc)
+        if "dotdirs_to_link" in args:
+            noah.dotdirs_to_link = args["dotdirs_to_link"]
 
-        if dc := args.get("dotfiles_config"):
-            noah.dotfiles_config = DotfilesConfiguration.from_arg(dc)
+        if kc := args.get("key_copy_config"):
+            noah.key_copy_config = CopyConfiguration.from_arg(kc)
 
         if usb := args.get("additional_usb_to_cp"):
-            noah.additional_usb_to_cp_config = CopyConfiguration.from_arg(usb)
-
-        if dirs := args.get("dir_contents_to_cp"):
-            noah.dir_contents_to_cp_config = CopyConfiguration.from_arg(dirs)
+            noah.additional_usb_to_cp = CopyConfiguration.from_arg(usb)
 
         if us := args.get("user_services"):
-            noah.user_services_config = UserServicesConfiguration.from_arg(us)
+            noah.user_services_config = UserService.from_arg(us)
 
         if gr := args.get("git_repo_config"):
             noah.git_repos_config = GitReposConfiguration.from_arg(gr)

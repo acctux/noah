@@ -28,7 +28,7 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
-from utils import copy_file, handle_reflector
+from utils import copy_it, handle_reflector
 from lib.init_setup import init_setup
 from lib.datahandler import NoahConfig
 from lib.bootloaders import bootloader_handling
@@ -36,8 +36,6 @@ from lib.pacman import chaotic_repo, modify_pacman_conf
 from lib.multi_user import multi_user_funcs
 from lib.single_user import single_user_and_user_list
 from lib.root_handle import copy_skel, handle_sys_files
-import packages.pacman as pp
-import packages.chaotic as pc
 from pathlib import Path
 import sys
 import time
@@ -51,11 +49,9 @@ import jsonconfig as json_conf
 def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     upgrade = check_version_upgrade()
     title_text = "Archlinux"
-
     if upgrade:
         text = tr("New version available") + f": {upgrade}"
         title_text += f" ({text})"
-
     global_menu = GlobalMenu(arch_config_handler.config)
     global_menu.disable_all()
     global_menu.set_enabled("disk_config", True)
@@ -120,9 +116,8 @@ def perform_installation(
             ):
                 installation.generate_key_files()
 
-        handle_reflector(nc.reflector_country)
-        if no_extract := nc.no_extracts:
-            modify_pacman_conf(mnt_point=None, no_extracts=no_extract)
+        handle_reflector(nc.reflector_options)
+        modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
         installation.minimal_installation(
             optional_repositories=optional_repositories,
             mkinitcpio=run_mkinitcpio,
@@ -130,11 +125,10 @@ def perform_installation(
             locale_config=locale,
             pacman_config=config.pacman_config,
         )
-        copy_file(
+        copy_it(
             Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
         )
-        if no_extract := nc.no_extracts:
-            modify_pacman_conf(mnt_point=mountpoint, no_extracts=no_extract)
+        modify_pacman_conf(mnt_point=mountpoint, no_extracts=nc.no_extracts)
         copy_skel(mountpoint, nc)
         chaotic_repo(installation)
 
@@ -250,7 +244,6 @@ def perform_installation(
 def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     if arch_config_handler is None:
         arch_config_handler = ArchConfigHandler()
-
     mirror_list_handler = MirrorListHandler(
         offline=arch_config_handler.args.offline,
         verbose=arch_config_handler.args.verbose,
@@ -259,22 +252,6 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
         arch_config_json=json_conf.archinstall_json,
         auth_conf_path="/root/.ssh/users.json",
         noahconf_json=json_conf.noah_json,
-        base_pkgs=pp.base
-        + pp.android
-        + pp.coding
-        + pp.gaming
-        + pp.hardware
-        + pp.hyprland
-        + pp.ios
-        + pp.language
-        + pp.media
-        + pp.monitoring
-        + pp.network
-        + pp.office
-        + pp.personal
-        + pc.additional_chaotic_pkgs
-        + pc.base_chaotic_pkgs
-        + pc.game_chaotic_pkgs,
         arch_config_handler=arch_config_handler,
     )
     if not arch_config_handler.args.silent:
