@@ -187,15 +187,20 @@ office: list[str] = [
     "csvlens",
     "gnucash",
     "evince",
+    "isync",
+    "khard",
     "ledger",
     "libreoffice-fresh",
+    "coin-or-mp",  # LibreOffice Calc Solver
     "neomutt",
+    "notmuch",
+    "pimsync",
     "protonmail-bridge-core",
     "python-matplotlib",
     "python-polars",
     "python-polars-runtime-64",
-    "coin-or-mp",  # LibreOffice Calc Solver
     "qalculate-qt",
+    "timew",
     "zathura-pdf-mupdf",
 ]
 android: list[str] = [

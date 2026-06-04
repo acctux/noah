@@ -209,7 +209,10 @@ noah_json = {
     "encrypted_dir": "Desktop/Private",
     "dirs_icons": {
         "Desktop/Games": "folder-games",
+        "Desktop/Videos": "folder-videos",
+        "Desktop/Pictures": "folder-pictures",
         "Desktop/Private": "folder-locked",
+        "Desktop/Books": "folder-book",
         "Lit": "folder-github",
         "Lit/noah": "folder-root",
         "Lit/Docs": "folder-bookmark",
