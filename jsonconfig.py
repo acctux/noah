@@ -213,6 +213,8 @@ noah_json = {
         "Desktop/Pictures": "folder-pictures",
         "Desktop/Private": "folder-locked",
         "Desktop/Books": "folder-book",
+        "Desktop/Contacts": "folder-comic",
+        "Desktop/Mail": "folder-mail",
         "Lit": "folder-github",
         "Lit/noah": "folder-root",
         "Lit/Docs": "folder-bookmark",
