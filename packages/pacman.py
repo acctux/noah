@@ -105,6 +105,7 @@ hyprland: list[str] = [
     "qt6ct",
     "satty",
     "snixembed",
+    "swappy",
     "swaync",
     "swayosd",
     "awww",

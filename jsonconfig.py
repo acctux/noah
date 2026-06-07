@@ -174,6 +174,7 @@ noah_json = {
         "libreoffice-math",
         "khal",
         "kvantummanager",
+        "notmuch-emacs-mua",
         "nvtop",
         "octopi-cachecleaner",
         "octopi-notifier",
