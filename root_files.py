@@ -23,6 +23,21 @@ network_files: dict[str, str] = {
         name_servers="::1 127.0.0.1"
         """
     ),
+    "etc/chrony.conf": dedent(
+        """\
+        server 0.arch.pool.ntp.org iburst
+        server 1.arch.pool.ntp.org iburst
+        server 2.arch.pool.ntp.org iburst
+        server 3.arch.pool.ntp.org iburst
+        driftfile /var/lib/chrony/drift
+        rtcsync
+        makestep 1.0 3
+        leapseclist /usr/share/zoneinfo/leap-seconds.list
+        logdir /var/log/chrony
+        log measurements statistics tracking
+        allow 127.0.0.1
+        """
+    ),
     "etc/named.conf": dedent(
         """\
         // vim:set ts=4 sw=4 et:
