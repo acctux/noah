@@ -130,6 +130,7 @@ personal: list[str] = [
     "zbar",  # qr codes
 ]
 base: list[str] = [
+    "aria2",
     "authenticator",
     "base-devel",
     "bat-extras",
@@ -246,6 +247,10 @@ printer: list[str] = [
 ]
 server: list[str] = [
     "termscp",
+    "apache",
+    "php-apcu",
+    "php-gd",
+    "php-imagick",
     "gvfs-nfs",
     "samba",
     "duplicity",
