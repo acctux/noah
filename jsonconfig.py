@@ -155,8 +155,8 @@ noah_json = {
             "target": "timers",
             "serv": [
                 "emailcheck.timer",
-                "task-reminder.timer",
-                "task-schedule.timer",
+                "taskwarrior-notify.timer",
+                "taskwarrior-schedule.timer",
                 "wall.timer",
             ],
         },
@@ -204,9 +204,16 @@ noah_json = {
     ],
     "git_repo_config": {
         "user_name": "acctux",
-        "repos": {"noah": "Lit/noah", "polka": "Lit/polka", "docs": "Lit/Docs"},
+        "repos": {
+            "noah": "Lit/noah",
+            "polka": "Lit/polka",
+            "docs": "Lit/Docs",
+        },
     },
-    "dotdirs_to_link": ["Lit/polka", "Lit/Docs/secdots"],
+    "dotdirs_to_link": [
+        "Lit/polka",
+        "Lit/Docs/secdots",
+    ],
     "encrypted_dir": "Desktop/Private",
     "dirs_icons": {
         "Desktop/Games": "folder-games",

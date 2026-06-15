@@ -7,8 +7,6 @@ hardware: list[str] = [
     "dmidecode",
     "dosfstools",
     "exfatprogs",
-    "hwdetect",
-    "keyd",
     "ntfs-3g",
     "smartmontools",
     "udisks2-btrfs",
@@ -39,7 +37,6 @@ media: list[str] = [
     "gimp",
 ]
 monitoring: list[str] = [
-    "bandwhich",
     "btop",
     "rocm-smi-lib",  # btop dependency for amd gpu
     "gnome-logs",
@@ -50,15 +47,16 @@ monitoring: list[str] = [
     "systemctl-tui",
 ]
 coding: list[str] = [
-    "ugrep",
+    # General
+    "git-zsh-completion",
+    "github-cli",
+    "git-delta",
     "inotify-tools",  # nvim
+    "lazygit",
     "npm",
     "neovim-lspconfig",
     "uv",
-    "github-cli",
-    "git-delta",
-    "lazygit",
-    # coding
+    "rust",
     # Language Servers
     "bash-language-server",
     "lua-language-server",
@@ -71,18 +69,17 @@ coding: list[str] = [
     # Formatters
     "ruff",
     "shfmt",
+    "stylua",
+    "yamlfmt",
     # Lint
-    "shellcheck",
     "biome",
     "luacheck",
+    "shellcheck",
     "yamllint",
     # Tree sitter
     "tree-sitter-bash",
     "tree-sitter-cli",
     "tree-sitter-python",
-    "rust",
-    "stylua",
-    "yamlfmt",
     "tree-sitter-rust",
 ]
 hyprland: list[str] = [
@@ -120,7 +117,6 @@ personal: list[str] = [
     "archinstall",  # noah
     "python-dbus-fast",  # loggy
     "python-gnupg",  # noah
-    "python-imaplib2",  # emailcheck
     "python-pandas",  # weather
     "python-pydantic",  # noah
     "python-pyperclip",  # noah
@@ -130,15 +126,13 @@ personal: list[str] = [
     "zbar",  # qr codes
 ]
 base: list[str] = [
-    "aria2",
-    "authenticator",
     "base-devel",
     "bat-extras",
     "capitaine-cursors",
     "deluge-gtk",
+    "dialect",
     "dust",
     "eza",
-    "fd",
     "ouch",
     "fzf",
     "gocryptfs",
@@ -152,7 +146,6 @@ base: list[str] = [
     "rebuild-detector",
     "reflector",
     "ripgrep-all",
-    "sd",
     "seahorse",
     "starship",
     "taskwarrior-tui",
@@ -185,26 +178,17 @@ gaming: list[str] = [
 ]
 office: list[str] = [
     "anki",
-    "csvkit",
-    "csvlens",
-    "gnucash",
     "elinks",
     "evince",
     "isync",
     "khard",
-    "ledger",
     "libreoffice-fresh",
-    "coin-or-mp",  # LibreOffice Calc Solver
     "msmtp",
     "neomutt",
     "notmuch",
-    "pimsync",
+    "pdfgrep",
     "protonmail-bridge-core",
-    "python-matplotlib",
-    "python-polars",
-    "python-polars-runtime-64",
     "qalculate-qt",
-    "timew",
     "urlscan",
     "zathura-pdf-mupdf",
 ]
@@ -244,6 +228,49 @@ printer: list[str] = [
     "simple-scan",
     "splix",
     "system-config-printer",
+]
+random: list[str] = [
+    "gnucash",
+    "handbrake",
+    "authenticator",
+    "hwdetect",
+    "keyd",
+    "bandwhich",
+    "ugrep",
+    "python-matplotlib",
+    "aria2",
+    "ledger",
+    "coin-or-mp",  # LibreOffice Calc Solver
+    "astroterm",
+    "audacity",
+    "blender",
+    "bees",
+    "bolt",
+    "csvkit",
+    "csvlens",
+    "desmume",
+    "easyeffects",
+    "fceux",
+    "fwupd",
+    "geotag",
+    "glow",
+    "ifplugd",
+    "inkscape",
+    "mousai",
+    "mtpfs",
+    "mupen64plus",
+    "keepassxc",
+    "office-runner",
+    "pastel",
+    "performous",
+    "pipe-rename",
+    "plastic_tui",
+    "ppsspp",
+    "qxv",
+    "radicale",
+    "sagemath",
+    "showmethekey",
+    "snes9x",
 ]
 server: list[str] = [
     "termscp",
