@@ -64,13 +64,29 @@ def write_limine_conf(mountpoint: Path) -> None:
     limine_conf = mountpoint / "boot" / "limine.conf"
     if not limine_conf.exists():
         return
-    lines = limine_conf.read_text().splitlines()
-    for i, line in enumerate(lines):
-        if line.strip().startswith("timeout"):
-            lines[i] = "timeout: 1"
-            lines.insert(i + 1, "remember_last_entry: yes")
-            break
-    limine_conf.write_text("\n".join(lines) + "\n")
+    branding_block = [
+        "interface_branding:",
+        "term_palette: 21222c;ff5555;00ff99;f1fa8c;0072ff;ff79c6;33ccff;bfbfbf",
+        "term_palette_bright: 4d4d4d;ff6e6e;10b981;ffffa5;a5b4fc;ff92df;a4ffff;ffffff",
+        "term_background: 101013",
+        "term_foreground: f4f5f6",
+        "term_background_bright: 4d4d4d",
+        "term_foreground_bright: white",
+        "interface_branding_color: 0072ff",
+        "interface_help_color: 0072ff",
+        "interface_help_color_bright: a5b4fc",
+    ]
+    new_lines = []
+    for line in limine_conf.read_text().splitlines():
+        # Match and update timeout parameters
+        if line.strip().startswith("timeout:"):
+            new_lines.append("timeout: 1")
+            new_lines.append("remember_last_entry: yes")
+            continue  # Skip appending the original 'timeout' line
+        new_lines.append(line)
+        if line.strip() == "### Theme":
+            new_lines.extend(branding_block)
+    limine_conf.write_text("\n".join(new_lines) + "\n")
     log.info(f"Updated config parameters inside {limine_conf}")
 
 

@@ -3,19 +3,46 @@ import packages.chaotic as pc
 
 archinstall_json = {
     "app_config": {
-        "audio_config": {"audio": "pipewire"},
-        "bluetooth_config": {"enabled": True},
-        "firewall_config": {"firewall": "firewalld"},
-        "fonts_config": {"fonts": ["noto-fonts-emoji", "ttf-liberation"]},
-        "power_management_config": {"power_management": "tuned"},
-        "print_service_config": {"enabled": False},
+        "audio_config": {
+            "audio": "pipewire",
+        },
+        "bluetooth_config": {
+            "enabled": True,
+        },
+        "firewall_config": {
+            "firewall": "firewalld",
+        },
+        "fonts_config": {
+            "fonts": [
+                "noto-fonts-emoji",
+                "ttf-liberation",
+            ]
+        },
+        "power_management_config": {
+            "power_management": "tuned",
+        },
+        "print_service_config": {
+            "enabled": False,
+        },
     },
     "archinstall-language": "English",
-    "bootloader_config": {"bootloader": "Limine", "removable": False, "uki": False},
+    "bootloader_config": {
+        "bootloader": "Limine",
+        "removable": False,
+        "uki": False,
+    },
     "hostname": "yulia",
-    "kernels": ["linux"],
-    "locale_config": {"kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US.UTF-8"},
-    "optional_repositories": ["multilib"],
+    "kernels": [
+        "linux",
+    ],
+    "locale_config": {
+        "kb_layout": "us",
+        "sys_enc": "UTF-8",
+        "sys_lang": "en_US.UTF-8",
+    },
+    "optional_repositories": [
+        "multilib",
+    ],
     "network_config": {"type": "iso"},
     "ntp": True,
     "packages": [
@@ -36,7 +63,10 @@ archinstall_json = {
         + pc.base_chaotic_pkgs
         + pc.game_chaotic_pkgs,
     ],
-    "pacman_config": {"color": True, "parallel_downloads": 10},
+    "pacman_config": {
+        "color": True,
+        "parallel_downloads": 10,
+    },
     "profile_config": {
         "gfx_driver": "AMD / ATI (open-source)",
         "greeter": "ly",
@@ -59,7 +89,10 @@ archinstall_json = {
         "loggy",
         "sysinfo",
     ],
-    "swap": {"algorithm": "zstd", "enabled": True},
+    "swap": {
+        "algorithm": "zstd",
+        "enabled": True,
+    },
     "timezone": "US/Eastern",
     "version": "4.3",
 }
@@ -80,6 +113,9 @@ noah_json = {
         "systemd-resolved",
         "systemd-networkd-wait-online",
     ],
+    "mask_svcs": [
+        "systemd-networkd-wait-online",
+    ],
     "no_extracts": [
         "etc/xdg/autostart/firewall-applet.desktop",
         "usr/share/icons/capitaine-cursors/*",
@@ -88,41 +124,56 @@ noah_json = {
         "ssh_key": {
             "source": "noahinstall",
             "target": ".ssh",
-            "names": ["id_ed25519"],
+            "names": [
+                "id_ed25519",
+            ],
         },
         "gpg_key": {
             "source": "noahinstall",
             "target": ".gnupg",
-            "names": ["my_sec_gpg.asc"],
+            "names": [
+                "my_sec_gpg.asc",
+            ],
         },
         "auth_conf": {
             "source": "noahinstall",
             "target": ".ssh",
-            "names": ["users.json"],
+            "names": [
+                "users.json",
+            ],
         },
     },
     "additional_usb_to_cp": [
         {
             "source": "noahinstall",
             "target": ".ssh",
-            "names": ["pass.txt"],
+            "names": [
+                "pass.txt",
+            ],
         },
         {
             "source": "noahinstall",
             "target": "/etc",
-            "names": ["wireguard"],
+            "names": [
+                "wireguard",
+            ],
         },
     ],
     "user_services": [
         {
             "source": "/usr/lib/systemd/user",
             "target": "default",
-            "serv": ["psd.service"],
+            "serv": [
+                "psd.service",
+            ],
         },
         {
             "source": "/usr/lib/systemd/user",
             "target": "sockets",
-            "serv": ["gcr-ssh-agent.socket", "mpd.socket"],
+            "serv": [
+                "gcr-ssh-agent.socket",
+                "mpd.socket",
+            ],
         },
         {
             "source": "/usr/lib/systemd/user",

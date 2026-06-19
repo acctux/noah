@@ -220,6 +220,7 @@ class NoahConfig:
     reflector_options: list[str] | None = None
     disable_svcs: list[str] | None = None
     sudo_defaults: list[str] | None = None
+    mask_svcs: list[str] | None = None
     apps_to_hide: list[str] | None = None
     no_extracts: list[str] | None = None
     yazi_plugins: list[str] | None = None
@@ -257,6 +258,9 @@ class NoahConfig:
 
         if "disable_svcs" in args:
             noah.disable_svcs = args["disable_svcs"]
+
+        if "mask_svcs" in args:
+            noah.disable_svcs = args["mask_svcs"]
 
         if "sudo_defaults" in args:
             noah.sudo_defaults = args["sudo_defaults"]

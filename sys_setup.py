@@ -204,17 +204,19 @@ def perform_installation(
             installation.enable_service(services)
         if disable_svcs := nc.disable_svcs:
             installation.disable_service(disable_svcs)
+        mask_svcs = ["systemd-networkd-wait-online.service"]
+        if mask_svcs:
+            installation.arch_chroot(f"systemctl mask {' '.join(mask_svcs)}")
 
         if disk_config.has_default_btrfs_vols():
             btrfs_options = disk_config.btrfs_options
-            snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
-            snapshot_type = snapshot_config.snapshot_type if snapshot_config else None
+            if btrfs_options:
+                snapshot_config = btrfs_options.snapshot_config
+            if snapshot_config:
+                snapshot_type = snapshot_config.snapshot_type
             if snapshot_type:
-                bootloader = (
-                    config.bootloader_config.bootloader
-                    if config.bootloader_config
-                    else None
-                )
+                if config.bootloader_config:
+                    bootloader = config.bootloader_config.bootloader
                 installation.setup_btrfs_snapshot(snapshot_type, bootloader)
 
         if cc := config.custom_commands:

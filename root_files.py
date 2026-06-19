@@ -97,19 +97,12 @@ etc_files_to_write: dict[str, str] = {
     "etc/sysctl.d/99-sysctl.conf": dedent(
         """\
         vm.max_map_count = 2147483642
- 
-        # This action will speed up your boot and shutdown, because one less module is loaded.
-        # Additionally disabling watchdog timers increases performance and lowers power consumption
         # Disable NMI watchdog
         kernel.nmi_watchdog = 0
-
         # To hide any kernel messages from the console
         kernel.printk = 3 3 3 3
-
         # Restricting access to kernel pointers in the proc filesystem
         kernel.kptr_restrict = 2
-
-        # Increase netdev receive queue
         # May help prevent losing packets
         net.core.netdev_max_backlog = 4096
         """
