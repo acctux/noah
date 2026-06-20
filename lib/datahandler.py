@@ -3,6 +3,26 @@ from pathlib import Path
 from typing import Any
 
 
+@dataclass(frozen=True)
+class SystemHardwareInfo:
+    nvidia: bool
+    cpu_vendor: str | None
+    amd: bool
+    is_vm: bool
+    has_bat: bool
+
+    @classmethod
+    def from_sys_info(cls, sys_info) -> "SystemHardwareInfo":
+        vendor = sys_info.cpu_vendor()
+        return cls(
+            nvidia=sys_info.has_nvidia_graphics(),
+            cpu_vendor=vendor.value if hasattr(vendor, "value") else vendor,
+            amd=sys_info.has_amd_graphics(),
+            is_vm=sys_info.is_vm(),
+            has_bat=sys_info.has_battery(),
+        )
+
+
 # =============================================================================
 # Leaf Models
 # =============================================================================

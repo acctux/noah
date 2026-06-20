@@ -87,6 +87,7 @@ etc_files_to_write: dict[str, str] = {
         vm.watermark_boost_factor = 0
         vm.watermark_scale_factor = 125
         vm.page-cluster = 0
+        vm.dirty_writeback_centisecs = 1500
         """
     ),
     "etc/fuse.conf": dedent(
@@ -138,11 +139,6 @@ etc_files_to_write: dict[str, str] = {
         blacklist iTCO_wdt
         # Blacklist the AMD SP5100 TCO Watchdog/Timer module (Required for Ryzen cpus)
         blacklist sp5100_tco"
-        """
-    ),
-    "etc/modprobe.d/nvidia.conf": dedent(
-        """\
-        options nvidia NVreg_UsePageAttributeTable=1
         """
     ),
     "etc/udisks2/mount_options.conf": dedent(

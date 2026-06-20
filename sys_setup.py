@@ -31,16 +31,28 @@ from archinstall.lib.profile.profiles_handler import profile_handler
 from utils import copy_it
 from lib.init_setup import init_setup
 from lib.datahandler import NoahConfig
+from lib.nvidia import install_nvidia, install_powertop
 from lib.bootloaders import bootloader_handling
-from lib.pacman import chaotic_repo, modify_pacman_conf
+from lib.pacconf_chaos import chaotic_repo, modify_pacman_conf
 from lib.multi_user import multi_user_funcs
 from lib.single_user import single_user_and_user_list
 from lib.root_handle import copy_skel, handle_sys_files, handle_reflector
+from archinstall.lib.hardware import SysInfo
 from pathlib import Path
 import sys
 import time
 import subprocess
 import jsonconfig as json_conf
+
+
+class NoahSysInfo:
+    def __init__(self, sys_info: SysInfo):
+        vendor = sys_info.cpu_vendor()
+        self.nvidia: bool = sys_info.has_nvidia_graphics()
+        self.cpu_vendor: str | None = getattr(vendor, "value", str(vendor))
+        self.amd: bool = sys_info.has_amd_graphics()
+        self.is_vm: bool = sys_info.is_vm()
+        self.has_bat: bool = sys_info.has_battery()
 
 
 ###################################
@@ -189,8 +201,12 @@ def perform_installation(
             if users:
                 profile_config.profile.provision(installation, users)
 
-        profile_handler.install_gfx_driver(installation, GfxDriver.AmdOpenSource)
-        profile_handler.install_gfx_driver(installation, GfxDriver.NvidiaOpenKernel)
+        sys_info = NoahSysInfo(SysInfo())
+        if sys_info.amd:
+            profile_handler.install_gfx_driver(installation, GfxDriver.AmdOpenSource)
+        if sys_info.nvidia:
+            install_nvidia(installation)
+        install_powertop(installation)
         profile_handler.install_greeter(installation, GreeterType.Ly)
         bootloader_handling(installation, config)
         handle_sys_files(installation, nc, config, script_d)
