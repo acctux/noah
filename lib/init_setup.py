@@ -16,8 +16,8 @@ def check_missing(config: NoahConfig) -> list[str]:
     def collect_missing(copies: list[CopySpec]) -> None:
         for copy in copies:
             for name in copy.names:
-                path = copy.source / name
-                if not path.exists():
+                # This now works perfectly because copy.source is a Path
+                if not (copy.source / name).exists():
                     missing.append(name)
 
     missing: list[str] = []

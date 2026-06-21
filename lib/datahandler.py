@@ -68,9 +68,12 @@ class GitReposConfiguration:
 
 @dataclass
 class CopySpec:
-    source: str
+    source: str | Path
     target: str
     names: list
+
+    def __post_init__(self):
+        self.source = Path(self.source)
 
 
 @dataclass
