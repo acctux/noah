@@ -194,20 +194,33 @@ class UserService:
     serv: list[str]
 
     @classmethod
-    def from_arg(cls, v: dict[str, Any]) -> UserService | None:
-        return cls(v["source"], v["target"], v.get("serv", []))
+    def from_arg(cls, v: dict[str, Any]) -> "UserService | None":
+        # This handles the case where 'targets' is a dict of lists
+        # We process the first available target mapping, or you could return a list
+        # To maintain compatibility with your existing structure:
+        if "targets" in v:
+            # We take the first target group from the dictionary to satisfy the class structure
+            target_name, services = next(iter(v["targets"].items()))
+            return cls(v["source"], target_name, services)
+
+        # Fallback for standard flat structure
+        return cls(v["source"], v.get("target", ""), v.get("serv", []))
 
     @staticmethod
-    def from_list(arg: list[dict[str, Any]] | None) -> list[UserService] | None:
+    def from_list(arg: list[dict[str, Any]] | None) -> list["UserService"] | None:
         if not arg:
             return None
         services: list[UserService] = []
-        for v in arg:
-            if not v:
-                continue
-            svc = UserService.from_arg(v)
-            if svc is not None:
-                services.append(svc)
+        for entry in arg:
+            if "targets" in entry:
+                # Expand nested targets into multiple UserService objects
+                for t_name, t_servs in entry["targets"].items():
+                    services.append(UserService(entry["source"], t_name, t_servs))
+            else:
+                # Handle flat structure
+                svc = UserService.from_arg(entry)
+                if svc:
+                    services.append(svc)
         return services or None
 
     def source_paths(self, username: str) -> list[Path]:
