@@ -90,10 +90,15 @@ def write_limine_conf(mountpoint: Path) -> None:
     log.info(f"Updated config parameters inside {limine_conf}")
 
 
-def set_target_os(default_limine: Path, target_os: str = "Arch Linux") -> None:
+def set_target_os(mnt: Path, target_os: str) -> None:
+    default_limine = mnt / "etc" / "default" / "limine"
+    copy_it(mnt / "etc" / "limine-entry-tool.conf", default_limine)
+    if not default_limine.exists():
+        return
     updates = {
         "TARGET_OS_NAME": f"'{target_os}'",
         "FIND_BOOTLOADERS": "no",
+        "ESP_PATH": "/boot",
     }
     lines = default_limine.read_text(encoding="utf-8").splitlines()
     new_lines = []
@@ -104,17 +109,20 @@ def set_target_os(default_limine: Path, target_os: str = "Arch Linux") -> None:
             new_lines.append(f"{key}={updates[key]}")
         else:
             new_lines.append(line)
+    for key, value in updates.items():
+        if key not in [
+            line.split("=")[0].strip().lstrip("#").strip()
+            for line in lines
+            if "=" in line
+        ]:
+            new_lines.append(f"{key}={value}")
     default_limine.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
 def install_limine(installation: Installer) -> None:
     installation.add_additional_packages("limine-mkinitcpio-hook")
-    default_limine = installation.target / "etc" / "default" / "limine"
-    copy_it(installation.target / "etc" / "limine-entry-tool.conf", default_limine)
-    if not default_limine.exists():
-        return
-    set_target_os(default_limine)
     write_limine_conf(installation.target)
+    set_target_os(installation.target, target_os="Arch Linux")
     cmdline = get_cmdline(installation.target)
     write_limine_opt(installation, "original_flags", cmdline, run_refresh=False)
 
@@ -236,4 +244,3 @@ def bootloader_handling(installation: Installer, config: ArchConfig) -> None:
     if config.auth_config and config.auth_config.users:
         username = config.auth_config.users[0].username
     inst_snapper(installation, username)
-
