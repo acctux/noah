@@ -45,7 +45,7 @@ archinstall_json = {
     ],
     "network_config": {"type": "iso"},
     "ntp": True,
-    "packages": [
+    "packages": (
         pp.base
         + pp.android
         + pp.coding
@@ -62,7 +62,7 @@ archinstall_json = {
         + pc.additional_chaotic_pkgs
         + pc.base_chaotic_pkgs
         + pc.game_chaotic_pkgs,
-    ],
+    ),
     "pacman_config": {
         "color": True,
         "parallel_downloads": 10,
