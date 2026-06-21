@@ -194,48 +194,70 @@ class UserService:
     serv: list[str]
 
     @classmethod
-    def from_arg(cls, v: dict[str, Any]) -> "UserService | None":
-        # This handles the case where 'targets' is a dict of lists
-        # We process the first available target mapping, or you could return a list
-        # To maintain compatibility with your existing structure:
-        if "targets" in v:
-            # We take the first target group from the dictionary to satisfy the class structure
-            target_name, services = next(iter(v["targets"].items()))
-            return cls(v["source"], target_name, services)
+    # Change type hint to list[dict[str, Any]] to match the argument passed in NoahConfig
+    def from_arg(cls, v: list[dict[str, Any]]) -> "UserService":
+        """
+        Adapts the full list of services into a single container
+        that handles the aggregation internally.
+        """
+        # Create a 'master' object to hold the collection
+        master = cls("", "", [])
+        master._all_services = []
 
-        # Fallback for standard flat structure
-        return cls(v["source"], v.get("target", ""), v.get("serv", []))
+        # Process the full list passed from NoahConfig
+        for entry in v:
+            source = entry.get("source", "")
+            for target_name, services in entry.get("targets", {}).items():
+                master._all_services.append(UserService(source, target_name, services))
+        return master
 
-    @staticmethod
-    def from_list(arg: list[dict[str, Any]] | None) -> list["UserService"] | None:
-        if not arg:
-            return None
-        services: list[UserService] = []
-        for entry in arg:
-            if "targets" in entry:
-                # Expand nested targets into multiple UserService objects
-                for t_name, t_servs in entry["targets"].items():
-                    services.append(UserService(entry["source"], t_name, t_servs))
-            else:
-                # Handle flat structure
-                svc = UserService.from_arg(entry)
-                if svc:
-                    services.append(svc)
-        return services or None
+    # Internal storage for the collection
+    _all_services: list["UserService"] | None = None
 
     def source_paths(self, username: str) -> list[Path]:
+        # If this is the master object, aggregate paths from all_services
+        if self._all_services is not None:
+            all_paths = []
+            for svc in self._all_services:
+                all_paths.extend(svc.source_paths(username))
+            return all_paths
+
+        # Original logic for individual objects
         base = Path(self.source)
         if not base.is_absolute():
             base = Path("/home") / username / base
         return [base / s for s in self.serv]
 
     def target_paths(self, username: str) -> list[Path]:
+        if self._all_services is not None:
+            all_paths = []
+            for svc in self._all_services:
+                all_paths.extend(svc.target_paths(username))
+            return all_paths
+
+        # Original logic for individual objects
         base = (
             Path("/home")
             / username
             / f".config/systemd/user/{self.target}.target.wants"
         )
         return [base / s for s in self.serv]
+
+    @staticmethod
+    def from_list(arg: list[dict[str, Any]] | None) -> list["UserService"] | None:
+        """Original from_list logic preserved."""
+        if not arg:
+            return None
+        services: list[UserService] = []
+        for v in arg:
+            if not v:
+                continue
+            # Note: For flat entries, this still works, but for your nested
+            # structure, NoahConfig calls from_arg directly on the list.
+            svc = UserService.from_arg([v])
+            if svc is not None:
+                services.append(svc)
+        return services or None
 
 
 # =============================================================================
