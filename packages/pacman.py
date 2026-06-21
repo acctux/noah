@@ -123,6 +123,8 @@ hyprland: list[str] = [
 ]
 personal: list[str] = [
     "archinstall",  # noah
+    "python-matplotlib",
+    "python-tomlkit",  # tuned
     "python-dbus-fast",  # loggy
     "python-gnupg",  # noah
     "python-pandas",  # weather
@@ -253,11 +255,9 @@ earth: list[str] = [
 ]
 random: list[str] = [
     "ugrep",
-    "python-matplotlib",
     "coin-or-mp",  # LibreOffice Calc Solver
     "easyeffects",
     "fwupd",
-    "ifplugd",
     "inkscape",
     "mtpfs",
     "pastel",

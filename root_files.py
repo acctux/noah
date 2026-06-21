@@ -95,6 +95,25 @@ etc_files_to_write: dict[str, str] = {
         user_allow_other
         """
     ),
+    "etc/tuned/ppd.conf": dedent(
+        """\
+        [main]
+        # The default PPD profile
+        default=power-saver
+        battery_detection=true
+        sysfs_acpi_monitor=true
+
+        [profiles]
+        # PPD = TuneD
+        power-saver=laptop-battery-powersave
+        balanced=laptop-ac-powersave
+        performance=balanced
+
+        [battery]
+        # PPD = TuneD
+        balanced=balanced-battery
+        """
+    ),
     "etc/sysctl.d/99-sysctl.conf": dedent(
         """\
         vm.max_map_count = 2147483642
