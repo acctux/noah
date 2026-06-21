@@ -17,10 +17,12 @@ def hide_apps(installation: Installer, user: str, apps_to_hide: list[str]):
 # USR_SVC
 ###################################
 def enable_user_serv(installation: Installer, unit: UserService, username: str) -> None:
-    for src, tgt in zip(unit.source_paths(username), unit.target_paths(username)):
+    sources = unit.source_paths(username)
+    targets = unit.target_paths(username)
+    for src, tgt in zip(sources, targets):
         installation.arch_chroot(f"mkdir -p {tgt.parent}", username)
         installation.arch_chroot(f"ln -sfn {src} {tgt}", username)
-        log.info("%s -> %s", src, tgt)
+        log.info("Enabled service: %s -> %s", src, tgt)
 
 
 def user_service(
