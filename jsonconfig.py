@@ -61,7 +61,7 @@ archinstall_json = {
         + pp.personal
         + pc.additional_chaotic_pkgs
         + pc.base_chaotic_pkgs
-        + pc.game_chaotic_pkgs,
+        + pc.game_chaotic_pkgs
     ),
     "pacman_config": {
         "color": True,
