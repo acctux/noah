@@ -45,7 +45,7 @@ archinstall_json = {
     ],
     "network_config": {"type": "iso"},
     "ntp": True,
-    "packages": (
+    "packages": [
         pp.base
         + pp.android
         + pp.coding
@@ -61,8 +61,8 @@ archinstall_json = {
         + pp.personal
         + pc.additional_chaotic_pkgs
         + pc.base_chaotic_pkgs
-        + pc.game_chaotic_pkgs
-    ),
+        + pc.game_chaotic_pkgs,
+    ],
     "pacman_config": {
         "color": True,
         "parallel_downloads": 10,
@@ -162,44 +162,54 @@ noah_json = {
     "user_services": [
         {
             "source": "/usr/lib/systemd/user",
-            "targets": {
-                "default": [
-                    "psd.service",
-                ],
-                "sockets": [
-                    "gcr-ssh-agent.socket",
-                    "mpd.socket",
-                ],
-                "graphical-session": [
-                    "cliphist.service",
-                    "hypridle.service",
-                    "hyprsunset.service",
-                    "swaync.service",
-                    "waybar.service",
-                ],
-            },
+            "target": "default",
+            "serv": [
+                "psd.service",
+            ],
+        },
+        {
+            "source": "/usr/lib/systemd/user",
+            "target": "sockets",
+            "serv": [
+                "gcr-ssh-agent.socket",
+                "mpd.socket",
+            ],
+        },
+        {
+            "source": "/usr/lib/systemd/user",
+            "target": "graphical-session",
+            "serv": [
+                "cliphist.service",
+                "hypridle.service",
+                "hyprsunset.service",
+                "swaync.service",
+                "waybar.service",
+            ],
         },
         {
             "source": ".config/systemd/user",
-            "targets": {
-                "graphical-session": [
-                    "ayugram.service",
-                    "clip-persist.service",
-                    "kdeconnectd.service",
-                    "kanshi.service",
-                    "playerctld.service",
-                    "polkit-gnome.service",
-                    "snixembed.service",
-                    "swayosd.service",
-                    "awww-daemon.service",
-                ],
-                "timers": [
-                    "emailcheck.timer",
-                    "taskwarrior-notify.timer",
-                    "taskwarrior-schedule.timer",
-                    "wall.timer",
-                ],
-            },
+            "target": "graphical-session",
+            "serv": [
+                "ayugram.service",
+                "clip-persist.service",
+                "kdeconnectd.service",
+                "kanshi.service",
+                "playerctld.service",
+                "polkit-gnome.service",
+                "snixembed.service",
+                "swayosd.service",
+                "awww-daemon.service",
+            ],
+        },
+        {
+            "source": ".config/systemd/user",
+            "target": "timers",
+            "serv": [
+                "emailcheck.timer",
+                "taskwarrior-notify.timer",
+                "taskwarrior-schedule.timer",
+                "wall.timer",
+            ],
         },
     ],
     "apps_to_hide": [

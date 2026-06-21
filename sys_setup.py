@@ -142,6 +142,7 @@ def perform_installation(
         )
         modify_pacman_conf(mnt_point=mountpoint, no_extracts=nc.no_extracts)
         copy_skel(mountpoint, nc)
+        chaotic_repo(None)
         chaotic_repo(installation)
 
         if mirror_config := config.mirror_config:

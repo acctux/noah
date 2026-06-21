@@ -68,12 +68,9 @@ class GitReposConfiguration:
 
 @dataclass
 class CopySpec:
-    source: str | Path
+    source: str
     target: str
     names: list
-
-    def __post_init__(self):
-        self.source = Path(self.source)
 
 
 @dataclass
@@ -192,34 +189,40 @@ class CopyConfiguration:
 
 @dataclass(slots=True)
 class UserService:
-    # This stores the raw list of dictionaries from your configuration
-    raw_data: list[dict[str, Any]]
+    source: str
+    target: str
+    serv: list[str]
 
     @classmethod
-    def from_arg(cls, v: list[dict[str, Any]]) -> "UserService":
-        """Accepts the 'user_services' list from NoahConfig."""
-        return cls(raw_data=v)
+    def from_arg(cls, v: dict[str, Any]) -> UserService | None:
+        return cls(v["source"], v["target"], v.get("serv", []))
 
-    def get_paths(self, username: str) -> list[tuple[Path, Path]]:
-        """
-        Returns a list of (source_path, target_path) tuples.
-        This isolates all path-building logic here.
-        """
-        paths = []
-        for entry in self.raw_data:
-            source_base = Path(entry["source"])
-            if not source_base.is_absolute():
-                source_base = Path("/home") / username / source_base
+    @staticmethod
+    def from_list(arg: list[dict[str, Any]] | None) -> list[UserService] | None:
+        if not arg:
+            return None
+        services: list[UserService] = []
+        for v in arg:
+            if not v:
+                continue
+            svc = UserService.from_arg(v)
+            if svc is not None:
+                services.append(svc)
+        return services or None
 
-            for target_name, services in entry.get("targets", {}).items():
-                target_base = (
-                    Path("/home")
-                    / username
-                    / f".config/systemd/user/{target_name}.target.wants"
-                )
-                for svc in services:
-                    paths.append((source_base / svc, target_base / svc))
-        return paths
+    def source_paths(self, username: str) -> list[Path]:
+        base = Path(self.source)
+        if not base.is_absolute():
+            base = Path("/home") / username / base
+        return [base / s for s in self.serv]
+
+    def target_paths(self, username: str) -> list[Path]:
+        base = (
+            Path("/home")
+            / username
+            / f".config/systemd/user/{self.target}.target.wants"
+        )
+        return [base / s for s in self.serv]
 
 
 # =============================================================================
