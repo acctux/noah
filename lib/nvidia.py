@@ -45,6 +45,7 @@ def install_powertop(installation: Installer):
             Type=oneshot
             RemainAfterExit=yes
             ExecStart=/usr/bin/powertop --auto-tune
+            ExecStartPost=/bin/sh -c 'for f in $(find /sys/bus/usb/drivers/usbhid -regex '.*\/[0-9:.-]+' -printf '%f\n' | cut -d ":" -f 1 | sort -u); do echo on >| "/sys/bus/usb/devices/$f/power/control"; done'
 
             [Install]
             WantedBy=multi-user.target sleep.target

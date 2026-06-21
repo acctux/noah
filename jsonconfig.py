@@ -162,54 +162,44 @@ noah_json = {
     "user_services": [
         {
             "source": "/usr/lib/systemd/user",
-            "target": "default",
-            "serv": [
-                "psd.service",
-            ],
-        },
-        {
-            "source": "/usr/lib/systemd/user",
-            "target": "sockets",
-            "serv": [
-                "gcr-ssh-agent.socket",
-                "mpd.socket",
-            ],
-        },
-        {
-            "source": "/usr/lib/systemd/user",
-            "target": "graphical-session",
-            "serv": [
-                "cliphist.service",
-                "hypridle.service",
-                "hyprsunset.service",
-                "swaync.service",
-                "waybar.service",
-            ],
+            "targets": {
+                "default": [
+                    "psd.service",
+                ],
+                "sockets": [
+                    "gcr-ssh-agent.socket",
+                    "mpd.socket",
+                ],
+                "graphical-session": [
+                    "cliphist.service",
+                    "hypridle.service",
+                    "hyprsunset.service",
+                    "swaync.service",
+                    "waybar.service",
+                ],
+            },
         },
         {
             "source": ".config/systemd/user",
-            "target": "graphical-session",
-            "serv": [
-                "ayugram.service",
-                "clip-persist.service",
-                "kdeconnectd.service",
-                "kanshi.service",
-                "playerctld.service",
-                "polkit-gnome.service",
-                "snixembed.service",
-                "swayosd.service",
-                "awww-daemon.service",
-            ],
-        },
-        {
-            "source": ".config/systemd/user",
-            "target": "timers",
-            "serv": [
-                "emailcheck.timer",
-                "taskwarrior-notify.timer",
-                "taskwarrior-schedule.timer",
-                "wall.timer",
-            ],
+            "targets": {
+                "graphical-session": [
+                    "ayugram.service",
+                    "clip-persist.service",
+                    "kdeconnectd.service",
+                    "kanshi.service",
+                    "playerctld.service",
+                    "polkit-gnome.service",
+                    "snixembed.service",
+                    "swayosd.service",
+                    "awww-daemon.service",
+                ],
+                "timers": [
+                    "emailcheck.timer",
+                    "taskwarrior-notify.timer",
+                    "taskwarrior-schedule.timer",
+                    "wall.timer",
+                ],
+            },
         },
     ],
     "apps_to_hide": [
