@@ -32,7 +32,7 @@ def set_default_cmdline(installation: Installer) -> None:
         if line.startswith("cmdline:"):
             cmdline = line.split(":", 1)[1].strip()
             log.info(f"Retrieved cmdline: {cmdline}")
-    write_limine_opt(installation, "original_flags", cmdline, run_refresh=False)
+    write_limine_opt(installation, "original_flags", cmdline, run_refresh=True)
 
 
 def set_boot_default(mountpoint: Path) -> None:
@@ -79,9 +79,9 @@ def set_etc_default(mnt: Path) -> None:
 
 def install_limine(installation: Installer) -> None:
     installation.add_additional_packages("limine-mkinitcpio-hook")
-    # set_boot_default(installation.target)
+    set_boot_default(installation.target)
     set_etc_default(installation.target)
-    # set_default_cmdline(installation)
+    set_default_cmdline(installation)
 
 
 # ==============================================================================
