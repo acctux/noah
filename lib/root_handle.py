@@ -156,10 +156,7 @@ def replace_ly_config(mnt_point: Path) -> None:
 
 
 def handle_sys_files(
-    installation: Installer,
-    nc: NoahConfig,
-    config: ArchConfig,
-    script_d: Path,
+    installation: Installer, nc: NoahConfig, config: ArchConfig, script_d: Path
 ):
     write_etc_file(installation.target, network_files)
     write_etc_file(installation.target, etc_files_to_write)
