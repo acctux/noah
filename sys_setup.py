@@ -151,15 +151,11 @@ def perform_installation(
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
 
-        if (
-            config.bootloader_config
-            and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
-        ):
-            installation.add_bootloader(
-                config.bootloader_config.bootloader,
-                config.bootloader_config.uki,
-                config.bootloader_config.removable,
-            )
+        installation.add_bootloader(
+            Bootloader.Limine,
+            uki_enabled=False,
+            bootloader_removable=False,
+        )
 
         if config.network_config:
             install_network_config(
