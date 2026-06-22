@@ -23,7 +23,7 @@ from archinstall.lib.installer import (
 )
 from archinstall.lib.menu.util import delayed_warning
 from archinstall.lib.models import Bootloader
-from archinstall.lib.models.device import DiskLayoutType, EncryptionType
+from archinstall.lib.models.device import DiskLayoutType, EncryptionType, SnapshotType
 from archinstall.lib.models.users import User
 from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
@@ -221,10 +221,7 @@ def perform_installation(
         if mask_svcs:
             installation.arch_chroot(f"systemctl mask {' '.join(mask_svcs)}")
 
-        if disk_config.has_default_btrfs_vols():
-            if users:
-                username = users[0].username
-            inst_snapper(installation, username)
+        installation.setup_btrfs_snapshot(SnapshotType.Snapper, Bootloader.Limine)
 
         if cc := config.custom_commands:
             run_custom_user_commands(cc, installation)

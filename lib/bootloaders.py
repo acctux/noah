@@ -32,7 +32,7 @@ def set_default_cmdline(installation: Installer) -> None:
         if line.startswith("cmdline:"):
             cmdline = line.split(":", 1)[1].strip()
             log.info(f"Retrieved cmdline: {cmdline}")
-    write_limine_opt(installation, "original_flags", cmdline, run_refresh=True)
+    write_limine_opt(installation, "original_flags", cmdline, run_refresh=False)
 
 
 def set_boot_default(mountpoint: Path) -> None:
