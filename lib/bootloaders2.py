@@ -80,16 +80,13 @@ def write_limine_conf(mountpoint: Path) -> None:
 
 
 def set_target_os(default_limine: Path) -> None:
-    """Sets the target OS string within the global Limine defaults file."""
     if not default_limine.exists():
         return
-
     content = default_limine.read_text().splitlines()
     for i, line in enumerate(content):
         if line.strip().startswith("#TARGET_OS_NAME"):
             content[i] = "TARGET_OS_NAME='Arch Linux'"
             break
-
     default_limine.write_text("\n".join(content) + "\n")
 
 
