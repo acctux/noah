@@ -12,29 +12,30 @@ from utils import copy_it, log, write_etc_file, modify_mkinit
 def write_limine_opt(
     installation: Installer, filename: str, kernel_params: str, run_refresh: bool = True
 ) -> None:
-    target = installation.target / "etc" / "limine-entry-tool.d" / f"{filename}.conf"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(f"KERNEL_CMDLINE[default]+={kernel_params}\n", encoding="utf-8")
-    log.info(f"Wrote extra option '{kernel_params}' to {target}")
+    """Writes a kernel command line option to limine-entry-tool configuration."""
+    output_dir = installation.target / "etc" / "limine-entry-tool.d"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    target_file = output_dir / f"{filename}.conf"
+    target_file.write_text(f"KERNEL_CMDLINE[default]+={kernel_params}\n")
+    log.info(f"Wrote extra option '{kernel_params}' to {target_file}")
     if run_refresh:
         installation.arch_chroot("limine-mkinitcpio")
 
 
-def get_cmdline(mountpoint: Path) -> str:
-    limine_conf = mountpoint / "boot" / "EFI" / "arch-limine" / "limine.conf"
+def set_default_cmdline(installation: Installer) -> None:
+    limine_conf = installation.target / "boot" / "EFI" / "arch-limine" / "limine.conf"
     if not limine_conf.exists():
         log.warning(f"Limine configuration file not found at {limine_conf}")
-        return ""
+        cmdline = ""
     for line in limine_conf.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line.startswith("cmdline:"):
             cmdline = line.split(":", 1)[1].strip()
             log.info(f"Retrieved cmdline: {cmdline}")
-            return cmdline
-    return ""
+    write_limine_opt(installation, "original_flags", cmdline, run_refresh=False)
 
 
-def write_limine_conf(mountpoint: Path) -> None:
+def set_boot_default(mountpoint: Path) -> None:
     limine_conf = mountpoint / "boot" / "limine.conf"
     if not limine_conf.exists():
         log.warning(f"Limine configuration file not found at {limine_conf}")
@@ -63,41 +64,24 @@ def write_limine_conf(mountpoint: Path) -> None:
     log.info(f"Updated config parameters inside {limine_conf}")
 
 
-def set_target_os(mnt: Path, target_os: str) -> None:
+def set_etc_default(mnt: Path) -> None:
     default_limine = mnt / "etc" / "default" / "limine"
     copy_it(mnt / "etc" / "limine-entry-tool.conf", default_limine)
     if not default_limine.exists():
         return
-    updates = {
-        "TARGET_OS_NAME": f"'{target_os}'",
-        "FIND_BOOTLOADERS": "no",
-        "ESP_PATH": "/boot",
-    }
-    lines = default_limine.read_text(encoding="utf-8").splitlines()
-    new_lines = []
-    for line in lines:
-        left_side, separator, _ = line.partition("=")
-        key = left_side.strip().lstrip("#").strip()
-        if separator and key in updates:
-            new_lines.append(f"{key}={updates[key]}")
-        else:
-            new_lines.append(line)
-    for key, value in updates.items():
-        if key not in [
-            line.split("=")[0].strip().lstrip("#").strip()
-            for line in lines
-            if "=" in line
-        ]:
-            new_lines.append(f"{key}={value}")
-    default_limine.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    content = default_limine.read_text().splitlines()
+    for i, line in enumerate(content):
+        if line.strip().startswith("#TARGET_OS_NAME"):
+            content[i] = "TARGET_OS_NAME='Arch Linux'"
+            break
+    default_limine.write_text("\n".join(content) + "\n")
 
 
 def install_limine(installation: Installer) -> None:
     installation.add_additional_packages("limine-mkinitcpio-hook")
-    write_limine_conf(installation.target)
-    set_target_os(installation.target, target_os="Arch Linux")
-    cmdline = get_cmdline(installation.target)
-    write_limine_opt(installation, "original_flags", cmdline, run_refresh=False)
+    set_boot_default(installation.target)
+    set_etc_default(installation.target)
+    set_default_cmdline(installation)
 
 
 # ==============================================================================
