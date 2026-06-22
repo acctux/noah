@@ -27,7 +27,7 @@ network: list[str] = [
 ]
 media: list[str] = [
     "ardour",
-    "blender",
+    # "blender",
     "cava",
     "gimp",
     "guvcview",
@@ -123,7 +123,6 @@ hyprland: list[str] = [
 ]
 personal: list[str] = [
     "archinstall",  # noah
-    "python-matplotlib",
     "python-tomlkit",  # tuned
     "python-dbus-fast",  # loggy
     "python-gnupg",  # noah
@@ -204,8 +203,8 @@ office: list[str] = [
     "notmuch",
     "pdfgrep",
     "protonmail-bridge-core",
+    "python-matplotlib",
     "qalculate-qt",
-    "sagemath",
     "timew",
     "urlscan",
     "zathura-pdf-mupdf",
