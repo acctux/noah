@@ -23,7 +23,7 @@ def write_limine_opt(
 
 
 def set_default_cmdline(installation: Installer) -> None:
-    limine_conf = installation.target / "boot" / "limine" / "limine.conf"
+    limine_conf = installation.target / "boot" / "EFI" / "arch-limine" / "limine.conf"
     if not limine_conf.exists():
         log.warning(f"Limine configuration file not found at {limine_conf}")
         cmdline = ""
