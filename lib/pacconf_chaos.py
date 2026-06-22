@@ -38,28 +38,34 @@ def modify_pacman_conf(
 
 def chaotic_repo(installation: Installer | None) -> None:
     web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
-    keyring_cmds = [
-        ["pacman-key", "--init"],
-        [
-            "pacman-key",
-            "--recv-key",
-            "3056513887B78AEB",
-            "--keyserver",
-            "keyserver.ubuntu.com",
-        ],
-        ["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"],
-        ["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"],
-    ]
     if installation:
-        for cmd in keyring_cmds:
-            installation.arch_chroot(" ".join(cmd))
+        installation.arch_chroot("pacman-key --init")
+        installation.arch_chroot(
+            "pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com"
+        )
+        installation.arch_chroot(
+            f"pacman -U --noconfirm {web}chaotic-keyring.pkg.tar.zst"
+        )
+        installation.arch_chroot(
+            f"pacman -U --noconfirm {web}chaotic-mirrorlist.pkg.tar.zst"
+        )
         target_conf = installation.target / "etc/pacman.conf"
         with target_conf.open("a") as f:
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
         installation.arch_chroot("pacman -Sy")
     else:
-        for cmd in keyring_cmds:
-            run_dmc(cmd)
+        run_dmc(["pacman-key", "--init"])
+        run_dmc(
+            [
+                "pacman-key",
+                "--recv-key",
+                "3056513887B78AEB",
+                "--keyserver",
+                "keyserver.ubuntu.com",
+            ]
+        )
+        run_dmc(["pacman", "-U", "--noconfirm", f"{web}chaotic-keyring.pkg.tar.zst"])
+        run_dmc(["pacman", "-U", "--noconfirm", f"{web}chaotic-mirrorlist.pkg.tar.zst"])
         with open("/etc/pacman.conf", "a") as f:
             f.write("\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n")
         run_dmc(["pacman", "-Sy"])
