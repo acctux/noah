@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from lib.snapper import inst_snapper
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.translationhandler import tr
 from archinstall.lib.packages.util import check_version_upgrade
@@ -225,9 +226,9 @@ def perform_installation(
             installation.arch_chroot(f"systemctl mask {' '.join(mask_svcs)}")
 
         if disk_config.has_default_btrfs_vols():
-            if config.bootloader_config:
-                bootloader = config.bootloader_config.bootloader
-            installation.setup_btrfs_snapshot(SnapshotType.Snapper, bootloader)
+            if users:
+                username = users[0].username
+            inst_snapper(installation, username)
 
         if cc := config.custom_commands:
             run_custom_user_commands(cc, installation)

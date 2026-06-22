@@ -116,3 +116,25 @@ def write_etc_file(mnt_point: Path, files_to_write: dict[str, str]) -> None:
         with full_path.open("w") as file:
             file.write(content)
         log.info(f"Content written to: {full_path}")
+
+
+def modify_mkinit(mnt_point: Path, hook: str, after_hook: str) -> None:
+    mkinit_conf = mnt_point / "etc" / "mkinitcpio.conf"
+    if not mkinit_conf.exists():
+        log.warning(f"mkinitcpio configuration not found at {mkinit_conf}")
+        return
+    lines = mkinit_conf.read_text(encoding="utf-8").splitlines()
+    updated_lines = []
+    for line in lines:
+        if line.strip().startswith("HOOKS="):
+            # Extract content inside parentheses
+            start = line.find("(") + 1
+            end = line.find(")")
+            if start > 0 and end > start:
+                hooks = line[start:end].split()
+                if hook not in hooks and after_hook in hooks:
+                    next_index = hooks.index(after_hook) + 1
+                    hooks.insert(next_index, hook)
+                    line = f"HOOKS=({' '.join(hooks)})"
+        updated_lines.append(line)
+    mkinit_conf.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
