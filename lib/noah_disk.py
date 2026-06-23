@@ -1,8 +1,10 @@
+from archinstall.lib.models import User
+from archinstall.lib.installer import Installer
+from archinstall.lib.args import ArchConfig
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from utils import log, modify_mkinit
-from archinstall.lib.installer import Installer
 
 
 @dataclass
@@ -27,7 +29,7 @@ class SnapperProfile:
         }
 
 
-def update_existing_config_files(target_root: Path, profile: SnapperProfile) -> None:
+def update_existing_snapper_files(target_root: Path, profile: SnapperProfile) -> None:
     path = target_root / "etc" / "snapper" / "configs" / profile.name
     if not path.exists():
         return
@@ -48,9 +50,9 @@ def update_existing_config_files(target_root: Path, profile: SnapperProfile) -> 
         log.error(f"Error modifying config file {path}: {e}")
 
 
-def inst_snapper(
+def snapper_post(
     installation: Installer,
-    username: str | None,
+    users: list[User] | None,
     profiles: list[SnapperProfile] = [
         SnapperProfile(
             name="root",
@@ -73,12 +75,26 @@ def inst_snapper(
     ],
 ) -> None:
     installation.add_additional_packages("limine-snapper-sync")
+    modify_mkinit(installation.target, hook="btrfs-overlayfs", after_hook="filesystems")
     if profiles:
         for profile in profiles:
-            if profile.mount == "/home" and username:
-                cmd = f"snapper --no-dbus -c {profile.name} set-config 'ALLOW_USERS={username}' SYNC_ACL='yes'"
-                installation.arch_chroot(cmd)
-            update_existing_config_files(installation.target, profile)
-        modify_mkinit(
-            installation.target, hook="btrfs-overlayfs", after_hook="filesystems"
-        )
+            if users and profile.mount == "/home":
+                for user in users:
+                    cmd = f"snapper --no-dbus -c {profile.name} set-config 'ALLOW_USERS={user.username}' SYNC_ACL='yes'"
+                    installation.arch_chroot(cmd)
+            update_existing_snapper_files(installation.target, profile)
+
+
+def noah_handle_fs(
+    arch_config: ArchConfig,
+    installation: Installer,
+    users: list[User] | None,
+):
+    if disk_config := arch_config.disk_config:
+        if disk_config.has_default_btrfs_vols():
+            btrfs_options = disk_config.btrfs_options
+            if btrfs_options:
+                if users:
+                    snapper_post(installation, users)
+            srvcs = ["btrfs-scrub@-.timer", "btrfs-scrub@home.timer"]
+            installation.enable_service(srvcs)

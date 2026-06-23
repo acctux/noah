@@ -76,8 +76,6 @@ archinstall_json = {
         "iwd.service",
         "named.service",
         "systemd-networkd",
-        "btrfs-scrub@-.timer",
-        "btrfs-scrub@home.timer",
         "paccache.timer",
         "sysinfo",
     ],

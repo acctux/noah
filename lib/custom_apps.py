@@ -1,7 +1,4 @@
 from textwrap import dedent
-from archinstall.lib.args import ArchConfig
-from archinstall.lib.models.application import Firewall
-from root_files import network_files
 import json
 from lib.datahandler import NoahConfig
 from utils import log, copy_it, write_etc_file
@@ -136,30 +133,14 @@ def set_extensions(
     log.info(f"'Extensions.Install' for {browser} has been overwritten.")
 
 
-def sys_file_copy(
-    mnt_point: Path,
-    script_dir: Path,
-    dirs_to_cp: list[str] = ["etc", "usr"],
-) -> None:
+def sys_file_copy(mnt_point: Path, script_dir: Path, dirs_to_cp=["etc", "usr"]) -> None:
     for dir_name in dirs_to_cp:
         source_dir = script_dir / dir_name
         target_dir = mnt_point / dir_name
         copy_it(source_dir, target_dir)
 
 
-def handle_firewall(
-    installation: Installer,
-    config: ArchConfig,
-    ports_to_open: list[str] = ["KDEConnect", "Deluge", "51820/udp"],
-):
-    if app_config := config.app_config:
-        if firewall_conf := app_config.firewall_config:
-            if firewall_conf.firewall == Firewall("ufw"):
-                for allow_port in ports_to_open:
-                    installation.arch_chroot(f"ufw allow {allow_port}")
-
-
-def kdeconnect_sys(mnt_point: Path) -> None:
+def kde_fuse_and_nss(mnt_point: Path) -> None:
     def update_config(file_path: Path, match: str, new_line: str) -> None:
         lines = file_path.read_text().splitlines()
         for i, line in enumerate(lines):
@@ -230,6 +211,80 @@ def install_powertop(installation: Installer):
     installation.enable_service("powertop")
 
 
+def inst_pac_contrib():
+    pass
+
+
+network_files: dict[str, str] = {
+    "etc/iwd/main.conf": dedent(
+        """\
+        [Network]
+        NameResolvingService=resolvconf
+        """
+    ),
+    "etc/systemd/system/iwd.service.d/override.conf": dedent(
+        """\
+        [Service]
+        RuntimeDirectory=resolvconf
+        ReadWritePaths=/etc/resolv.conf
+        """
+    ),
+    "etc/resolvconf.conf": dedent(
+        """\
+        resolv_conf=/etc/resolv.conf
+        name_servers="::1 127.0.0.1"
+        """
+    ),
+    "etc/chrony.conf": dedent(
+        """\
+        server 0.arch.pool.ntp.org iburst
+        server 1.arch.pool.ntp.org iburst
+        server 2.arch.pool.ntp.org iburst
+        server 3.arch.pool.ntp.org iburst
+        driftfile /var/lib/chrony/drift
+        rtcsync
+        makestep 1.0 3
+        leapseclist /usr/share/zoneinfo/leap-seconds.list
+        logdir /var/log/chrony
+        log measurements statistics tracking
+        allow 127.0.0.1
+        """
+    ),
+    "etc/named.conf": dedent(
+        """\
+        // vim:set ts=4 sw=4 et:
+        tls cloudflare {
+            remote-hostname "one.one.one.one";
+        };
+         options {
+            pid-file "/run/named/named.pid";
+            directory "/var/named";
+            max-cache-size 200m;
+            listen-on { 127.0.0.1; };
+            listen-on-v6 { ::1; };
+            allow-recursion {
+                127.0.0.1;
+                ::1;
+            };
+            forward only;
+            forwarders port 853 tls cloudflare {
+                1.1.1.1; 2606:4700:4700::1111;
+                1.0.0.1; 2606:4700:4700::1001;
+            };
+        // if system time is wrong and can't connect
+        //    dnssec-validation no;
+        };
+         zone "localhost" IN {
+            type master;
+            file "localhost.zone";
+        };
+         zone "0.0.127.in-addr.arpa" IN {
+            type master;
+            file "127.0.0.zone";
+        };
+        """
+    ),
+}
 etc_files_to_write: dict[str, str] = {
     "etc/sysctl.d/99-sysctl.conf": dedent(
         """\
@@ -242,24 +297,6 @@ etc_files_to_write: dict[str, str] = {
         kernel.kptr_restrict = 2
         # May help prevent losing packets
         net.core.netdev_max_backlog = 4096
-        """
-    ),
-    "etc/xdg/user-dirs.defaults": dedent(
-        """\
-        DOCUMENTS=Desktop/Documents
-        DESKTOP=Desktop
-        MUSIC=Desktop/Music
-        PICTURES=Desktop/Pictures
-        BOOKS=Desktop/Books
-        SCREENSHOTS=Desktop/Pictures/Screenshots
-        GAMES=Desktop/Games
-        WALLPAPERS=Desktop/Pictures/Wallpapers
-        VIDEOS=Desktop/Videos
-        DOWNLOAD=Desktop/Downloads
-        TEMPLATES=Desktop/Templates
-        PRIVATE=Desktop/Private
-        PUBLICSHARE=Desktop/Public
-        PROJECTS=Lit
         """
     ),
     "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
@@ -293,43 +330,15 @@ etc_files_to_write: dict[str, str] = {
 }
 
 
-def handle_sys_files(
-    installation: Installer,
-    nc: NoahConfig,
-    config: ArchConfig,
-    script_d: Path,
-):
-    if config.swap and config.swap.enabled:
-        write_etc_file(
-            mnt_point=installation.target,
-            files_to_write={
-                "etc/systemd/zram-generator.conf": dedent(
-                    """\
-                    [zram0]
-                    zram-size = min(ram / 2, 8192)
-                    compression-algorithm = zstd
-                    """
-                ),
-                "etc/sysctl.d/99-zram.conf": dedent(
-                    """\
-                    vm.swappiness = 180
-                    vm.watermark_boost_factor = 0
-                    vm.watermark_scale_factor = 125
-                    vm.page-cluster = 0
-                    vm.dirty_writeback_centisecs = 1500
-                    """
-                ),
-            },
-        )
+def handle_sys_files(installation: Installer, nc: NoahConfig, script_d: Path):
     inst_systemd_oomd(installation)
     install_powertop(installation)
     write_etc_file(installation.target, network_files)
     write_etc_file(installation.target, etc_files_to_write)
-    kdeconnect_sys(installation.target)
+    kde_fuse_and_nss(installation.target)
     if nc.firefox_browser:
         set_extensions(installation.target, nc.firefox_browser)
     sys_file_copy(installation.target, script_d)
     install_icons(installation)
-    handle_firewall(installation, config)
     if nc.logitech_mouse:
         install_logid(installation, script_d)

@@ -1,6 +1,7 @@
 hardware: list[str] = [
     "ananicy-cpp",
     "bees",
+    "bolt",
     "bluetui",
     "bluez-utils",  # for loggy
     "bolt",
@@ -26,17 +27,17 @@ network: list[str] = [
     "networkmanager",
 ]
 media: list[str] = [
-    "ardour",
+    # "ardour",
     # "blender",
     "cava",
-    "gimp",
+    # "gimp",
     "guvcview",
-    "handbrake-cli",
+    # "handbrake-cli",
     "imv",
     "mpd",
     "mpd-mpris",
     "mpv-mpris",
-    "obs-studio",
+    # "obs-studio",
     "playerctl",
     "realtime-privileges",
     "rmpc",

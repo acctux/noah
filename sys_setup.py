@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+from lib.noah_disk import noah_handle_fs
+from lib.custom_apps import handle_sys_files
+from lib.noah_user_setup import noah_user_setup
 from lib.app_and_profile import app_and_prof
 from lib.min_install import min_intall_pre, min_install_post
-from lib.snapper import inst_snapper
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.translationhandler import tr
 from archinstall.lib.packages.util import check_version_upgrade
@@ -32,9 +34,6 @@ from archinstall.lib.profile.profiles_handler import profile_handler
 from lib.init_setup import init_setup
 from lib.datahandler import NoahConfig
 from lib.bootloaders import bootloader_handling
-from lib.multi_user import multi_user_funcs
-from lib.single_user import single_user_and_user_list
-from lib.root_handle import handle_sys_files
 from pathlib import Path
 import sys
 import time
@@ -177,21 +176,6 @@ def perform_installation(
             profile_config.profile.post_install(installation)
             if users:
                 profile_config.profile.provision(installation, users)
-        app_and_prof(installation, config)
-        bootloader_handling(installation, config)
-        handle_sys_files(installation, nc, config, script_d)
-        if users:
-            single_user_and_user_list(
-                installation, users, nc, script_d, config.packages
-            )
-            for user in users:
-                multi_user_funcs(installation, user, nc, script_d.name)
-        if services := config.services:
-            installation.enable_service(services)
-        if disable_svcs := nc.disable_svcs:
-            installation.disable_service(disable_svcs)
-        if mask_svcs := nc.disable_svcs:
-            installation.arch_chroot(f"systemctl mask {' '.join(mask_svcs)}")
 
         if disk_config.has_default_btrfs_vols():
             btrfs_options = disk_config.btrfs_options
@@ -199,9 +183,20 @@ def perform_installation(
                 installation.setup_btrfs_snapshot(
                     SnapshotType.Snapper, Bootloader.Limine
                 )
-                if users:
-                    inst_snapper(installation, users[0].username)
-
+        app_and_prof(installation, config)
+        bootloader_handling(installation, config)
+        handle_sys_files(installation, nc, config, script_d)
+        if users:
+            noah_user_setup(
+                installation, users, nc, script_d, base_pkgs=config.packages
+            )
+        if services := config.services:
+            installation.enable_service(services)
+        if disable_svcs := nc.disable_svcs:
+            installation.disable_service(disable_svcs)
+        if mask_svcs := nc.disable_svcs:
+            installation.arch_chroot(f"systemctl mask {' '.join(mask_svcs)}")
+        noah_handle_fs(config, installation, users)
         if cc := config.custom_commands:
             run_custom_user_commands(cc, installation)
 

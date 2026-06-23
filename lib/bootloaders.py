@@ -77,7 +77,7 @@ def set_etc_default(mnt: Path) -> None:
     default_limine.write_text("\n".join(content) + "\n")
 
 
-def install_limine(installation: Installer) -> None:
+def limine_post(installation: Installer) -> None:
     installation.add_additional_packages("limine-mkinitcpio-hook")
     set_boot_default(installation.target)
     set_etc_default(installation.target)
@@ -88,12 +88,7 @@ def install_limine(installation: Installer) -> None:
 # 2. SUBSYSTEM MODULES
 # ==============================================================================
 def inst_apparmor(installation: Installer) -> None:
-    installation.add_additional_packages(
-        [
-            "apparmor",
-            "apparmor.d-git",
-        ]
-    )
+    installation.add_additional_packages(["apparmor", "apparmor.d-git"])
     write_limine_opt(
         installation,
         filename="apparmor",
@@ -134,9 +129,10 @@ def inst_plymouth(installation: Installer) -> None:
 # ==============================================================================
 def bootloader_handling(installation: Installer, config: ArchConfig) -> None:
     boot_conf = config.bootloader_config
-    if boot_conf and boot_conf.bootloader == Bootloader.Limine and not boot_conf.uki:
-        install_limine(installation)
-        inst_apparmor(installation)
-        inst_plymouth(installation)
-        log.info("Refreshing limine-mkinitcpio hooks cleanly.")
-        installation.arch_chroot("limine-mkinitcpio")
+    if boot_conf:
+        if boot_conf.bootloader == Bootloader.Limine and not boot_conf.uki:
+            limine_post(installation)
+            inst_apparmor(installation)
+            inst_plymouth(installation)
+            log.info("Refreshing limine-mkinitcpio hooks cleanly.")
+            installation.arch_chroot("limine-mkinitcpio")

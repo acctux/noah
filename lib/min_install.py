@@ -89,7 +89,7 @@ def write_default_xdg_dirs(installation: Installer):
 
 
 def min_intall_pre(nc: NoahConfig):
-    handle_reflector(None, nc.reflector_options)
+    handle_reflector(mountpoint=None, options=nc.reflector_options)
     modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
 
 
@@ -120,21 +120,24 @@ def handle_reflector(mountpoint: Path | None, options: list[str] | None):
         run_dmc(["reflector"] + cmd)
 
 
-def copy_skel(mountpoint: Path, nc: NoahConfig):
-    if nc.dots_git_user_repo:
-        tmp = mountpoint / "tmp" / "tmp_skel"
-        tmp.mkdir(exist_ok=True)
-        git = f"https://github.com/{nc.dots_git_user_repo}.git"
-        run_dmc(["git", "clone", git, str(tmp)])
-        shutil.rmtree(tmp / ".git")
-        for p in tmp.iterdir():
-            p.rename(p.parent / ("." + p.name))
-        copy_it(tmp, mountpoint / "etc" / "skel")
+def copy_skel(mountpoint: Path, dots_git_user_repo: str):
+    tmp = mountpoint / "tmp" / "tmp_skel"
+    tmp.mkdir(exist_ok=True)
+    git = f"https://github.com/{dots_git_user_repo}.git"
+    run_dmc(["git", "clone", git, str(tmp)])
+    shutil.rmtree(tmp / ".git")
+    for p in tmp.iterdir():
+        p.rename(p.parent / ("." + p.name))
+    copy_it(tmp, mountpoint / "etc" / "skel")
 
 
 def min_install_post(installation: Installer, nc: NoahConfig):
-    handle_reflector(installation.target, nc.reflector_options)
+    handle_reflector(mountpoint=installation.target, options=nc.reflector_options)
     modify_pacman_conf(mnt_point=installation.target, no_extracts=nc.no_extracts)
     chaotic_repo(installation)
-    copy_skel(installation.target, nc)
+    if nc.dots_git_user_repo:
+        copy_skel(
+            mountpoint=installation.target,
+            dots_git_user_repo=nc.dots_git_user_repo,
+        )
     write_default_xdg_dirs(installation)

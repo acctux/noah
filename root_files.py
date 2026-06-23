@@ -74,25 +74,6 @@ network_files: dict[str, str] = {
     ),
 }
 etc_files_to_write: dict[str, str] = {
-    "etc/tuned/ppd.conf": dedent(
-        """\
-        [main]
-        # The default PPD profile
-        default=power-saver
-        battery_detection=true
-        sysfs_acpi_monitor=true
-
-        [profiles]
-        # PPD = TuneD
-        power-saver=laptop-battery-powersave
-        balanced=laptop-ac-powersave
-        performance=balanced
-
-        [battery]
-        # PPD = TuneD
-        balanced=balanced-battery
-        """
-    ),
     "etc/sysctl.d/99-sysctl.conf": dedent(
         """\
         vm.max_map_count = 2147483642
@@ -104,24 +85,6 @@ etc_files_to_write: dict[str, str] = {
         kernel.kptr_restrict = 2
         # May help prevent losing packets
         net.core.netdev_max_backlog = 4096
-        """
-    ),
-    "etc/xdg/user-dirs.defaults": dedent(
-        """\
-        DOCUMENTS=Desktop/Documents
-        DESKTOP=Desktop
-        MUSIC=Desktop/Music
-        PICTURES=Desktop/Pictures
-        BOOKS=Desktop/Books
-        SCREENSHOTS=Desktop/Pictures/Screenshots
-        GAMES=Desktop/Games
-        WALLPAPERS=Desktop/Pictures/Wallpapers
-        VIDEOS=Desktop/Videos
-        DOWNLOAD=Desktop/Downloads
-        TEMPLATES=Desktop/Templates
-        PRIVATE=Desktop/Private
-        PUBLICSHARE=Desktop/Public
-        PROJECTS=Lit
         """
     ),
     "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
