@@ -98,19 +98,29 @@ class CopyConfiguration:
         """Core internal resolution logic."""
         results = []
         home_base = Path(f"/home/{username}") if username else Path.home()
-        if self.specs:
-            for spec in self.specs:
-                for name in spec.names:
-                    src = src_base / spec.source / name
 
-                    # Handle '~' expansion
-                    dest_str = spec.target.replace("~", str(home_base))
-                    dst = Path(dest_str) / name
+        if not self.specs:
+            return None
 
-                    if not dst.is_absolute():
-                        dst = dst_base / dst
-                    results.append((src, dst))
-            return results
+        for spec in self.specs:
+            for name in spec.names:
+                src = src_base / spec.source / name
+
+                # Handle '~' expansion
+                dest_str = spec.target.replace("~", str(home_base))
+
+                # Check if the target is already absolute (e.g., '/etc')
+                path_obj = Path(dest_str)
+
+                if path_obj.is_absolute():
+                    # If it's absolute, we don't prepend dst_base
+                    dst = path_obj / name
+                else:
+                    # If it's relative, we join it with dst_base
+                    dst = dst_base / path_obj / name
+
+                results.append((src, dst))
+        return results
 
     def resolve_usb_to_root(self) -> list[tuple[Path, Path]] | None:
         """Resolves paths for moving data from USB to local staging."""
