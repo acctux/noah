@@ -178,8 +178,8 @@ def init_setup(
                 miss_names.append(tar.name)
             log.warning("Not yet present: " + ", ".join(miss_names))
             mnt_cp_keys(nc, usb_mnt)
-    else:
-        log.info("All files to copy from USB found.")
+        else:
+            log.info("All files to copy from USB found.")
     arch_config_handler = init_arch_conf(
         arch_config_json, auth_conf_path, arch_config_handler
     )
