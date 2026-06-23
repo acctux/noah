@@ -205,7 +205,7 @@ class NoahConfig:
             noah.firefox_browser = args["firefox_browser"]
 
         if "logitech_mouse" in args:
-            noah.firefox_browser = args["logitech_mouse"]
+            noah.logitech_mouse = args["logitech_mouse"]
 
         if "dotfiles_dir" in args:
             noah.dotfiles_dir = args["dotfiles_dir"]
@@ -223,7 +223,7 @@ class NoahConfig:
             noah.disable_svcs = args["disable_svcs"]
 
         if "mask_svcs" in args:
-            noah.disable_svcs = args["mask_svcs"]
+            noah.mask_svcs = args["mask_svcs"]
 
         if "sudo_defaults" in args:
             noah.sudo_defaults = args["sudo_defaults"]
