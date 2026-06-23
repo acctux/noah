@@ -100,8 +100,7 @@ class CopyConfiguration:
             for name in spec.names:
                 src = self.usb / spec.source / name
                 dst = self.root_path / spec.target.lstrip("/") / name
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                copy_it(src, dst)
+                results.append((src, dst))
         return results
 
     def resolve_root_to_mnt(
