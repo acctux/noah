@@ -80,9 +80,8 @@ class CopyConfiguration:
     root: Path = Path("/root/copyfiles")
 
     @classmethod
-    def from_arg(cls, arg: Any) -> CopyConfiguration | None:
+    def from_arg(cls, arg: Any) -> "CopyConfiguration":
         specs = []
-        # Normalize list input
         if isinstance(arg, list):
             for entry in arg:
                 source = entry.get("source", "")
@@ -90,8 +89,8 @@ class CopyConfiguration:
                     specs.append(
                         CopySpec(source, target_item["dest"], target_item["names"])
                     )
-
-    # ... from_arg implementation remains the same ...
+        # Added: explicitly return the instance with the populated specs
+        return cls(specs=specs)
 
     def _resolve(
         self, src_base: Path, dst_base: Path, username: str | None = None
