@@ -185,7 +185,7 @@ def perform_installation(
                 )
         app_and_prof(installation, config)
         bootloader_handling(installation, config)
-        handle_sys_files(installation, nc, config, script_d)
+        handle_sys_files(installation, nc, script_d)
         if users:
             noah_user_setup(
                 installation, users, nc, script_d, base_pkgs=config.packages
