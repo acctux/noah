@@ -89,8 +89,10 @@ def get_device(
 def check_missing(configs: CopyConfiguration) -> list[str]:
     missing = []
     if configs.specs:
+        print(configs.specs)
         for spec in configs.specs:
             base = configs.usb / spec.source
+            print(base)
             missing.extend(name for name in spec.names if not (base / name).exists())
     return missing
 
