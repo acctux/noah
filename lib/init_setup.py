@@ -146,6 +146,8 @@ def init_setup(
 ) -> tuple[ArchConfigHandler, NoahConfig]:
     nc = NoahConfig.from_config(noahconf_json)
     print(nc.auth_config)
+    if nc.auth_config:
+        print(nc.auth_config.resolve_usb_to_root())
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb(usb_mnt)
     if nc.copy_config:
