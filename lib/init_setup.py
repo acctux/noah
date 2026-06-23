@@ -86,25 +86,21 @@ def get_device(
     return selected_path
 
 
-def check_missing(cfg: CopyConfiguration) -> list[str]:
+def check_missing(cfg: CopyConfiguration) -> list[tuple[Path, Path]] | None:
     missing = []
     if cfg.specs:
         for spec in cfg.specs:
-            source_dir = cfg.root_path / spec.source
             for name in spec.names:
-                full_path = source_dir / name
-                if not full_path.exists():
-                    missing.append(str(full_path))
+                full_t_path = cfg.root_path / spec.target / name
+                if not full_t_path.exists():
+                    full_src_path = cfg.root_path / spec.source / name
+                    missing.append(full_src_path, full_t_path)
     return missing
 
 
 def copy_usb_to_root(cfg: CopyConfiguration) -> None:
     path_tuples = cfg.resolve_usb_to_root()
-    if not path_tuples:
-        return
-    missing = [dest for _, dest in path_tuples if not dest.exists()]
-    if missing:
-        print(f"Error: The following source files are missing: {missing}")
+    if path_tuples:
         for src, dest in path_tuples:
             dest.parent.mkdir(parents=True, exist_ok=True)
             copy_it(src, dest)
@@ -174,7 +170,10 @@ def init_setup(
     if nc.copy_config:
         missing = check_missing(nc.copy_config)
         if missing:
-            log.warning("Not yet present: " + ", ".join(missing))
+            miss_names: list[str] = []
+            for _, tar in missing:
+                miss_names.append(tar.name)
+            log.warning("Not yet present: " + ", ".join(miss_names))
             mnt_cp_keys(nc, usb_mnt)
     else:
         log.info("All files to copy from USB found.")
