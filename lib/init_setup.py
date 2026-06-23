@@ -86,14 +86,6 @@ def get_device(
     return selected_path
 
 
-def check_missing(usb_root: list[tuple[Path, Path]]) -> list[tuple[Path, Path]]:
-    missing = []
-    for src, dest in usb_root:
-        if not dest.exists():
-            missing.append((src, dest))
-    return missing
-
-
 def copy_root_to_mnt(mnt_point: Path, cfg: CopyConfiguration, username: str) -> None:
     path_tuples = cfg.resolve_root_to_mnt(mnt_point, username)
     if not path_tuples:
@@ -153,11 +145,15 @@ def init_setup(
     usb_mnt: Path = Path("/mnt/usb"),
 ) -> tuple[ArchConfigHandler, NoahConfig]:
     nc = NoahConfig.from_config(noahconf_json)
+    print(nc.auth_config)
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb(usb_mnt)
     if nc.copy_config:
-        usb_to_root_paths = nc.copy_config.resolve_usb_to_root()
-        if missing := check_missing(usb_to_root_paths):
+        missing = []
+        for src, dest in nc.copy_config.resolve_usb_to_root():
+            if not dest.exists():
+                missing.append((src, dest))
+        if missing:
             log.warning("Not present: " + ", ".join([tar.name for _, tar in missing]))
             copy_usb_to_root(nc.copy_config, missing)
         else:

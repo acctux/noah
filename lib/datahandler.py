@@ -1,4 +1,3 @@
-from utils import copy_it
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -40,9 +39,6 @@ class GitRepo:
         return repos
 
     def local_paths(self, HOME: Path) -> list[Path]:
-        """
-        Return Paths relative to 'HOME'.
-        """
         dest_paths = []
         for partial_dest_str in self.repos.values():
             dest_paths.append(HOME / partial_dest_str)
@@ -65,6 +61,23 @@ class GitReposConfiguration:
         if not username or not repos:
             return None
         return cls([GitRepo(username, repos)])
+
+
+@dataclass
+class AuthConfig:
+    source: str
+    name: str
+    root_path: Path = Path("/root")
+    usb: Path = Path("/mnt/usb")
+
+    @classmethod
+    def from_arg(cls, arg: dict[str, Any]) -> AuthConfig:
+        return cls(source=arg.get("source", ""), name=arg.get("name", ""))
+
+    def resolve_usb_to_root(self) -> tuple[Path, Path]:
+        src = self.usb / self.source / self.name
+        dst = self.root_path / self.name
+        return (src, dst)
 
 
 @dataclass
@@ -216,6 +229,7 @@ class NoahConfig:
     copy_config: CopyConfiguration | None = None
     additional_usb_to_cp: CopyConfiguration | None = None
     user_services_config: UserService | None = None
+    auth_config: AuthConfig | None = None
 
     @classmethod
     def from_config(cls, args: dict[str, Any]) -> "NoahConfig":
@@ -274,7 +288,8 @@ class NoahConfig:
 
         if us := args.get("user_services"):
             noah.user_services_config = UserService.from_arg(us)
-
+        if auth := args.get("auth_conf"):
+            noah.auth_config = AuthConfig.from_arg(auth)
         if gr := args.get("git_repo_config"):
             noah.git_repos_config = GitReposConfiguration.from_arg(gr)
 
