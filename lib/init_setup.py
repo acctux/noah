@@ -169,9 +169,9 @@ def init_setup(
         unmount_usb(usb_mnt)
     if nc.copy_config:
         missing = check_missing(nc.copy_config)
-    if missing:
-        log.warning("Not yet present: " + ", ".join(missing))
-        mnt_cp_keys(nc, usb_mnt)
+        if missing:
+            log.warning("Not yet present: " + ", ".join(missing))
+            mnt_cp_keys(nc, usb_mnt)
     else:
         log.info("All files to copy from USB found.")
     arch_config_handler = init_arch_conf(
