@@ -27,7 +27,7 @@ def set_default_cmdline(installation: Installer) -> None:
     if not limine_conf.exists():
         log.warning(f"Limine configuration file not found at {limine_conf}")
         cmdline = ""
-    for line in limine_conf.read_text(encoding="utf-8").splitlines():
+    for line in limine_conf.read_text().splitlines():
         line = line.strip()
         if line.startswith("cmdline:"):
             cmdline = line.split(":", 1)[1].strip()
@@ -53,7 +53,7 @@ def set_boot_default(mountpoint: Path) -> None:
         "interface_help_color_bright: a5b4fc",
     ]
     new_lines = []
-    for line in limine_conf.read_text(encoding="utf-8").splitlines():
+    for line in limine_conf.read_text().splitlines():
         if line.strip().startswith("timeout:"):
             new_lines.extend(["timeout: 1", "remember_last_entry: yes"])
             continue
@@ -88,22 +88,29 @@ def install_limine(installation: Installer) -> None:
 # 2. SUBSYSTEM MODULES
 # ==============================================================================
 def inst_apparmor(installation: Installer) -> None:
-    installation.add_additional_packages(["apparmor", "apparmor.d-git"])
+    installation.add_additional_packages(
+        [
+            "apparmor",
+            "apparmor.d-git",
+        ]
+    )
     write_limine_opt(
         installation,
-        "apparmor",
-        "lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
+        filename="apparmor",
+        kernel_params="lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
         run_refresh=False,
     )
-    content = {
-        "etc/apparmor/parser.conf": dedent(
-            """\
-            write-cache
-            cache-loc /etc/apparmor/earlypolicy/
-            """
-        )
-    }
-    write_etc_file(installation.target, content)
+    write_etc_file(
+        mnt_point=installation.target,
+        files_to_write={
+            "etc/apparmor/parser.conf": dedent(
+                """\
+                write-cache
+                cache-loc /etc/apparmor/earlypolicy/
+                """
+            )
+        },
+    )
     installation.enable_service("apparmor")
 
 
@@ -115,7 +122,11 @@ def inst_plymouth(installation: Installer) -> None:
         kernel_params="quiet splash",
         run_refresh=False,
     )
-    modify_mkinit(installation.target, hook="plymouth", after_hook="kms")
+    modify_mkinit(
+        installation.target,
+        hook="plymouth",
+        after_hook="kms",
+    )
 
 
 # ==============================================================================

@@ -26,9 +26,8 @@ def get_device(
         for dev in devices:
             size_str = dev.get("size", "0G")
             try:
-                size_val = float(
-                    "".join(c for c in size_str if c.isdigit() or c == ".")
-                )
+                clean_size = [c for c in size_str if c.isdigit() or c == "."]
+                size_val = float("".join(clean_size))
                 if size_str.endswith("M"):
                     size_val /= 1024
                 elif size_str.endswith("T"):
@@ -101,6 +100,23 @@ def copy_usb_to_root(usb_path: Path, missing: list[tuple[Path, Path]]):
         unmount_usb(usb_path)
 
 
+def auto_services(
+    base_pkgs: list[str],
+    pkg_srvs={
+        "ananicy-cpp": "ananicy-cpp.service",
+        "reflector": "reflector.timer",
+        "logrotate": "logrotate.timer",
+        "man-db": "man-db.timer",
+        "swayosd": "swayosd-libinput-backend",
+    },
+) -> list[str]:
+    srvcs_to_enable = []
+    for pkg, srv in pkg_srvs.items():
+        if pkg in base_pkgs:
+            srvcs_to_enable.append(srv)
+    return srvcs_to_enable
+
+
 def init_arch_conf(
     arch_config_json: dict,
     auth_conf_path: Path | None,
@@ -118,7 +134,8 @@ def init_arch_conf(
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.kernels = arch_config.kernels
     arch_config_handler.config.packages = arch_config.packages
-    arch_config_handler.config.services = arch_config.services
+    auto_srvcs = auto_services(arch_config.packages)
+    arch_config_handler.config.services = arch_config.services + auto_srvcs
     arch_config_handler.config.app_config = arch_config.app_config
     if not auth_conf_path or not auth_conf_path.is_file():
         return arch_config_handler

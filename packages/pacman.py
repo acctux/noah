@@ -263,6 +263,13 @@ random: list[str] = [
     "performous",
     "radicale",
     "showmethekey",
+    "profile-cleaner",
+    "python-plotly",
+    "localsend",
+    "python-scipy",
+    "python-statsmodels",
+    "nwg-look",
+    "keyd",
 ]
 emulators: list[str] = [
     "desmume",

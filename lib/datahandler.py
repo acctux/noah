@@ -131,60 +131,56 @@ class CopyConfiguration:
         return results
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class UserService:
     source: str
     target: str
-    serv: list[str]
+    services: list[str]
 
-    @classmethod
-    def from_arg(cls, v: list[dict[str, Any]]) -> "UserService":
-        master = cls("", "", [])
-        master._all_services = []
-        for entry in v:
-            source = entry.get("source", "")
-            for target_name, services in entry.get("targets", {}).items():
-                master._all_services.append(UserService(source, target_name, services))
-        return master
-
-    _all_services: list["UserService"] | None = None
-
-    def source_paths(self, username: str) -> list[Path]:
-        if self._all_services is not None:
-            all_paths = []
-            for svc in self._all_services:
-                all_paths.extend(svc.source_paths(username))
-            return all_paths
+    def get_source_paths(self, username: str) -> list[Path]:
         base = Path(self.source)
         if not base.is_absolute():
             base = Path("/home") / username / base
-        return [base / s for s in self.serv]
+        return [base / s for s in self.services]
 
-    def target_paths(self, username: str) -> list[Path]:
-        if self._all_services is not None:
-            all_paths = []
-            for svc in self._all_services:
-                all_paths.extend(svc.target_paths(username))
-            return all_paths
+    def get_target_paths(self, username: str) -> list[Path]:
         base = (
             Path("/home")
             / username
             / f".config/systemd/user/{self.target}.target.wants"
         )
-        return [base / s for s in self.serv]
+        return [base / s for s in self.services]
 
-    @staticmethod
-    def from_list(arg: list[dict[str, Any]] | None) -> list["UserService"] | None:
-        if not arg:
+
+@dataclass
+class UserServiceConfiguration:
+    services: list[UserService] | None = None
+
+    @classmethod
+    def from_arg(
+        cls, data: list[dict[str, Any]] | None
+    ) -> UserServiceConfiguration | None:
+        if not data:
             return None
-        services: list[UserService] = []
-        for v in arg:
-            if not v:
-                continue
-            svc = UserService.from_arg([v])
-            if svc is not None:
-                services.append(svc)
-        return services or None
+        extracted = []
+        for entry in data:
+            source = entry.get("source", "")
+            for target_name, services in entry.get("targets", {}).items():
+                if services:
+                    extracted.append(UserService(source, target_name, services))
+        return cls(services=extracted) if extracted else None
+
+    def get_all_source_paths(self, username: str) -> list[Path]:
+        if self.services:
+            return [p for svc in self.services for p in svc.get_source_paths(username)]
+        else:
+            return []
+
+    def get_all_target_paths(self, username: str) -> list[Path]:
+        if self.services:
+            return [p for svc in self.services for p in svc.get_target_paths(username)]
+        else:
+            return []
 
 
 # =============================================================================
@@ -193,6 +189,7 @@ class UserService:
 @dataclass
 class NoahConfig:
     terminal: str = "kitty"
+    logitech_mouse: bool = False
     parallel_downloads: int = 10
     firefox_browser: str | None = None
     dotfiles_dir: str | None = None
@@ -211,7 +208,7 @@ class NoahConfig:
     dotdirs_to_link: list[str] | None = None
     copy_config: CopyConfiguration | None = None
     additional_usb_to_cp: CopyConfiguration | None = None
-    user_services_config: UserService | None = None
+    user_services_config: UserServiceConfiguration | None = None
     auth_config: AuthConfig | None = None
 
     @classmethod
@@ -226,6 +223,9 @@ class NoahConfig:
 
         if "firefox_browser" in args:
             noah.firefox_browser = args["firefox_browser"]
+
+        if "logitech_mouse" in args:
+            noah.firefox_browser = args["logitech_mouse"]
 
         if "dotfiles_dir" in args:
             noah.dotfiles_dir = args["dotfiles_dir"]
@@ -270,7 +270,7 @@ class NoahConfig:
             noah.copy_config = CopyConfiguration.from_arg(cc)
 
         if us := args.get("user_services"):
-            noah.user_services_config = UserService.from_arg(us)
+            noah.user_services_config = UserServiceConfiguration.from_arg(us)
 
         if auth := args.get("auth_conf"):
             noah.auth_config = AuthConfig.from_arg(auth)

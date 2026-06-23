@@ -1,0 +1,188 @@
+from pathlib import Path
+from utils import write_etc_file, copy_it
+from archinstall.lib.installer import Installer
+from textwrap import dedent
+
+
+def install_logid(installation: Installer, script_d: Path):
+    installation.add_additional_packages("logiops")
+    src_d = script_d / "files" / "logid"
+    copy_it(src_d / "loggy.service", installation.target / "etc" / "systemd" / "system")
+    copy_it(src_d / "loggy.py", installation.target / "usr" / "local" / "bin")
+    write_etc_file(
+        installation.target,
+        {
+            "etc/logid.cfg": dedent(
+                """\
+                // Top=0xc4  Gesture=0xc3 Back=0x53 Forward=0x56
+                devices: ({
+                    name: "MX Master 3S";
+                    smartshift: {
+                        on: true;
+                        threshold: 15;
+                    };
+                    hiresscroll: {
+                        hires: true;
+                        invert: false;
+                        target: false;
+                    };
+                    dpi: 6000;
+                    buttons: (
+                        {
+                            cid: 0x56;
+                            action: {
+                                type: "Gestures";
+                                gestures: (
+                                    {
+                                        direction: "None";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTCTRL", "KEY_V" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Up";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_SPACE" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Down";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_B" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Right";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_T" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Left";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_E" ];
+                                        }
+                                    }
+                                );
+                            };
+                        },
+                        {
+                            cid: 0x53;
+                            action: {
+                                type: "Gestures";
+                                gestures: (
+                                    {
+                                        direction: "None";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTCTRL", "KEY_C" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Right";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_G" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Left";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_D" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Up";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_F" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Down";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_ESC" ];
+                                        }
+                                    }
+                                );
+                            };
+                        },
+                        {
+                            cid: 0xc3;
+                            action: {
+                                type: "Gestures";
+                                gestures: (
+                                    {
+                                        direction: "None";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_R" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Right";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_K" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Left";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_J" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Up";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_H" ];
+                                        }
+                                    },
+                                    {
+                                        direction: "Down";
+                                        mode: "OnRelease";
+                                        action: {
+                                            type: "Keypress";
+                                            keys: [ "KEY_LEFTMETA", "KEY_L" ];
+                                        }
+                                    }
+                                );
+                            };
+                        },
+                        {
+                            cid: 0xc4;
+                            action: {
+                                type: "Keypress";
+                                keys: [ "KEY_LEFTSHIFT" ];
+                            };
+                        }
+                    );
+                });
+                """
+            ),
+        },
+    )
+    installation.enable_service("loggy")

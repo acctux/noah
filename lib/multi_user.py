@@ -17,8 +17,8 @@ def hide_apps(installation: Installer, user: str, apps_to_hide: list[str]):
 # USR_SVC
 ###################################
 def enable_user_serv(installation: Installer, unit: UserService, username: str) -> None:
-    sources = unit.source_paths(username)
-    targets = unit.target_paths(username)
+    sources = unit.get_source_paths(username)
+    targets = unit.get_target_paths(username)
     for src, tgt in zip(sources, targets):
         installation.arch_chroot(f"mkdir -p {tgt.parent}", username)
         installation.arch_chroot(f"ln -sfn {src} {tgt}", username)
@@ -57,7 +57,9 @@ def user_service(
     name = f"{user_script.rsplit('.', 1)[0]}.service"
     (installation.target / dir_path / name).write_text(content)
     installation.arch_chroot(f"chown {user}:{user} /{dir_path}/{name}")
-    unit = UserService(source=f"/{dir_path}", target="graphical-session", serv=[name])
+    unit = UserService(
+        source=f"/{dir_path}", target="graphical-session", services=[name]
+    )
     enable_user_serv(installation, unit, user)
 
 
@@ -78,7 +80,10 @@ def multi_user_funcs(
     user_service(installation, user.username, nc.terminal, script_dir)
     mpd_tmpfiles(installation, user.username)
     if serv_conf := nc.user_services_config:
-        enable_user_serv(installation, serv_conf, user.username)
+        if not serv_conf.services:
+            return
+        for serv in serv_conf.services:
+            enable_user_serv(installation, serv, user.username)
     installation.arch_chroot(
         f"chown -R {user.username}:{user.username} /home/{user.username}"
     )

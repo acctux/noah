@@ -12,7 +12,6 @@ base_chaotic_pkgs: list[str] = [
     "ocrmypdf",
 ]
 additional_chaotic_pkgs: list[str] = [
-    "logiops",
     "ayugram-desktop-git",
     "qt6-imageformats",  # AyuGram missing dependency
     "nchat-git",
@@ -23,13 +22,4 @@ game_chaotic_pkgs: list[str] = [
     "proton-cachyos-slr",
     "rpcs3-git",
     "eden-git",
-]
-not_installed: list[str] = [
-    "profile-cleaner",
-    "python-plotly",
-    "localsend",
-    "python-scipy",
-    "python-statsmodels",
-    "nwg-look",
-    "keyd",
 ]

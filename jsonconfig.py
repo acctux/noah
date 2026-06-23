@@ -73,20 +73,12 @@ archinstall_json = {
         "profile": {"main": ["Minimal"]},
     },
     "services": [
-        "ananicy-cpp",
-        "iwd",
-        "named",
-        "swayosd-libinput-backend",
+        "iwd.service",
+        "named.service",
         "systemd-networkd",
-        "systemd-oomd",
         "btrfs-scrub@-.timer",
         "btrfs-scrub@home.timer",
-        "fstrim.timer",
-        "logrotate.timer",
-        "man-db.timer",
         "paccache.timer",
-        "reflector.timer",
-        "loggy",
         "sysinfo",
     ],
     "swap": {
@@ -98,6 +90,7 @@ archinstall_json = {
 }
 noah_json = {
     "parallel_downloads": 10,
+    "logitech_mouse": True,
     "terminal": "kitty",
     "firefox_browser": "firedragon",
     "dots_git_user_repo": "acctux/polka",
@@ -120,7 +113,10 @@ noah_json = {
         "etc/xdg/autostart/firewall-applet.desktop",
         "usr/share/icons/capitaine-cursors/*",
     ],
-    "auth_conf": {"source": "noahinstall", "name": "users.json"},
+    "auth_conf": {
+        "source": "noahinstall",
+        "name": "users.json",
+    },
     "copy_config": [
         {
             "source": "noahinstall",

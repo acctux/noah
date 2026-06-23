@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
+from lib.app_and_profile import app_and_prof
+from lib.min_install import min_intall_pre, min_install_post
 from lib.snapper import inst_snapper
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.translationhandler import tr
 from archinstall.lib.packages.util import check_version_upgrade
-from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
 from archinstall.lib.applications.application_handler import ApplicationHandler
-from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.args import ArchConfig, ArchConfigHandler
 from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
@@ -29,31 +29,17 @@ from archinstall.lib.output import debug, error, info
 from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
-from utils import copy_it
 from lib.init_setup import init_setup
 from lib.datahandler import NoahConfig
-from lib.nvidia import install_nvidia, install_powertop
 from lib.bootloaders import bootloader_handling
-from lib.pacconf_chaos import chaotic_repo, modify_pacman_conf
 from lib.multi_user import multi_user_funcs
 from lib.single_user import single_user_and_user_list
-from lib.root_handle import copy_skel, handle_sys_files, handle_reflector
-from archinstall.lib.hardware import SysInfo
+from lib.root_handle import handle_sys_files
 from pathlib import Path
 import sys
 import time
 import subprocess
 import jsonconfig as json_conf
-
-
-class NoahSysInfo:
-    def __init__(self, sys_info: SysInfo):
-        vendor = sys_info.cpu_vendor()
-        self.nvidia: bool = sys_info.has_nvidia_graphics()
-        self.cpu_vendor: str | None = getattr(vendor, "value", str(vendor))
-        self.amd: bool = sys_info.has_amd_graphics()
-        self.is_vm: bool = sys_info.is_vm()
-        self.has_bat: bool = sys_info.has_battery()
 
 
 ###################################
@@ -129,8 +115,7 @@ def perform_installation(
             ):
                 installation.generate_key_files()
 
-        handle_reflector(None, nc.reflector_options)
-        modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
+        min_intall_pre(nc)
         installation.minimal_installation(
             optional_repositories=optional_repositories,
             mkinitcpio=run_mkinitcpio,
@@ -138,12 +123,7 @@ def perform_installation(
             locale_config=locale,
             pacman_config=config.pacman_config,
         )
-        copy_it(
-            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        )
-        modify_pacman_conf(mnt_point=mountpoint, no_extracts=nc.no_extracts)
-        copy_skel(mountpoint, nc)
-        chaotic_repo(installation)
+        min_install_post(installation, nc)
 
         if mirror_config := config.mirror_config:
             installation.set_mirrors(mirror_list_handler, mirror_config, on_target=True)
@@ -197,14 +177,7 @@ def perform_installation(
             profile_config.profile.post_install(installation)
             if users:
                 profile_config.profile.provision(installation, users)
-
-        sys_info = NoahSysInfo(SysInfo())
-        if sys_info.amd:
-            profile_handler.install_gfx_driver(installation, GfxDriver.AmdOpenSource)
-        if sys_info.nvidia:
-            install_nvidia(installation)
-        install_powertop(installation)
-        profile_handler.install_greeter(installation, GreeterType.Ly)
+        app_and_prof(installation, config)
         bootloader_handling(installation, config)
         handle_sys_files(installation, nc, config, script_d)
         if users:

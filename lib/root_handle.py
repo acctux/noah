@@ -1,12 +1,83 @@
+from textwrap import dedent
 from archinstall.lib.args import ArchConfig
 from archinstall.lib.models.application import Firewall
-from root_files import etc_files_to_write, network_files
+from root_files import network_files
 import json
 from lib.datahandler import NoahConfig
-from utils import log, run_dmc, copy_it, write_etc_file
+from utils import log, copy_it, write_etc_file
 import shutil
 from archinstall.lib.installer import Installer
 from pathlib import Path
+
+
+def install_logid(installation: Installer, script_d: Path):
+    def k(keys):
+        return f'type: "Keypress"; keys: [{", ".join(f'"{key}"' for key in keys)}];'
+
+    def g(direction, keys):
+        return (
+            f'{{direction: "{direction}"; mode: "OnRelease"; action: {{{k(keys)}}};}}'
+        )
+
+    def button(cid, action):
+        return f"{{cid: {hex(cid)}; action: {{{action}}};}}"
+
+    def gest(actions_list):
+        return f'type: "Gestures"; gestures: ({",".join(actions_list)});'
+
+    buttons = [
+        # Forward button
+        button(0x56, k(["KEY_LEFTMETA"])),
+        # Back button
+        button(
+            0x53,
+            gest(
+                [
+                    g("None", ["KEY_C"]),
+                    g("Right", ["KEY_G"]),
+                    g("Left", ["KEY_D"]),
+                    g("Up", ["KEY_F"]),
+                    g("Down", ["KEY_ESC"]),
+                ]
+            ),
+        ),
+        # Gesture button
+        button(0xC3, k(["KEY_LEFTMETA", "KEY_LEFTSHIFT"])),
+        # Top button
+        button(
+            0xC4,
+            gest(
+                [
+                    g("None", ["KEY_R"]),
+                    g("Right", ["KEY_T"]),
+                    g("Left", ["KEY_E"]),
+                    g("Up", ["KEY_SPACE"]),
+                    g("Down", ["KEY_B"]),
+                ]
+            ),
+        ),
+    ]
+    installation.add_additional_packages("logiops")
+    src_d = script_d / "files" / "logid"
+    copy_it(src_d / "loggy.service", installation.target / "etc" / "systemd" / "system")
+    copy_it(src_d / "loggy.py", installation.target / "usr" / "local" / "bin")
+    write_etc_file(
+        mnt_point=installation.target,
+        files_to_write={
+            "etc/logid.cfg": dedent(
+                f"""\
+                devices: ({{
+                    name: "MX Master 3S";
+                    smartshift: {{on: true; threshold: 15;}};
+                    hiresscroll: {{hires: true; invert: false; target: false;}};
+                    dpi: 6000;
+                    buttons: ({",".join(buttons)});
+                }});
+                """
+            ),
+        },
+    )
+    installation.enable_service("loggy")
 
 
 def install_icons(installation: Installer):
@@ -30,18 +101,6 @@ def install_icons(installation: Installer):
                 if "#ffffff" in text:
                     svg_file.write_text(text.replace("#ffffff", "#F4F5F6"))
                     log.info(f"Modified {svg_file}")
-
-
-def copy_skel(mountpoint: Path, nc: NoahConfig):
-    if nc.dots_git_user_repo:
-        tmp = mountpoint / "tmp" / "tmp_skel"
-        tmp.mkdir(exist_ok=True)
-        git = f"https://github.com/{nc.dots_git_user_repo}.git"
-        run_dmc(["git", "clone", git, str(tmp)])
-        shutil.rmtree(tmp / ".git")
-        for p in tmp.iterdir():
-            p.rename(p.parent / ("." + p.name))
-        copy_it(tmp, mountpoint / "etc" / "skel")
 
 
 def set_extensions(
@@ -77,7 +136,7 @@ def set_extensions(
     log.info(f"'Extensions.Install' for {browser} has been overwritten.")
 
 
-def sys_dots(
+def sys_file_copy(
     mnt_point: Path,
     script_dir: Path,
     dirs_to_cp: list[str] = ["etc", "usr"],
@@ -100,72 +159,177 @@ def handle_firewall(
                     installation.arch_chroot(f"ufw allow {allow_port}")
 
 
-def replace_hosts_line(mnt_point: Path) -> None:
-    new_hosts_line: str = "hosts: mymachines mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] files myhostname dns"
-    conf = mnt_point / "etc/nsswitch.conf"
-    lines = conf.read_text().splitlines()
-    for i, line in enumerate(lines):
-        if line.startswith("hosts"):
-            lines[i] = new_hosts_line
-            break
-    conf.write_text("\n".join(lines) + "\n")
-
-
-def handle_reflector(mountpoint: Path | None, options: list[str] | None):
-    if not options:
-        options = [
-            "--protocol https",
-            "--latest 25",
-            "--sort rate",
-            "--number 3",
-            "--save /etc/pacman.d/mirrorlist",
-        ]
-    if mountpoint:
-        refl_conf = mountpoint / "etc/xdg/reflector/reflector.conf"
-        refl_conf.write_text("\n".join(options))
-    else:
-        cmd = []
-        for opt in options:
-            opt = opt.split()
-            for part in opt:
-                cmd.append(part.strip())
-        run_dmc(["reflector"] + cmd)
-
-
-def replace_ly_config(mnt_point: Path) -> None:
-    replacements = {
-        "animation": "matrix",
-        "bg": "0x00101013",
-        "border_fg": "0x00D3DAE3",
-        "cmatrix_fg": "0x000000FF",
-        "colormix_col1": "0x0000FF00",
-        "colormix_col2": "0x000000CC",
-        "fg": "0x00D3DAE3",
-        "numlock": "true",
-        "session_log": ".cache/ly",
-    }
-    conf = Path(mnt_point / "etc/ly/config.ini")
-    lines = conf.read_text().splitlines()
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        for key, value in replacements.items():
-            if stripped.startswith(f"{key}"):
-                lines[i] = f"{key} = {value}"
+def kdeconnect_sys(mnt_point: Path) -> None:
+    def update_config(file_path: Path, match: str, new_line: str) -> None:
+        lines = file_path.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if line.lstrip().startswith(match):
+                lines[i] = new_line
                 break
-    conf.write_text("\n".join(lines) + "\n")
+        file_path.write_text("\n".join(lines) + "\n")
+
+    update_config(mnt_point / "etc/fuse.conf", "#user_allow_other", "user_allow_other")
+    update_config(
+        mnt_point / "etc/nsswitch.conf",
+        "hosts:",
+        "hosts: mymachines mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] files myhostname dns",
+    )
+
+
+def inst_systemd_oomd(installation: Installer):
+    write_etc_file(
+        mnt_point=installation.target,
+        files_to_write={
+            "usr/lib/systemd/oomd.conf.d/10-oomd-defaults.conf": dedent(
+                """\
+                [OOM]
+                DefaultMemoryPressureDurationSec=20s
+                """
+            ),
+            "usr/lib/systemd/system/system.slice.d/10-oomd-per-slice-defaults.conf": dedent(
+                """\
+                [Slice]
+                ManagedOOMMemoryPressure=kill
+                ManagedOOMMemoryPressureLimit=80%
+                """
+            ),
+            "usr/lib/systemd/user/slice.d/10-oomd-per-slice-defaults.conf": dedent(
+                """\
+                [Slice]
+                ManagedOOMMemoryPressure=kill
+                ManagedOOMMemoryPressureLimit=80%
+                """
+            ),
+        },
+    )
+    installation.enable_service("systemd-oomd")
+
+
+def install_powertop(installation: Installer):
+    installation.add_additional_packages("powertop")
+    srv_name = "powertop"
+    write_etc_file(
+        installation.target,
+        {
+            f"etc/systemd/system/{srv_name}.service": dedent(
+                """\
+                [Unit]
+                Description=Powertop tunings
+
+                [Service]
+                Type=oneshot
+                RemainAfterExit=yes
+                ExecStart=/usr/bin/powertop --auto-tune
+
+                [Install]
+                WantedBy=multi-user.target sleep.target
+                """
+            ),
+        },
+    )
+    installation.enable_service("powertop")
+
+
+etc_files_to_write: dict[str, str] = {
+    "etc/sysctl.d/99-sysctl.conf": dedent(
+        """\
+        vm.max_map_count = 2147483642
+        # Disable NMI watchdog
+        kernel.nmi_watchdog = 0
+        # To hide any kernel messages from the console
+        kernel.printk = 3 3 3 3
+        # Restricting access to kernel pointers in the proc filesystem
+        kernel.kptr_restrict = 2
+        # May help prevent losing packets
+        net.core.netdev_max_backlog = 4096
+        """
+    ),
+    "etc/xdg/user-dirs.defaults": dedent(
+        """\
+        DOCUMENTS=Desktop/Documents
+        DESKTOP=Desktop
+        MUSIC=Desktop/Music
+        PICTURES=Desktop/Pictures
+        BOOKS=Desktop/Books
+        SCREENSHOTS=Desktop/Pictures/Screenshots
+        GAMES=Desktop/Games
+        WALLPAPERS=Desktop/Pictures/Wallpapers
+        VIDEOS=Desktop/Videos
+        DOWNLOAD=Desktop/Downloads
+        TEMPLATES=Desktop/Templates
+        PRIVATE=Desktop/Private
+        PUBLICSHARE=Desktop/Public
+        PROJECTS=Lit
+        """
+    ),
+    "etc/conf.d/pacman-contrib": 'PACCACHE_ARGS="-k 2"\n',
+    "etc/systemd/journald.conf.d/00-journal-size.conf": dedent(
+        """\
+        [Journal]
+        SystemMaxUse=50M
+        """
+    ),
+    "etc/modprobe.d/blacklist.conf": dedent(
+        """\
+        # Blacklist the Intel TCO Watchdog/Timer module
+        blacklist iTCO_wdt
+        # Blacklist the AMD SP5100 TCO Watchdog/Timer module (Required for Ryzen cpus)
+        blacklist sp5100_tco"
+        """
+    ),
+    "etc/udisks2/mount_options.conf": dedent(
+        """\
+        [defaults]
+        # 'ntfs' signature, the new 'ntfs3' kernel driver
+        ntfs:ntfs3_defaults=uid=$UID,gid=$GID
+        ntfs:ntfs3_allow=uid=$UID,gid=$GID,umask,dmask,fmask,iocharset,discard,nodiscard,sparse,nosparse,hidden,nohidden,sys_immutable,showmeta,noshowmeta,prealloc,noprealloc,hide_dot_files,nohide_dot_files,windows_names,nocase,case
+        """
+    ),
+    "etc/udev/rules.d/99-thunderbolt.rules": dedent(
+        """\
+        ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{authorized}=="0", ATTR{authorized}="1"
+        """
+    ),
+}
 
 
 def handle_sys_files(
-    installation: Installer, nc: NoahConfig, config: ArchConfig, script_d: Path
+    installation: Installer,
+    nc: NoahConfig,
+    config: ArchConfig,
+    script_d: Path,
 ):
+    if config.swap and config.swap.enabled:
+        write_etc_file(
+            mnt_point=installation.target,
+            files_to_write={
+                "etc/systemd/zram-generator.conf": dedent(
+                    """\
+                    [zram0]
+                    zram-size = min(ram / 2, 8192)
+                    compression-algorithm = zstd
+                    """
+                ),
+                "etc/sysctl.d/99-zram.conf": dedent(
+                    """\
+                    vm.swappiness = 180
+                    vm.watermark_boost_factor = 0
+                    vm.watermark_scale_factor = 125
+                    vm.page-cluster = 0
+                    vm.dirty_writeback_centisecs = 1500
+                    """
+                ),
+            },
+        )
+    inst_systemd_oomd(installation)
+    install_powertop(installation)
     write_etc_file(installation.target, network_files)
     write_etc_file(installation.target, etc_files_to_write)
-    replace_hosts_line(installation.target)
-    replace_ly_config(installation.target)
-    if nc.reflector_options:
-        handle_reflector(installation.target, nc.reflector_options)
+    kdeconnect_sys(installation.target)
     if nc.firefox_browser:
         set_extensions(installation.target, nc.firefox_browser)
-    sys_dots(installation.target, script_d)
+    sys_file_copy(installation.target, script_d)
     install_icons(installation)
     handle_firewall(installation, config)
+    if nc.logitech_mouse:
+        install_logid(installation, script_d)

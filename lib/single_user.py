@@ -11,31 +11,32 @@ def aur_and_remove_root(
     installation: Installer,
     user_name: str,
     sudo_default: list[str] | None = None,
-    no_root: bool = True,
 ) -> None:
-    def write_sudoers(pless: bool, sudo_default: list[str] | None) -> None:
-        defaults_block = ""
+    def write_sudoers(pword_require: str) -> None:
+        write_data = [f"{user_name} ALL=(ALL:ALL) {pword_require}"]
         if sudo_default:
-            defaults_block = "\n".join(f"Defaults    {line}" for line in sudo_default)
-        rule = f"{user_name} ALL=(ALL:ALL) {'NOPASSWD:ALL' if pless else 'ALL'}"
-        sudoers_block = "\n".join([rule, defaults_block])
+            write_data += "\n".join(f"Defaults    {line}" for line in sudo_default)
         sudoers_file = installation.target / f"etc/sudoers.d/00_{user_name}"
-        sudoers_file.write_text(sudoers_block)
-        log.info(
-            f"{'Removed' if pless else 'Created'} pass requirement for {user_name}"
-        )
+        sudoers_file.write_text("\n".join(write_data))
 
-    write_sudoers(True, sudo_default)
+    write_sudoers("NOPASSWD:ALL")
+    log.info(f"Removed pass requirement for {user_name}")
     installation.arch_chroot(
-        f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}", user_name
+        cmd=f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
+        run_as=user_name,
     )
-    if no_root:
-        installation.arch_chroot("sudo passwd -dl root", user_name)
-        no_root_ssh = {
+    installation.arch_chroot(
+        cmd="sudo passwd -dl root",
+        run_as=user_name,
+    )
+    write_etc_file(
+        mnt_point=installation.target,
+        files_to_write={
             "etc/ssh/sshd_config.d/20-deny_root.conf": "PermitRootLogin no\n"
-        }
-        write_etc_file(installation.target, no_root_ssh)
-    write_sudoers(False, sudo_default)
+        },
+    )
+    write_sudoers("ALL")
+    log.info(f"Created pass requirement for {user_name}")
 
 
 def create_automount(installation: Installer, username: str):
@@ -70,23 +71,26 @@ def create_automount(installation: Installer, username: str):
 
 def copy_root_to_mnt(installation: Installer, nc: NoahConfig, username: str) -> None:
     if cc := nc.copy_config:
-        path_tuples = cc.resolve_root_to_mnt(installation.target, username)
-        if not path_tuples:
-            return
-        for src, dest in path_tuples:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            copy_it(src, dest)
+        if path_tuples := cc.resolve_root_to_mnt(
+            mnt_point=installation.target,
+            username=username,
+        ):
+            for src, dest in path_tuples:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                copy_it(src, dest)
 
 
 def auto_add_user_groups(
-    installation: Installer, username: str, base_pkgs: list[str]
-) -> None:
-    pkg_groups = {
+    installation: Installer,
+    username: str,
+    base_pkgs: list[str],
+    pkg_groups={
         "realtime-privileges": "realtime",
         "android-udev": "adbusers",
         "scrcpy": "adbusers",
         "gnome-logs": "adm",
-    }
+    },
+) -> None:
     groups = []
     for pkg, group in pkg_groups.items():
         if pkg in base_pkgs and group not in groups:
