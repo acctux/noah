@@ -172,6 +172,7 @@ def init_setup(
     if nc.copy_config:
         missing = check_missing(nc.copy_config)
         if missing:
+            print(missing)
             miss_names: list[str] = []
             for _, tar in missing:
                 miss_names.append(tar.name)
