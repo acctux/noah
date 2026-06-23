@@ -1,4 +1,3 @@
-from lib.init_setup import copy_root_to_mnt
 from packages.aur import aur_pkgs
 from lib.datahandler import NoahConfig
 from archinstall.lib.models import User
@@ -69,6 +68,16 @@ def create_automount(installation: Installer, username: str):
     installation.arch_chroot(f"usermod -aG storage {username}")
 
 
+def copy_root_to_mnt(installation: Installer, nc: NoahConfig, username: str) -> None:
+    if cc := nc.copy_config:
+        path_tuples = cc.resolve_root_to_mnt(installation.target, username)
+        if not path_tuples:
+            return
+        for src, dest in path_tuples:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            copy_it(src, dest)
+
+
 def auto_add_user_groups(
     installation: Installer, username: str, base_pkgs: list[str]
 ) -> None:
@@ -100,4 +109,4 @@ def single_user_and_user_list(
     auto_add_user_groups(installation, user_1, base_pkgs)
     create_automount(installation, user_1)
     copy_it(script_d, (installation.target / "home" / user_1 / script_d.name))
-    copy_root_to_mnt(installation.target, nc, user_1)
+    copy_root_to_mnt(installation, nc, user_1)

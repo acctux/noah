@@ -125,9 +125,25 @@ noah_json = {
         {
             "source": "noahinstall",
             "targets": [
-                {"dest": "~/.gnupg", "names": ["my_sec_gpg.asc"]},
-                {"dest": "~/.ssh", "names": ["id_ed25519", "pass.txt"]},
-                {"dest": "/etc", "names": ["wireguard"]},
+                {
+                    "dest": "~/.gnupg",
+                    "names": [
+                        "my_sec_gpg.asc",
+                    ],
+                },
+                {
+                    "dest": "~/.ssh",
+                    "names": [
+                        "id_ed25519",
+                        "pass.txt",
+                    ],
+                },
+                {
+                    "dest": "/etc",
+                    "names": [
+                        "wireguard",
+                    ],
+                },
             ],
         }
     ],

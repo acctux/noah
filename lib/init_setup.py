@@ -4,7 +4,7 @@
 from archinstall.lib.args import ArchConfigHandler, Arguments, ArchConfig
 import time
 from utils import run_dmc, yes_no, get_logger, copy_it
-from lib.datahandler import NoahConfig, CopyConfiguration
+from lib.datahandler import NoahConfig
 import subprocess
 import json
 from pathlib import Path
@@ -84,15 +84,6 @@ def get_device(
         selected_path = f"/dev/{candidates[int(choice) - 1][0]}"
         break
     return selected_path
-
-
-def copy_root_to_mnt(mnt_point: Path, cfg: CopyConfiguration, username: str) -> None:
-    path_tuples = cfg.resolve_root_to_mnt(mnt_point, username)
-    if not path_tuples:
-        return
-    for src, dest in path_tuples:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        copy_it(src, dest)
 
 
 def copy_usb_to_root(usb_path: Path, missing: list[tuple[Path, Path]]):
