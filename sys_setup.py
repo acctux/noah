@@ -255,7 +255,6 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     )
     arch_config_handler, nc = init_setup(
         arch_config_json=json_conf.archinstall_json,
-        auth_conf_path="/root/.ssh/users.json",
         noahconf_json=json_conf.noah_json,
         arch_config_handler=arch_config_handler,
     )
