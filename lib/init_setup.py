@@ -86,18 +86,11 @@ def get_device(
     return selected_path
 
 
-def check_missing(cfg: CopyConfiguration, base_dir: Path | None = None) -> list[str]:
-    """
-    Checks if files exist in the specified base_dir.
-    Defaults to checking the USB source if base_dir is not provided.
-    """
-    check_base = base_dir or cfg.usb
+def check_missing(cfg: CopyConfiguration) -> list[str]:
     missing = []
-
     if cfg.specs:
         for spec in cfg.specs:
-            # Construct the path relative to the provided base_dir
-            source_dir = check_base / spec.source
+            source_dir = cfg.root_path / spec.source
             for name in spec.names:
                 full_path = source_dir / name
                 if not full_path.exists():
@@ -179,7 +172,7 @@ def init_setup(
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb(usb_mnt)
     if nc.copy_config:
-        missing = check_missing(nc.copy_config, base_dir=cfg.root)
+        missing = check_missing(nc.copy_config)
         if missing:
             log.warning("Not yet present: " + ", ".join(missing))
             mnt_cp_keys(nc, usb_mnt)
