@@ -89,7 +89,7 @@ def get_device(
 def check_missing(usb_root: list[tuple[Path, Path]]) -> list[tuple[Path, Path]]:
     missing = []
     for src, dest in usb_root:
-        if dest.exists():
+        if not dest.exists():
             missing.append((src, dest))
     return missing
 
