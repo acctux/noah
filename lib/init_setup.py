@@ -107,7 +107,6 @@ def auto_services(
         "reflector": "reflector.timer",
         "logrotate": "logrotate.timer",
         "man-db": "man-db.timer",
-        "bolt": "boltd",
         "swayosd": "swayosd-libinput-backend",
     },
 ) -> list[str]:
