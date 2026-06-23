@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from lib.snapper import inst_snapper
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.translationhandler import tr
 from archinstall.lib.packages.util import check_version_upgrade
@@ -216,11 +217,17 @@ def perform_installation(
             installation.enable_service(services)
         if disable_svcs := nc.disable_svcs:
             installation.disable_service(disable_svcs)
-        mask_svcs = ["systemd-networkd-wait-online.service"]
-        if mask_svcs:
+        if mask_svcs := nc.disable_svcs:
             installation.arch_chroot(f"systemctl mask {' '.join(mask_svcs)}")
 
-        installation.setup_btrfs_snapshot(SnapshotType.Snapper, Bootloader.Limine)
+        if disk_config.has_default_btrfs_vols():
+            btrfs_options = disk_config.btrfs_options
+            if btrfs_options:
+                installation.setup_btrfs_snapshot(
+                    SnapshotType.Snapper, Bootloader.Limine
+                )
+                if users:
+                    inst_snapper(installation, users[0].username)
 
         if cc := config.custom_commands:
             run_custom_user_commands(cc, installation)

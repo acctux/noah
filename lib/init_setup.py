@@ -136,26 +136,20 @@ def init_setup(
     usb_mnt: Path = Path("/mnt/usb"),
 ) -> tuple[ArchConfigHandler, NoahConfig]:
     nc = NoahConfig.from_config(noahconf_json)
-    print(nc.auth_config)
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb(usb_mnt)
-    if nc.copy_config or nc.auth_config:
-        missing = []
-        if nc.copy_config:
-            for src, dest in nc.copy_config.resolve_usb_to_root():
-                if not dest.exists():
-                    missing.append((src, dest))
-        if nc.auth_config:
-            auth_src, auth_dest = nc.auth_config.resolve_usb_to_root()
-            if not auth_dest.exists():
-                missing.append((auth_src, auth_dest))
-        if missing:
-            log.warning("Not present: " + ", ".join([tar.name for _, tar in missing]))
-            usb: Path = Path("/mnt/usb")
-            usb.mkdir(parents=True, exist_ok=True)
-            copy_usb_to_root(usb, missing)
-        else:
-            log.info("All files to copy from USB found.")
+    to_check = []
+    if nc.copy_config:
+        to_check.extend(nc.copy_config.resolve_usb_to_root())
+    if nc.auth_config:
+        auth_src, auth_dest = nc.auth_config.resolve_usb_to_root()
+        to_check.append((auth_src, auth_dest))
+    if missing := [(src, dest) for src, dest in to_check if not dest.exists()]:
+        log.warning(f"Not present: {', '.join(dest.name for _, dest in missing)}")
+        usb_mnt.mkdir(parents=True, exist_ok=True)
+        copy_usb_to_root(usb_mnt, missing)
+    else:
+        log.info("All files to copy from USB found.")
     arch_config_handler = init_arch_conf(
         arch_config_json, auth_dest, arch_config_handler
     )

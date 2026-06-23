@@ -9,11 +9,11 @@ from archinstall.lib.installer import Installer
 class SnapperProfile:
     name: str
     mount: str
-    limit_monthly: int = 0
-    number_limit: int = 15
-    limit_hourly: int = 5
-    limit_daily: int = 5
-    limit_weekly: int = 5
+    number_limit: int
+    limit_monthly: int
+    limit_hourly: int
+    limit_daily: int
+    limit_weekly: int
     limit_yearly: int = 0
 
     def to_config_dict(self) -> dict[str, int]:
@@ -51,23 +51,34 @@ def update_existing_config_files(target_root: Path, profile: SnapperProfile) -> 
 def inst_snapper(
     installation: Installer,
     username: str | None,
-    profiles: list[SnapperProfile] | None = [
-        SnapperProfile(name="root", mount="/"),
+    profiles: list[SnapperProfile] = [
         SnapperProfile(
-            name="home", mount="/home", limit_monthly=3, limit_daily=7, number_limit=20
+            name="root",
+            mount="/",
+            number_limit=15,
+            limit_hourly=5,
+            limit_daily=5,
+            limit_weekly=5,
+            limit_monthly=0,
+        ),
+        SnapperProfile(
+            name="home",
+            mount="/home",
+            number_limit=20,
+            limit_hourly=5,
+            limit_daily=7,
+            limit_weekly=5,
+            limit_monthly=3,
         ),
     ],
 ) -> None:
     installation.add_additional_packages("limine-snapper-sync")
     if profiles:
         for profile in profiles:
-            cmd = f"snapper --no-dbus -c {profile.name} create-config {profile.mount}"
-            installation.arch_chroot(cmd)
             if profile.mount == "/home" and username:
                 cmd = f"snapper --no-dbus -c {profile.name} set-config 'ALLOW_USERS={username}' SYNC_ACL='yes'"
                 installation.arch_chroot(cmd)
             update_existing_config_files(installation.target, profile)
-        installation.enable_service(["snapper-cleanup.timer", "snapper-timeline.timer"])
         modify_mkinit(
             installation.target, hook="btrfs-overlayfs", after_hook="filesystems"
         )
