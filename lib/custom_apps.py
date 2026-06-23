@@ -330,7 +330,7 @@ etc_files_to_write: dict[str, str] = {
 }
 
 
-def handle_sys_files(installation: Installer, nc: NoahConfig, script_d: Path):
+def handle_cust_apps(installation: Installer, nc: NoahConfig, script_d: Path):
     inst_systemd_oomd(installation)
     install_powertop(installation)
     write_etc_file(installation.target, network_files)

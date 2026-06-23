@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+from utils import log
+import json
 from lib.noah_disk import noah_handle_fs
-from lib.custom_apps import handle_sys_files
+from lib.custom_apps import handle_cust_apps
 from lib.noah_user_setup import noah_user_setup
 from lib.app_and_profile import app_and_prof
 from lib.min_install import min_intall_pre, min_install_post
@@ -185,7 +187,7 @@ def perform_installation(
                 )
         app_and_prof(installation, config)
         bootloader_handling(installation, config)
-        handle_sys_files(installation, nc, script_d)
+        handle_cust_apps(installation, nc, script_d)
         if users:
             noah_user_setup(
                 installation, users, nc, script_d, base_pkgs=config.packages
@@ -221,6 +223,42 @@ def perform_installation(
                         pass
 
 
+def set_extensions(
+    mnt_point: Path,
+    browser: str,
+    extension_ids: list[str] = [
+        "return-youtube-dislikes",
+        "leechblock-ng",
+        "proton-pass",
+        "firefox-color",
+        "darkreader",
+        "flagfox",
+        "ublock-origin",
+    ],
+) -> None:
+    """Set Firefox extensions from a list of extension IDs."""
+    new_install = [
+        f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
+        for ext in extension_ids
+    ]
+    print(browser)
+    file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
+    print(file_path)
+
+    # data = {}
+    # if file_path.exists():
+    #     try:
+    #         data = json.loads(file_path.read_text())
+    #     except json.JSONDecodeError:
+    #         log.warning(f"Corrupt JSON in {file_path}, resetting.")
+    # policies = data.setdefault("policies", {})
+    # extensions = policies.setdefault("Extensions", {})
+    # extensions["Install"] = new_install
+    # file_path.parent.mkdir(parents=True, exist_ok=True)
+    # file_path.write_text(json.dumps(data, indent=2))
+    # log.info(f"'Extensions.Install' for {browser} has been overwritten.")
+
+
 def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     if arch_config_handler is None:
         arch_config_handler = ArchConfigHandler()
@@ -233,31 +271,33 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
         noahconf_json=json_conf.noah_json,
         arch_config_handler=arch_config_handler,
     )
-    if not arch_config_handler.args.silent:
-        show_menu(arch_config_handler)
-    config = ConfigurationOutput(arch_config_handler.config)
-    config.write_debug()
-    config.save()
-    if not arch_config_handler.args.silent:
-        aborted = False
-        res: bool = tui.run(config.confirm_config)
-        if not res:
-            debug("Installation aborted")
-            aborted = True
-        if aborted:
-            return main(arch_config_handler)
-    if arch_config_handler.config.disk_config:
-        fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-        if not delayed_warning(tr("Starting device modifications in ")):
-            return main()
-        fs_handler.perform_filesystem_operations()
-    perform_installation(
-        arch_config_handler=arch_config_handler,
-        mirror_list_handler=mirror_list_handler,
-        auth_handler=AuthenticationHandler(),
-        application_handler=ApplicationHandler(),
-        nc=nc,
-    )
+    if nc.firefox_browser:
+        set_extensions(Path("/mnt"), nc.firefox_browser)
+    # if not arch_config_handler.args.silent:
+    #     show_menu(arch_config_handler)
+    # config = ConfigurationOutput(arch_config_handler.config)
+    # config.write_debug()
+    # config.save()
+    # if not arch_config_handler.args.silent:
+    #     aborted = False
+    #     res: bool = tui.run(config.confirm_config)
+    #     if not res:
+    #         debug("Installation aborted")
+    #         aborted = True
+    #     if aborted:
+    #         return main(arch_config_handler)
+    # if arch_config_handler.config.disk_config:
+    #     fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
+    #     if not delayed_warning(tr("Starting device modifications in ")):
+    #         return main()
+    #     fs_handler.perform_filesystem_operations()
+    # perform_installation(
+    #     arch_config_handler=arch_config_handler,
+    #     mirror_list_handler=mirror_list_handler,
+    #     auth_handler=AuthenticationHandler(),
+    #     application_handler=ApplicationHandler(),
+    #     nc=nc,
+    # )
 
 
 if __name__ == "__main__":
