@@ -92,20 +92,10 @@ def check_missing(cfg: CopyConfiguration) -> list[tuple[Path, Path]] | None:
         for spec in cfg.specs:
             for name in spec.names:
                 full_t_path = cfg.root_path / spec.target / name
-                print(full_t_path)
                 if not full_t_path.exists():
                     full_src_path = cfg.root_path / spec.source / name
-                    print(full_src_path)
                     missing.append((full_src_path, full_t_path))
     return missing
-
-
-def copy_usb_to_root(cfg: CopyConfiguration) -> None:
-    path_tuples = cfg.resolve_usb_to_root()
-    if path_tuples:
-        for src, dest in path_tuples:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            copy_it(src, dest)
 
 
 def copy_root_to_mnt(mnt_point: Path, cfg: CopyConfiguration, username: str) -> None:
@@ -117,20 +107,20 @@ def copy_root_to_mnt(mnt_point: Path, cfg: CopyConfiguration, username: str) -> 
         copy_it(src, dest)
 
 
-def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path):
+def copy_usb_to_root(cc: CopyConfiguration, missing: list[tuple[Path, Path]]):
     if not yes_no("Mount USB?"):
         return
     selected = get_device()
     if not selected:
         return
-    usb_mnt.mkdir(parents=True, exist_ok=True)
-    run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
+    cc.usb.mkdir(parents=True, exist_ok=True)
+    run_dmc(["mount", "-o", "ro", str(selected), str(cc.usb)], check=True)
     run_dmc(["udevadm", "settle"])
     time.sleep(1)
-    if nc.copy_config:
-        copy_usb_to_root(nc.copy_config)
+    for src, dest in missing:
+        copy_it(src, dest)
     if yes_no("Files copied, unmount?"):
-        unmount_usb(usb_mnt)
+        unmount_usb(cc.usb)
 
 
 def init_arch_conf(
@@ -170,14 +160,9 @@ def init_setup(
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb(usb_mnt)
     if nc.copy_config:
-        missing = check_missing(nc.copy_config)
-        if missing:
-            print(missing)
-            miss_names: list[str] = []
-            for _, tar in missing:
-                miss_names.append(tar.name)
-            log.warning("Not yet present: " + ", ".join(miss_names))
-            mnt_cp_keys(nc, usb_mnt)
+        if missing := check_missing(nc.copy_config):
+            log.warning("Not present: " + ", ".join([tar.name for _, tar in missing]))
+            copy_usb_to_root(nc.copy_config, missing)
         else:
             log.info("All files to copy from USB found.")
     arch_config_handler = init_arch_conf(

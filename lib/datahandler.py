@@ -1,3 +1,4 @@
+from utils import copy_it
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -99,7 +100,8 @@ class CopyConfiguration:
             for name in spec.names:
                 src = self.usb / spec.source / name
                 dst = self.root_path / spec.target.lstrip("/") / name
-                results.append((src, dst))
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                copy_it(src, dst)
         return results
 
     def resolve_root_to_mnt(
