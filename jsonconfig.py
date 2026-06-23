@@ -120,45 +120,19 @@ noah_json = {
         "etc/xdg/autostart/firewall-applet.desktop",
         "usr/share/icons/capitaine-cursors/*",
     ],
-    "key_copy_config": {
-        "ssh_key": {
-            "source": "noahinstall",
-            "target": ".ssh",
-            "names": [
-                "id_ed25519",
-            ],
-        },
-        "gpg_key": {
-            "source": "noahinstall",
-            "target": ".gnupg",
-            "names": [
-                "my_sec_gpg.asc",
-            ],
-        },
-        "auth_conf": {
-            "source": "noahinstall",
-            "target": ".ssh",
-            "names": [
-                "users.json",
-            ],
-        },
+    "copy_config": {
+        "auth_conf": {"source": "noahinstall", "name": "users.json"},
+        "additional": [
+            {
+                "source": "noahinstall",
+                "targets": [
+                    {"dest": "~/.ssh", "names": ["my_sec_gpg.asc"]},
+                    {"dest": "~/.gnupg", "names": ["id_ed25519", "pass.txt"]},
+                    {"dest": "/etc", "names": ["wireguard"]},
+                ],
+            }
+        ],
     },
-    "additional_usb_to_cp": [
-        {
-            "source": "noahinstall",
-            "target": ".ssh",
-            "names": [
-                "pass.txt",
-            ],
-        },
-        {
-            "source": "noahinstall",
-            "target": "/etc",
-            "names": [
-                "wireguard",
-            ],
-        },
-    ],
     "user_services": [
         {
             "source": "/usr/lib/systemd/user",

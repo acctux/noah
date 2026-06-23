@@ -13,20 +13,20 @@ log = get_logger("Noah")
 
 
 def check_missing(config: NoahConfig) -> list[str]:
-    def collect_missing(copies: list[CopySpec]) -> None:
-        for copy in copies:
-            for name in copy.names:
-                # This now works perfectly because copy.source is a Path
-                if not (Path(copy.source) / name).exists():
-                    missing.append(name)
-
     missing: list[str] = []
-    if key_conf := config.key_copy_config:
-        if key_conf.copies:
-            collect_missing(key_conf.copies)
-    if extra_cp_conf := config.additional_usb_to_cp:
-        if copies := extra_cp_conf.copies:
-            collect_missing(copies)
+    # Explicitly filter and type hint the configs
+    configs: list[CopyConfiguration] = [
+        c
+        for c in [config.key_copy_config, config.additional_usb_to_cp]
+        if isinstance(c, CopyConfiguration)
+    ]
+
+    for cfg in configs:
+        for spec in cfg.all_specs():
+            base = cfg.usb / spec.source
+            for name in spec.names:
+                if not (base / name).exists():
+                    missing.append(name)
     return missing
 
 
@@ -104,9 +104,39 @@ def get_device(
     return selected_path
 
 
+def copy_root_to_mnt(mnt_point: Path, nc: NoahConfig, username: str):
+    if missing := check_missing(nc):
+        raise FileNotFoundError(f"Missing source files: {', '.join(missing)}")
+
+    # Explicitly filter to satisfy type checker
+    configs: list[CopyConfiguration] = [
+        c
+        for c in [nc.key_copy_config, nc.additional_usb_to_cp]
+        if isinstance(c, CopyConfiguration)
+    ]
+
+    for cfg in configs:
+        for src, dest in cfg.root_to_mnt(mnt_point, username):
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            copy_it(src, dest)
+
+
 def copy_usb_to_root(nc: NoahConfig) -> None:
-    if key_conf := nc.key_copy_config:
-        for src, dest in key_conf.usb_to_root():
+    # 1. Pre-flight check for missing files
+    if missing := check_missing(nc):
+        raise FileNotFoundError(f"Missing source files: {', '.join(missing)}")
+
+    # 2. Iterate over all defined copy configurations
+    configs: list[CopyConfiguration] = [
+        c
+        for c in [nc.key_copy_config, nc.additional_usb_to_cp]
+        if isinstance(c, CopyConfiguration)
+    ]
+
+    for cfg in configs:
+        for src, dest in cfg.usb_to_root():
+            # Ensure the destination parent directory exists
+            dest.parent.mkdir(parents=True, exist_ok=True)
             copy_it(src, dest)
 
 

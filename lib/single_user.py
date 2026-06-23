@@ -1,3 +1,4 @@
+from lib.init_setup import copy_root_to_mnt
 from packages.aur import aur_pkgs
 from lib.datahandler import NoahConfig
 from archinstall.lib.models import User
@@ -85,13 +86,6 @@ def auto_add_user_groups(
         return
     group_str = groups[0] if len(groups) == 1 else ",".join(groups)
     installation.arch_chroot(f"usermod -aG {group_str} {username}")
-
-
-def copy_root_to_mnt(mnt_point: Path, nc: NoahConfig, username: str):
-    if key_conf := nc.key_copy_config:
-        list_tuple_paths = key_conf.root_to_mnt(mnt_point, username)
-        for src, dest in list_tuple_paths:
-            copy_it(src, dest)
 
 
 def single_user_and_user_list(

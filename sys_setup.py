@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from lib.snapper import inst_snapper
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.translationhandler import tr
 from archinstall.lib.packages.util import check_version_upgrade

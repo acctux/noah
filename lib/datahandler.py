@@ -70,121 +70,49 @@ class GitReposConfiguration:
 class CopySpec:
     source: str
     target: str
-    names: list
+    names: list[str]
 
 
 @dataclass
-class KeyCopyConfig:
-    ssh_key: CopySpec | None = None
-    gpg_key: CopySpec | None = None
-    auth_conf: CopySpec | None = None
-
-    @classmethod
-    def from_arg(cls, arg: dict[str, Any]) -> "KeyCopyConfig | None":
-        if not arg or not isinstance(arg, dict):
-            return None
-
-        def parse(name: str) -> CopySpec | None:
-            value = arg.get(name)
-            if not isinstance(value, dict):
-                return None
-
-            source = value.get("source")
-            target = value.get("target")
-            names = value.get("names", [])
-
-            if not source or not target or not names:
-                return None
-
-            return CopySpec(source, target, names)
-
-        cfg = cls(
-            ssh_key=parse("ssh_key"),
-            gpg_key=parse("gpg_key"),
-            auth_conf=parse("auth_conf"),
-        )
-
-        if not any((cfg.ssh_key, cfg.gpg_key, cfg.auth_conf)):
-            return None
-
-        return cfg
-
-    def all_specs(self) -> list[CopySpec]:
-        return [
-            spec
-            for spec in (
-                self.ssh_key,
-                self.gpg_key,
-                self.auth_conf,
-            )
-            if spec is not None
-        ]
-
-
 class CopyConfiguration:
-    def __init__(
-        self,
-        copies: list[CopySpec] | None = None,
-        key_copy_config: KeyCopyConfig | None = None,
-    ):
-        self.copies = copies
-        self.key_copy_config = key_copy_config
-        self.usb = Path("/mnt/usb")
-        self.root = Path("/root")
+    specs: list[CopySpec] | None = None
 
     @classmethod
-    def from_arg(cls, arg: Any = None) -> "CopyConfiguration | None":
-        if not arg:
-            return None
-        copies: list[CopySpec] = []
-        key_copy_config: KeyCopyConfig | None = None
-        if isinstance(arg, list):
-            for element in arg:
-                if isinstance(element, dict):
-                    copies.append(
-                        CopySpec(
-                            element["source"],
-                            element["target"],
-                            element.get("names", []),
-                        )
-                    )
-        elif isinstance(arg, dict):
-            key_copy_config = KeyCopyConfig.from_arg(arg)
-        if not copies and not key_copy_config:
-            return None
-        return cls(
-            copies=copies,
-            key_copy_config=key_copy_config,
-        )
+    def from_arg(cls, arg: Any) -> "CopyConfiguration":
+        specs = []
 
-    def all_specs(self) -> list[CopySpec]:
-        specs: list[CopySpec] = []
-        if self.copies:
-            specs.extend(self.copies)
-        if self.key_copy_config:
-            specs.extend(self.key_copy_config.all_specs())
-        return specs
+        if isinstance(arg, dict):
+            # 1. Handle 'additional' list if present
+            if "additional" in arg:
+                for entry in arg["additional"]:
+                    source = entry.get("source", "")
+                    for target_item in entry.get("targets", []):
+                        specs.append(
+                            CopySpec(
+                                source=source,
+                                target=target_item["dest"],
+                                names=target_item["names"],
+                            )
+                        )
+            if "auth_conf" in arg:
+                ac = arg["auth_conf"]
+                specs.append(CopySpec(ac["source"], "/", [ac["name"]]))
+        return cls(specs=specs)
+
+    def all_specs(self) -> list[CopySpec] | None:
+        return self.specs
 
     def _resolve(
-        self, src_base: Path, dst_base: Path, username: str = ""
-    ) -> list[tuple[Path, Path]]:
-        result = []
-        for spec in self.all_specs():
-            dst_base = Path(dst_base)
-            if not dst_base.is_absolute():
-                if username:
-                    dst_base = dst_base / "home" / username
-            for name in spec.names:
-                src = src_base / spec.source / name
-                dest = dst_base / spec.target.lstrip("/") / name
-                result.append((src, dest))
-        return result
-
-    def usb_to_root(self) -> list[tuple[Path, Path]]:
-        return self._resolve(self.usb, self.root)
-
-    def root_to_mnt(self, mnt_point: Path, username: str) -> list[tuple[Path, Path]]:
-        return self._resolve(src_base=self.root, dst_base=mnt_point, username=username)
+        self, src_base: Path, dst_base: Path
+    ) -> list[tuple[Path, Path]] | None:
+        results = []
+        if self.specs:
+            for spec in self.specs:
+                for name in spec.names:
+                    results.append(
+                        (src_base / spec.source / name, dst_base / spec.target / name)
+                    )
+        return results
 
 
 @dataclass(slots=True)
