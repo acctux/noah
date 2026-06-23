@@ -93,9 +93,12 @@ class CopyConfiguration:
         return cls(specs=specs)
 
     def _resolve(
-        self, src_base: Path, dst_base: Path, username: str | None = None
+        self,
+        src_base: Path,
+        dst_base: Path,
+        username: str | None = None,
+        is_staging: bool = False,
     ) -> list[tuple[Path, Path]] | None:
-        """Core internal resolution logic."""
         results = []
         home_base = Path(f"/home/{username}") if username else Path.home()
 
@@ -105,32 +108,34 @@ class CopyConfiguration:
         for spec in self.specs:
             for name in spec.names:
                 src = src_base / spec.source / name
-
-                # Handle '~' expansion
                 dest_str = spec.target.replace("~", str(home_base))
-
-                # Check if the target is already absolute (e.g., '/etc')
                 path_obj = Path(dest_str)
 
-                if path_obj.is_absolute():
-                    # If it's absolute, we don't prepend dst_base
+                # If we are STAGING, we force everything to be relative to dst_base.
+                # Otherwise, we respect the absolute path.
+                if not is_staging and path_obj.is_absolute():
                     dst = path_obj / name
                 else:
-                    # If it's relative, we join it with dst_base
-                    dst = dst_base / path_obj / name
+                    # Strip leading '/' if it exists so we can join it to dst_base
+                    relative_path = (
+                        path_obj.relative_to(path_obj.anchor)
+                        if path_obj.is_absolute()
+                        else path_obj
+                    )
+                    dst = dst_base / relative_path / name
 
                 results.append((src, dst))
         return results
 
     def resolve_usb_to_root(self) -> list[tuple[Path, Path]] | None:
-        """Resolves paths for moving data from USB to local staging."""
-        return self._resolve(self.usb, self.root)
+        # Pass is_staging=True to force absolute paths like /etc into /root/copyfiles/etc
+        return self._resolve(self.usb, self.root, is_staging=True)
 
     def resolve_root_to_mnt(
         self, mnt_point: Path, username: str
     ) -> list[tuple[Path, Path]] | None:
-        """Resolves paths for moving data from staging to the target mount."""
-        return self._resolve(self.root, mnt_point, username=username)
+        # is_staging=False allows absolute paths to be respected on the final target
+        return self._resolve(self.root, mnt_point, username=username, is_staging=False)
 
 
 @dataclass(slots=True)
