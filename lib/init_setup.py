@@ -4,30 +4,12 @@
 from archinstall.lib.args import ArchConfigHandler, Arguments, ArchConfig
 import time
 from utils import run_dmc, yes_no, get_logger, copy_it
-from lib.datahandler import NoahConfig, CopySpec
+from lib.datahandler import NoahConfig, CopyConfiguration
 import subprocess
 import json
 from pathlib import Path
 
 log = get_logger("Noah")
-
-
-def check_missing(config: NoahConfig) -> list[str]:
-    missing: list[str] = []
-    # Explicitly filter and type hint the configs
-    configs: list[CopyConfiguration] = [
-        c
-        for c in [config.key_copy_config, config.additional_usb_to_cp]
-        if isinstance(c, CopyConfiguration)
-    ]
-
-    for cfg in configs:
-        for spec in cfg.all_specs():
-            base = cfg.usb / spec.source
-            for name in spec.names:
-                if not (base / name).exists():
-                    missing.append(name)
-    return missing
 
 
 def unmount_usb(usb_mnt: Path):
@@ -104,40 +86,36 @@ def get_device(
     return selected_path
 
 
-def copy_root_to_mnt(mnt_point: Path, nc: NoahConfig, username: str):
-    if missing := check_missing(nc):
-        raise FileNotFoundError(f"Missing source files: {', '.join(missing)}")
-
-    # Explicitly filter to satisfy type checker
-    configs: list[CopyConfiguration] = [
-        c
-        for c in [nc.key_copy_config, nc.additional_usb_to_cp]
-        if isinstance(c, CopyConfiguration)
-    ]
-
-    for cfg in configs:
-        for src, dest in cfg.root_to_mnt(mnt_point, username):
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            copy_it(src, dest)
+def check_missing(configs: CopyConfiguration) -> list[str]:
+    missing = []
+    if configs.specs:
+        for spec in configs.specs:
+            base = configs.usb / spec.source
+            missing.extend(name for name in spec.names if not (base / name).exists())
+    return missing
 
 
-def copy_usb_to_root(nc: NoahConfig) -> None:
-    # 1. Pre-flight check for missing files
-    if missing := check_missing(nc):
-        raise FileNotFoundError(f"Missing source files: {', '.join(missing)}")
+def copy_root_to_mnt(mnt_point: Path, configs: CopyConfiguration):
+    if missing := check_missing(configs):
+        raise FileNotFoundError(f"Missing: {', '.join(missing)}")
 
-    # 2. Iterate over all defined copy configurations
-    configs: list[CopyConfiguration] = [
-        c
-        for c in [nc.key_copy_config, nc.additional_usb_to_cp]
-        if isinstance(c, CopyConfiguration)
-    ]
+    if configs.specs:
+        for spec in configs.specs:
+            for name in spec.names:
+                src = configs.root / spec.source / name
+                dest = mnt_point / spec.target / name
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                copy_it(src, dest)
 
-    for cfg in configs:
-        for src, dest in cfg.usb_to_root():
-            # Ensure the destination parent directory exists
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            copy_it(src, dest)
+
+def copy_usb_to_root(configs: CopyConfiguration) -> None:
+    if configs.specs:
+        for spec in configs.specs:
+            for name in spec.names:
+                src = configs.usb / spec.source / name
+                dest = configs.root / spec.target / name
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                copy_it(src, dest)
 
 
 def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path):
@@ -150,7 +128,8 @@ def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path):
     run_dmc(["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True)
     run_dmc(["udevadm", "settle"])
     time.sleep(1)
-    copy_usb_to_root(nc)
+    if nc.copy_config:
+        copy_usb_to_root(nc.copy_config)
     if yes_no("Files copied, unmount?"):
         unmount_usb(usb_mnt)
 
@@ -191,13 +170,13 @@ def init_setup(
     nc = NoahConfig.from_config(noahconf_json)
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb(usb_mnt)
-    missing = check_missing(nc)
+    if nc.copy_config:
+        missing = check_missing(nc.copy_config)
     if missing:
         log.warning("Not yet present: " + ", ".join(missing))
         mnt_cp_keys(nc, usb_mnt)
     else:
         log.info("All files to copy from USB found.")
-
     arch_config_handler = init_arch_conf(
         arch_config_json, auth_conf_path, arch_config_handler
     )

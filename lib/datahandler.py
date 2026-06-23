@@ -76,43 +76,25 @@ class CopySpec:
 @dataclass
 class CopyConfiguration:
     specs: list[CopySpec] | None = None
+    usb: Path = Path("/mnt/usb")
+    root: Path = Path("/root")
 
     @classmethod
-    def from_arg(cls, arg: Any) -> "CopyConfiguration":
+    def from_arg(cls, arg: dict[str, Any]) -> "CopyConfiguration":
         specs = []
-
         if isinstance(arg, dict):
-            # 1. Handle 'additional' list if present
-            if "additional" in arg:
-                for entry in arg["additional"]:
-                    source = entry.get("source", "")
-                    for target_item in entry.get("targets", []):
-                        specs.append(
-                            CopySpec(
-                                source=source,
-                                target=target_item["dest"],
-                                names=target_item["names"],
-                            )
-                        )
-            if "auth_conf" in arg:
-                ac = arg["auth_conf"]
+            for entry in arg.get("additional", []):
+                source = entry.get("source", "")
+                for target_item in entry.get("targets", []):
+                    specs.append(
+                        CopySpec(source, target_item["dest"], target_item["names"])
+                    )
+            if ac := arg.get("auth_conf"):
                 specs.append(CopySpec(ac["source"], "/", [ac["name"]]))
         return cls(specs=specs)
 
     def all_specs(self) -> list[CopySpec] | None:
         return self.specs
-
-    def _resolve(
-        self, src_base: Path, dst_base: Path
-    ) -> list[tuple[Path, Path]] | None:
-        results = []
-        if self.specs:
-            for spec in self.specs:
-                for name in spec.names:
-                    results.append(
-                        (src_base / spec.source / name, dst_base / spec.target / name)
-                    )
-        return results
 
 
 @dataclass(slots=True)
@@ -210,7 +192,7 @@ class NoahConfig:
     dirs_icons: dict[str, str] | None = None
     git_repos_config: GitReposConfiguration | None = None
     dotdirs_to_link: list[str] | None = None
-    key_copy_config: CopyConfiguration | None = None
+    copy_config: CopyConfiguration | None = None
     additional_usb_to_cp: CopyConfiguration | None = None
     user_services_config: UserService | None = None
 
@@ -266,11 +248,8 @@ class NoahConfig:
         if "dotdirs_to_link" in args:
             noah.dotdirs_to_link = args["dotdirs_to_link"]
 
-        if kc := args.get("key_copy_config"):
-            noah.key_copy_config = CopyConfiguration.from_arg(kc)
-
-        if usb := args.get("additional_usb_to_cp"):
-            noah.additional_usb_to_cp = CopyConfiguration.from_arg(usb)
+        if cc := args.get("copy_config"):
+            noah.copy_config = CopyConfiguration.from_arg(cc)
 
         if us := args.get("user_services"):
             noah.user_services_config = UserService.from_arg(us)
