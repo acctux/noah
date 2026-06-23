@@ -76,11 +76,11 @@ class CopySpec:
 @dataclass
 class CopyConfiguration:
     specs: list[CopySpec] | None = None
+    root_path: Path = Path("/root")
     usb: Path = Path("/mnt/usb")
-    root: Path = Path("/root/copyfiles")
 
     @classmethod
-    def from_arg(cls, arg: Any) -> "CopyConfiguration":
+    def from_arg(cls, arg: Any) -> CopyConfiguration:
         specs = []
         if isinstance(arg, list):
             for entry in arg:
@@ -89,53 +89,32 @@ class CopyConfiguration:
                     specs.append(
                         CopySpec(source, target_item["dest"], target_item["names"])
                     )
-        # Added: explicitly return the instance with the populated specs
         return cls(specs=specs)
 
-    def _resolve(
-        self,
-        src_base: Path,
-        dst_base: Path,
-        username: str | None = None,
-        is_staging: bool = False,
-    ) -> list[tuple[Path, Path]] | None:
+    def resolve_usb_to_root(self) -> list[tuple[Path, Path]]:
         results = []
-        home_base = Path(f"/home/{username}") if username else Path.home()
-
         if not self.specs:
-            return None
-
+            return results
         for spec in self.specs:
             for name in spec.names:
-                src = src_base / spec.source / name
-                dest_str = spec.target.replace("~", str(home_base))
-                path_obj = Path(dest_str)
-
-                # If we are STAGING, we force everything to be relative to dst_base.
-                # Otherwise, we respect the absolute path.
-                if not is_staging and path_obj.is_absolute():
-                    dst = path_obj / name
-                else:
-                    # Strip leading '/' if it exists so we can join it to dst_base
-                    relative_path = (
-                        path_obj.relative_to(path_obj.anchor)
-                        if path_obj.is_absolute()
-                        else path_obj
-                    )
-                    dst = dst_base / relative_path / name
-
+                src = self.usb / spec.source / name
+                dst = self.root_path / spec.target.lstrip("/") / name
                 results.append((src, dst))
         return results
 
-    def resolve_usb_to_root(self) -> list[tuple[Path, Path]] | None:
-        # Pass is_staging=True to force absolute paths like /etc into /root/copyfiles/etc
-        return self._resolve(self.usb, self.root, is_staging=True)
-
     def resolve_root_to_mnt(
         self, mnt_point: Path, username: str
-    ) -> list[tuple[Path, Path]] | None:
-        # is_staging=False allows absolute paths to be respected on the final target
-        return self._resolve(self.root, mnt_point, username=username, is_staging=False)
+    ) -> list[tuple[Path, Path]]:
+        results = []
+        if not self.specs:
+            return results
+        home_base = f"/home/{username}"
+        for spec in self.specs:
+            for name in spec.names:
+                src = self.root_path / spec.source.lstrip("/") / name
+                dst = mnt_point / spec.target.replace("~", home_base) / name
+                results.append((src, dst))
+        return results
 
 
 @dataclass(slots=True)
