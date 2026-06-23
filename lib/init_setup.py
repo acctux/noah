@@ -86,15 +86,11 @@ def get_device(
     return selected_path
 
 
-def check_missing(cfg: CopyConfiguration) -> list[tuple[Path, Path]] | None:
+def check_missing(usb_root: list[tuple[Path, Path]]) -> list[tuple[Path, Path]]:
     missing = []
-    if cfg.specs:
-        for spec in cfg.specs:
-            for name in spec.names:
-                full_t_path = cfg.root_path / spec.target / name
-                if not full_t_path.exists():
-                    full_src_path = cfg.usb / spec.source / name
-                    missing.append((full_src_path, full_t_path))
+    for src, dest in usb_root:
+        if dest.exists():
+            missing.append((src, dest))
     return missing
 
 
@@ -160,7 +156,8 @@ def init_setup(
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb(usb_mnt)
     if nc.copy_config:
-        if missing := check_missing(nc.copy_config):
+        usb_to_root_paths = nc.copy_config.resolve_usb_to_root()
+        if missing := check_missing(usb_to_root_paths):
             log.warning("Not present: " + ", ".join([tar.name for _, tar in missing]))
             copy_usb_to_root(nc.copy_config, missing)
         else:
