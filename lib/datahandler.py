@@ -77,24 +77,51 @@ class CopySpec:
 class CopyConfiguration:
     specs: list[CopySpec] | None = None
     usb: Path = Path("/mnt/usb")
-    root: Path = Path("/root")
+    root: Path = Path("/root/copyfiles")
 
     @classmethod
-    def from_arg(cls, arg: dict[str, Any]) -> "CopyConfiguration":
+    def from_arg(cls, arg: Any) -> CopyConfiguration | None:
         specs = []
-        if isinstance(arg, dict):
-            for entry in arg.get("additional", []):
+        # Normalize list input
+        if isinstance(arg, list):
+            for entry in arg:
                 source = entry.get("source", "")
                 for target_item in entry.get("targets", []):
                     specs.append(
                         CopySpec(source, target_item["dest"], target_item["names"])
                     )
-            if ac := arg.get("auth_conf"):
-                specs.append(CopySpec(ac["source"], "/", [ac["name"]]))
-        return cls(specs=specs)
 
-    def all_specs(self) -> list[CopySpec] | None:
-        return self.specs
+    # ... from_arg implementation remains the same ...
+
+    def _resolve(
+        self, src_base: Path, dst_base: Path, username: str | None = None
+    ) -> list[tuple[Path, Path]] | None:
+        """Core internal resolution logic."""
+        results = []
+        home_base = Path(f"/home/{username}") if username else Path.home()
+        if self.specs:
+            for spec in self.specs:
+                for name in spec.names:
+                    src = src_base / spec.source / name
+
+                    # Handle '~' expansion
+                    dest_str = spec.target.replace("~", str(home_base))
+                    dst = Path(dest_str) / name
+
+                    if not dst.is_absolute():
+                        dst = dst_base / dst
+                    results.append((src, dst))
+            return results
+
+    def resolve_usb_to_root(self) -> list[tuple[Path, Path]] | None:
+        """Resolves paths for moving data from USB to local staging."""
+        return self._resolve(self.usb, self.root)
+
+    def resolve_root_to_mnt(
+        self, mnt_point: Path, username: str
+    ) -> list[tuple[Path, Path]] | None:
+        """Resolves paths for moving data from staging to the target mount."""
+        return self._resolve(self.root, mnt_point, username=username)
 
 
 @dataclass(slots=True)

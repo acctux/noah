@@ -95,27 +95,22 @@ def check_missing(configs: CopyConfiguration) -> list[str]:
     return missing
 
 
-def copy_root_to_mnt(mnt_point: Path, configs: CopyConfiguration):
-    if missing := check_missing(configs):
-        raise FileNotFoundError(f"Missing: {', '.join(missing)}")
-
-    if configs.specs:
-        for spec in configs.specs:
-            for name in spec.names:
-                src = configs.root / spec.source / name
-                dest = mnt_point / spec.target / name
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                copy_it(src, dest)
+def copy_usb_to_root(cfg: CopyConfiguration) -> None:
+    path_tuples = cfg.resolve_usb_to_root()
+    if not path_tuples:
+        return
+    for src, dest in path_tuples:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        copy_it(src, dest)
 
 
-def copy_usb_to_root(configs: CopyConfiguration) -> None:
-    if configs.specs:
-        for spec in configs.specs:
-            for name in spec.names:
-                src = configs.usb / spec.source / name
-                dest = configs.root / spec.target / name
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                copy_it(src, dest)
+def copy_root_to_mnt(mnt_point: Path, cfg: CopyConfiguration, username: str) -> None:
+    path_tuples = cfg.resolve_root_to_mnt(mnt_point, username)
+    if not path_tuples:
+        return
+    for src, dest in path_tuples:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        copy_it(src, dest)
 
 
 def mnt_cp_keys(nc: NoahConfig, usb_mnt: Path):
