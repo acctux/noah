@@ -86,15 +86,22 @@ def get_device(
     return selected_path
 
 
-def check_missing(configs: CopyConfiguration) -> list[str]:
-    print(configs)
+def check_missing(cfg: CopyConfiguration, base_dir: Path | None = None) -> list[str]:
+    """
+    Checks if files exist in the specified base_dir.
+    Defaults to checking the USB source if base_dir is not provided.
+    """
+    check_base = base_dir or cfg.usb
     missing = []
-    if configs.specs:
-        print(configs.specs)
-        for spec in configs.specs:
-            base = configs.usb / spec.source
-            print(base)
-            missing.extend(name for name in spec.names if not (base / name).exists())
+
+    if cfg.specs:
+        for spec in cfg.specs:
+            # Construct the path relative to the provided base_dir
+            source_dir = check_base / spec.source
+            for name in spec.names:
+                full_path = source_dir / name
+                if not full_path.exists():
+                    missing.append(str(full_path))
     return missing
 
 
@@ -102,9 +109,12 @@ def copy_usb_to_root(cfg: CopyConfiguration) -> None:
     path_tuples = cfg.resolve_usb_to_root()
     if not path_tuples:
         return
-    for src, dest in path_tuples:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        copy_it(src, dest)
+    missing = [dest for _, dest in path_tuples if not dest.exists()]
+    if missing:
+        print(f"Error: The following source files are missing: {missing}")
+        for src, dest in path_tuples:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            copy_it(src, dest)
 
 
 def copy_root_to_mnt(mnt_point: Path, cfg: CopyConfiguration, username: str) -> None:
@@ -169,7 +179,7 @@ def init_setup(
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb(usb_mnt)
     if nc.copy_config:
-        missing = check_missing(nc.copy_config)
+        missing = check_missing(nc.copy_config, base_dir=cfg.root)
         if missing:
             log.warning("Not yet present: " + ", ".join(missing))
             mnt_cp_keys(nc, usb_mnt)
