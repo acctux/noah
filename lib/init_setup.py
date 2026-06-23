@@ -92,8 +92,10 @@ def check_missing(cfg: CopyConfiguration) -> list[tuple[Path, Path]] | None:
         for spec in cfg.specs:
             for name in spec.names:
                 full_t_path = cfg.root_path / spec.target / name
+                print(full_t_path)
                 if not full_t_path.exists():
                     full_src_path = cfg.root_path / spec.source / name
+                    print(full_src_path)
                     missing.append((full_src_path, full_t_path))
     return missing
 
