@@ -87,6 +87,7 @@ def get_device(
 
 
 def check_missing(configs: CopyConfiguration) -> list[str]:
+    print(configs)
     missing = []
     if configs.specs:
         print(configs.specs)
