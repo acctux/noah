@@ -225,14 +225,31 @@ network_files: dict[str, str] = {
     "etc/systemd/system/iwd.service.d/override.conf": dedent(
         """\
         [Service]
-        RuntimeDirectory=resolvconf
         ReadWritePaths=/etc/resolv.conf
+        """
+    ),
+    "etc/systemd/network/20-usb-tether.network": dedent(
+        """\
+        [Match]
+        Name=enp*
+
+        [Network]
+        DHCP=yes
+
+        [DHCPv4]
+        RouteMetric=100
         """
     ),
     "etc/resolvconf.conf": dedent(
         """\
         resolv_conf=/etc/resolv.conf
         name_servers="::1 127.0.0.1"
+        """
+    ),
+    "etc/NetworkManager/conf.d/rc-manager.conf": dedent(
+        """\
+        [main]
+        rc-manager=resolvconf
         """
     ),
     "etc/chrony.conf": dedent(
@@ -252,14 +269,11 @@ network_files: dict[str, str] = {
     ),
     "etc/named.conf": dedent(
         """\
-        // vim:set ts=4 sw=4 et:
         tls cloudflare {
             remote-hostname "one.one.one.one";
         };
-         options {
-            pid-file "/run/named/named.pid";
+        options {
             directory "/var/named";
-            max-cache-size 200m;
             listen-on { 127.0.0.1; };
             listen-on-v6 { ::1; };
             allow-recursion {
@@ -268,19 +282,11 @@ network_files: dict[str, str] = {
             };
             forward only;
             forwarders port 853 tls cloudflare {
-                1.1.1.1; 2606:4700:4700::1111;
-                1.0.0.1; 2606:4700:4700::1001;
+                1.1.1.1;
+                1.0.0.1;
+                2606:4700:4700::1111;
+                2606:4700:4700::1001;
             };
-        // if system time is wrong and can't connect
-        //    dnssec-validation no;
-        };
-         zone "localhost" IN {
-            type master;
-            file "localhost.zone";
-        };
-         zone "0.0.127.in-addr.arpa" IN {
-            type master;
-            file "127.0.0.zone";
         };
         """
     ),

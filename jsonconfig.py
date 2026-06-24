@@ -117,29 +117,25 @@ noah_json = {
     },
     "copy_config": [
         {
+            "type": "gpg",
             "source": "noahinstall",
-            "targets": [
-                {
-                    "dest": "~/.gnupg",
-                    "names": [
-                        "my_sec_gpg.asc",
-                    ],
-                },
-                {
-                    "dest": "~/.ssh",
-                    "names": [
-                        "id_ed25519",
-                        "pass.txt",
-                    ],
-                },
-                {
-                    "dest": "/etc",
-                    "names": [
-                        "wireguard",
-                    ],
-                },
-            ],
-        }
+            "targets": [{"dest": "~/.gnupg", "names": ["my_sec_gpg.asc"]}],
+        },
+        {
+            "type": "ssh",
+            "source": "noahinstall",
+            "targets": [{"dest": "~/.ssh", "names": ["id_ed25519"]}],
+        },
+        {
+            "type": "masterpass",
+            "source": "noahinstall",
+            "targets": [{"dest": "~/", "names": ["pass.txt"]}],
+        },
+        {
+            "type": "wireguard",
+            "source": "noahinstall",
+            "targets": [{"dest": "/etc", "names": ["wireguard"]}],
+        },
     ],
     "user_services": [
         {

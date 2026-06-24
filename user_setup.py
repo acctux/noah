@@ -73,31 +73,23 @@ class PolkaDots:
 
 @dataclass(slots=True)
 class NoahUserProcessor:
-    data: NoahConfig  # NoahConfig is defined elsewhere
+    data: NoahConfig
     HOME: Path = Path.home()
 
     def __post_init__(self) -> None:
         self.username = pwd.getpwuid(os.getuid()).pw_name
         self.encrypted_dir = self._path(self.HOME, self.data.encrypted_dir)
         self.dotdirs_to_link = self.data.dotdirs_to_link
-        self.ssh_path: Path | None = None
-        self.gpg_path: Path | None = None
-        self.masterpass_path: Path | None = None
-        if self.data.key_copy_config:
-            if key_cfg := self.data.key_copy_config.key_copy_config:
-                if key_cfg.ssh_key:
-                    self.ssh_path = self._path(
-                        Path(key_cfg.ssh_key.target), key_cfg.ssh_key.names[0]
-                    )
-                if key_cfg.gpg_key:
-                    self.gpg_path = self._path(
-                        Path(key_cfg.gpg_key.target), key_cfg.gpg_key.names[0]
-                    )
-                if key_cfg.auth_conf:
-                    self.masterpass_path = self._path(
-                        Path(key_cfg.auth_conf.target), key_cfg.auth_conf.names[0]
-                    )
+        self.ssh_paths: list[Path]
+        self.gpg_paths: list[Path]
+        self.masterpass_paths: list[Path]
         self.dirs_icons = self._dirs_icons()
+        if cc := self.data.copy_config:
+            self.ssh_paths = cc.user_space_resolve_by_type("ssh", self.HOME)
+            self.gpg_paths = cc.user_space_resolve_by_type("gpg", self.HOME)
+            self.masterpass_paths = cc.user_space_resolve_by_type(
+                "masterpass", self.HOME
+            )
 
     def _path(self, base: Path, value: str | None) -> Path | None:
         if value is None:
@@ -370,8 +362,6 @@ def user_setup(HOME: Path = Path.home()) -> None:
     if shutil.which("zsh"):
         run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
     fix_network_stack()
-    if shutil.which("tuned"):
-        run_dmc(["tuned-adm", "profile", "laptop-ac-powersave"])
     if shutil.which("mariadb"):
         enable_mariadb()
     nc = NoahConfig.from_config(noah_json)
@@ -380,8 +370,9 @@ def user_setup(HOME: Path = Path.home()) -> None:
         ["uv", "add", "openmeteo-requests"],
         cwd=str(nu.HOME / ".local" / "bin" / "weather"),
     )
-    if nu.gpg_path and nu.gpg_path.is_file():
-        import_gpg(nu.gpg_path)
+    for path in nu.gpg_paths:
+        if path.is_file():
+            import_gpg(path)
     if nu.encrypted_dir and shutil.which("gocryptfs"):
         if not (nu.encrypted_dir / "gocryptfs.conf").exists():
             init_gocrypt(nu.encrypted_dir)
@@ -393,17 +384,19 @@ def user_setup(HOME: Path = Path.home()) -> None:
     if nc.git_repos_config and shutil.which("git"):
         gm = GitManager(HOME)
         use_ssh = False
-        if nu.ssh_path and nu.ssh_path.is_file():
-            gm.import_ssh(nu.ssh_path)
-            use_ssh = True
+        for path in nu.ssh_paths:
+            if path.is_file():
+                gm.import_ssh(path)
+                use_ssh = True
         gm.clone_repos(nc.git_repos_config, nu.HOME, ssh=use_ssh)
     if nc.dotdirs_to_link:
         dotdirs = nu.dotdirs_paths()
         PolkaDots(dotdirs).deploy()
     if shutil.which("scrcpy") and not (HOME / ".android" / "adbkey").is_file():
         scrcpy_setup()
-    if nu.masterpass_path and nc.firefox_browser:
-        launch_apps(nu.masterpass_path, nc.firefox_browser)
+    if nc.firefox_browser:
+        if nu.masterpass_paths[0].is_file():
+            launch_apps(nu.masterpass_paths[0], nc.firefox_browser)
     if shutil.which("gh"):
         run_dmc(
             ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],

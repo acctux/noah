@@ -65,6 +65,7 @@ class CopySpec:
     source: str
     target: str
     names: list[str]
+    key_type: str = "default"
 
 
 @dataclass
@@ -74,15 +75,20 @@ class CopyConfiguration:
     usb: Path = Path("/mnt/usb")
 
     @classmethod
-    def from_arg(cls, arg: Any) -> CopyConfiguration:
+    def from_arg(cls, arg: list[dict[str, Any]]) -> CopyConfiguration:
         specs = []
-        if isinstance(arg, list):
-            for entry in arg:
-                source = entry.get("source", "")
-                for target_item in entry.get("targets", []):
-                    specs.append(
-                        CopySpec(source, target_item["dest"], target_item["names"])
+        for entry in arg:
+            source = entry.get("source", "")
+            k_type = entry.get("type", "")
+            for target_item in entry.get("targets", []):
+                specs.append(
+                    CopySpec(
+                        source=source,
+                        target=target_item["dest"],
+                        names=target_item["names"],
+                        key_type=k_type,
                     )
+                )
         return cls(specs=specs)
 
     def resolve_usb_to_root(self) -> list[tuple[Path, Path]]:
@@ -108,6 +114,18 @@ class CopyConfiguration:
                 src = self.root_path / spec.source.lstrip("/") / name
                 dst = mnt_point / spec.target.replace("~", home_base) / name
                 results.append((src, dst))
+        return results
+
+    def user_space_resolve_by_type(self, key_type: str, HOME: Path) -> list[Path]:
+        """Filters paths by key_type and returns as Path objects."""
+        results = []
+        if self.specs:
+            for spec in self.specs:
+                if spec.key_type == key_type:
+                    for name in spec.names:
+                        raw_target = spec.target.replace("~", str(HOME))
+                        dst = Path(raw_target) / name
+                        results.append((dst))
         return results
 
 
@@ -187,7 +205,6 @@ class NoahConfig:
     git_repos_config: GitReposConfiguration | None = None
     dotdirs_to_link: list[str] | None = None
     copy_config: CopyConfiguration | None = None
-    additional_usb_to_cp: CopyConfiguration | None = None
     user_services_config: UserServiceConfiguration | None = None
     auth_config: AuthConfig | None = None
 
