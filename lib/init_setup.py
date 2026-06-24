@@ -1,6 +1,7 @@
 ###################################
 # USB Files
 ###################################
+from typing import Any
 from archinstall.lib.args import ArchConfigHandler, Arguments, ArchConfig
 import time
 from utils import run_dmc, yes_no, get_logger, copy_it
@@ -22,7 +23,7 @@ def get_device(
     min_gb: int = 20,
     allowed_fs: list[str] = ["ext4", "exfat"],
 ) -> str:
-    def recurse(devices):
+    def recurse(devices: list[dict[str, Any]]):
         for dev in devices:
             size_str = dev.get("size", "0G")
             try:
@@ -103,7 +104,7 @@ def copy_usb_to_root(usb_path: Path, missing: list[tuple[Path, Path]]):
 def auto_services(
     base_pkgs: list[str],
     pkg_srvs={
-        "ananicy-cpp": "ananicy-cpp.service",
+        "ananicy-cpp": "ananicy-cpp",
         "reflector": "reflector.timer",
         "logrotate": "logrotate.timer",
         "man-db": "man-db.timer",

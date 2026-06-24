@@ -187,9 +187,7 @@ def perform_installation(
         bootloader_handling(installation, config)
         handle_cust_apps(installation, nc, script_d)
         if users:
-            noah_user_setup(
-                installation, users, nc, script_d, base_pkgs=config.packages
-            )
+            noah_user_setup(installation, users, nc, script_d, config.packages)
         if services := config.services:
             installation.enable_service(services)
         if disable_svcs := nc.disable_svcs:
