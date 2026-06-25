@@ -148,7 +148,8 @@ def copy_root_to_mnt(
         mnt_point=installation.target,
         username=username,
     ):
-        for src, dest in path_tuples:
+        for src, target in path_tuples:
+            dest = installation.target / target
             dest.parent.mkdir(parents=True, exist_ok=True)
             copy_it(src, dest)
             if ".ssh" in dest.parts or ".gnupg" in dest.parts:

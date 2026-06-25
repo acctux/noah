@@ -1,6 +1,7 @@
 ###################################
 # USB Files
 ###################################
+from archinstall.lib.hardware import SysInfo
 from typing import Any
 from archinstall.lib.args import ArchConfigHandler, Arguments, ArchConfig
 import time
@@ -8,6 +9,8 @@ from utils import run_dmc, yes_no, get_logger, copy_it
 from lib.datahandler import NoahConfig
 import subprocess
 import json
+import packages.pacman as pp
+import packages.chaotic as pc
 from pathlib import Path
 
 log = get_logger("Noah")
@@ -134,7 +137,19 @@ def init_arch_conf(
     arch_config_handler.config.bootloader_config = arch_config.bootloader_config
     arch_config_handler.config.ntp = arch_config.ntp
     arch_config_handler.config.kernels = arch_config.kernels
-    arch_config_handler.config.packages = arch_config.packages
+    pkgs = arch_config.packages
+    sys_info = SysInfo()
+    if not sys_info.is_vm():
+        pkgs += (
+            pp.android
+            + pp.gaming
+            + pp.ios
+            + pp.language
+            + pp.media
+            + pc.additional_chaotic_pkgs
+            + pc.game_chaotic_pkgs
+        )
+    arch_config_handler.config.packages = pkgs
     auto_srvcs = auto_services(arch_config.packages)
     arch_config_handler.config.services = arch_config.services + auto_srvcs
     arch_config_handler.config.app_config = arch_config.app_config

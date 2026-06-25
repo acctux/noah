@@ -47,21 +47,14 @@ archinstall_json = {
     "ntp": True,
     "packages": (
         pp.base
-        + pp.android
         + pp.coding
-        + pp.gaming
         + pp.hardware
         + pp.hyprland
-        + pp.ios
-        + pp.language
-        + pp.media
         + pp.monitoring
         + pp.network
         + pp.office
         + pp.personal
-        + pc.additional_chaotic_pkgs
         + pc.base_chaotic_pkgs
-        + pc.game_chaotic_pkgs
     ),
     "pacman_config": {
         "color": True,

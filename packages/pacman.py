@@ -270,7 +270,6 @@ random: list[str] = [
     "python-scipy",
     "python-statsmodels",
     "nwg-look",
-    "keyd",
 ]
 emulators: list[str] = [
     "desmume",
