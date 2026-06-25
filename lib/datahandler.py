@@ -98,7 +98,7 @@ class CopyConfiguration:
         for spec in self.specs:
             for name in spec.names:
                 src = self.usb / spec.source / name
-                dst = self.root_path / spec.target.lstrip("/") / name
+                dst = self.root_path / spec.source.lstrip("/") / name
                 results.append((src, dst))
         return results
 
@@ -111,7 +111,7 @@ class CopyConfiguration:
         home_base = f"home/{username}"
         for spec in self.specs:
             for name in spec.names:
-                src = self.root_path / spec.target.lstrip("/") / name
+                src = self.root_path / spec.source.lstrip("/") / name
                 dst = mnt_point / spec.target.replace("~", home_base).lstrip("/") / name
                 results.append((src, dst))
         return results
