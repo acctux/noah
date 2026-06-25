@@ -112,7 +112,7 @@ class CopyConfiguration:
         for spec in self.specs:
             for name in spec.names:
                 src = self.root_path / spec.source.lstrip("/") / name
-                dst = mnt_point / spec.target.replace("~", home_base) / name
+                dst = mnt_point / spec.target.replace("~/", home_base) / name
                 results.append((src, dst))
         return results
 
