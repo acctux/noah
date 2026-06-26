@@ -32,7 +32,6 @@ def ping(host: str = "8.8.8.8", timeout: int = 2) -> bool:
         )
         return result.returncode == 0
     except Exception:
-        # Log error here if necessary
         return False
 
 

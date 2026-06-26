@@ -68,10 +68,8 @@ def user_service(
         terminal = "kitty --hold"
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
-
     user_script_dir = f"home/{user}/{current_script_dir.name}"
     run_script = f"/{user_script_dir}/{user_script}"
-
     content = dedent(
         f"""\
         [Unit]
@@ -90,7 +88,6 @@ def user_service(
     )
     dir_path = f"home/{user}/.config/systemd/user"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
-
     copy_it(current_script_dir, (installation.target / user_script_dir))
     (installation.target / dir_path / name).write_text(content)
     installation.arch_chroot(f"chown {user}:{user} /{dir_path}/{name}")
@@ -115,30 +112,42 @@ def mpd_tmpfiles(installation: Installer, user: str) -> None:
 ###################################
 def aur_and_remove_root(
     installation: Installer,
-    user_name: str,
+    users: list[User],
     sudo_default: list[str] | None = None,
 ) -> None:
-    def write_sudoers(pword_require: str) -> None:
+    def write_sudoers(pword_require: str, user_name: str) -> None:
         write_data = [f"{user_name} ALL=(ALL:ALL) {pword_require}"]
         if sudo_default:
             write_data += "\n".join(f"Defaults    {line}" for line in sudo_default)
         sudoers_file = installation.target / f"etc/sudoers.d/00_{user_name}"
         sudoers_file.write_text("\n".join(write_data))
 
-    write_sudoers("NOPASSWD:ALL")
-    log.info(f"Removed pass requirement for {user_name}")
-    installation.arch_chroot(
-        cmd=f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
-        run_as=user_name,
-    )
-    write_etc_file(
-        mnt_point=installation.target,
-        files_to_write={
-            "etc/ssh/sshd_config.d/20-deny_root.conf": "PermitRootLogin no\n"
-        },
-    )
-    write_sudoers("ALL")
-    log.info(f"Created pass requirement for {user_name}")
+    def find_sudo_user() -> str | None:
+        for user in users:
+            if user.sudo:
+                sudo_user = user.username
+            for g in user.groups:
+                if g == "wheel":
+                    sudo_user = user.username
+        return sudo_user
+
+    sudo_user = find_sudo_user()
+    if sudo_user:
+        write_sudoers("NOPASSWD:ALL", sudo_user)
+        log.info(f"Removed pass requirement for {sudo_user}")
+        installation.arch_chroot(
+            cmd=f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
+            run_as=sudo_user,
+        )
+        installation.arch_chroot(cmd="sudo passwd -dl root", run_as=sudo_user)
+        write_etc_file(
+            mnt_point=installation.target,
+            files_to_write={
+                "etc/ssh/sshd_config.d/20-deny_root.conf": "PermitRootLogin no\n"
+            },
+        )
+        write_sudoers("ALL", sudo_user)
+        log.info(f"Created pass requirement for {sudo_user}")
 
 
 def auto_add_user_groups(
@@ -162,17 +171,6 @@ def auto_add_user_groups(
     installation.arch_chroot(f"usermod -aG {group_str} {username}")
 
 
-def remove_root(installation: Installer, users: list[User]):
-    for user in users:
-        if user.sudo:
-            sudo_user = user.username
-        for g in user.groups:
-            if g == "wheel":
-                sudo_user = user.username
-    if sudo_user:
-        installation.arch_chroot(cmd="sudo passwd -dl root", run_as=sudo_user)
-
-
 def noah_user_setup(
     installation: Installer,
     users: list[User],
@@ -180,9 +178,7 @@ def noah_user_setup(
     script_d: Path,
     base_pkgs: list[str],
 ):
-    remove_root(installation, users)
-    user_1 = users[0].username
-    aur_and_remove_root(installation, user_1, nc.sudo_defaults)
+    aur_and_remove_root(installation, users, nc.sudo_defaults)
     create_automount(installation, users)
     for user in users:
         if nc.copy_config:
