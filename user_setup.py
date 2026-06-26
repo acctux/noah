@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-import pwd
 import shutil
 import subprocess
 import time
@@ -77,7 +76,6 @@ class PolkaDots:
 @dataclass(slots=True)
 class NoahUserProcessor:
     HOME: Path = Path.home()
-    username = pwd.getpwuid(os.getuid()).pw_name
 
     def __init__(self, data: NoahConfig) -> None:
         self.data = data
@@ -177,20 +175,10 @@ class GitManager:
     # SSH / GitHub
     ############################
     def import_ssh(self, key_path: Path) -> None:
-        def git_config_get(key: str) -> str | None:
-            result = self._run(["git", "config", "--global", "--get", key], check=False)
-            return result
-
-        if git_config_get("user.email") and git_config_get("user.name"):
-            log.info("Global Git profile already configured.")
-            return
         if not self.ssh_socket_dir.exists():
             self.ssh_socket_dir.mkdir(parents=True, exist_ok=True)
-            os.chmod(self.ssh_socket_dir, 0o700)
             self._run(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
             self._run(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-        if key_path.exists():
-            os.chmod(key_path, 0o600)
         self._run(["ssh-add", str(key_path)], check=True)
         log.info(f"SSH identity processed for: {key_path}")
         result = self._run(["ssh-add", "-l"], check=False)
@@ -200,8 +188,14 @@ class GitManager:
             return
         my_email = lines[0].split()[2]
         my_name = input("Enter your global git user.name profile identity: ").strip()
-        self._run(["git", "config", "--global", "user.email", my_email])
-        self._run(["git", "config", "--global", "user.name", my_name])
+        if not self._run(
+            ["git", "config", "--global", "--get", "user.email"], check=False
+        ):
+            self._run(["git", "config", "--global", "user.email", my_email])
+        if not self._run(
+            ["git", "config", "--global", "--get", "user.name"], check=False
+        ):
+            self._run(["git", "config", "--global", "user.name", my_name])
         log.info(f"Created Git configuration: {my_name} <{my_email}>")
         self.ssh_dir.mkdir(parents=True, exist_ok=True)
         self.known_hosts_file.touch(exist_ok=True)
@@ -220,12 +214,6 @@ class GitManager:
     def clone_repos(
         self, git_repos: GitReposConfiguration, dest: Path, ssh: bool = True
     ) -> None:
-        def get_url(user: str, repo: str) -> str:
-            url = f"https://github.com/{user}/{repo}.git"
-            if ssh:
-                url = f"git@github.com:{user}/{repo}.git"
-            return url
-
         dest.mkdir(parents=True, exist_ok=True)
         for git_user in git_repos.repositories:
             for repo_name, local_path in git_user.repos.items():
@@ -233,8 +221,10 @@ class GitManager:
                 if any(repo_dest.iterdir()):
                     log.warning(f"Repo destination {repo_dest} exists, skipping.")
                     continue
-                url = get_url(git_user.username, repo_name)
                 try:
+                    url = f"https://github.com/{git_user}/{repo_name}.git"
+                    if ssh:
+                        url = f"git@github.com:{git_user}/{repo_name}.git"
                     self._run(["git", "clone", url, str(repo_dest)], check=True)
                     log.info(f"Successfully cloned {repo_name} to {repo_dest}")
                 except subprocess.CalledProcessError as e:
