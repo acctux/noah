@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-from lib.noah_disk import noah_handle_fs
-from lib.custom_apps import handle_cust_apps
-from lib.noah_user_setup import noah_user_setup
-from lib.app_and_profile import app_and_prof
+from lib.main_event import noah_install
 from lib.min_install import min_intall_pre, min_install_post
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.translationhandler import tr
@@ -33,7 +30,6 @@ from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.profile.profiles_handler import profile_handler
 from lib.init_setup import init_setup
 from lib.datahandler import NoahConfig
-from lib.bootloaders import bootloader_handling
 from pathlib import Path
 import sys
 import time
@@ -183,21 +179,14 @@ def perform_installation(
                 installation.setup_btrfs_snapshot(
                     SnapshotType.Snapper, Bootloader.Limine
                 )
-        app_and_prof(installation, config)
-        bootloader_handling(installation, config)
-        handle_cust_apps(installation, nc, script_d)
-        if users:
-            noah_user_setup(installation, users, nc, script_d, config.packages)
+
         if services := config.services:
             installation.enable_service(services)
-        if disable_svcs := nc.disable_svcs:
-            installation.disable_service(disable_svcs)
-        if mask_svcs := nc.disable_svcs:
-            installation.arch_chroot(f"systemctl mask {' '.join(mask_svcs)}")
-        noah_handle_fs(config, installation, users)
+
         if cc := config.custom_commands:
             run_custom_user_commands(cc, installation)
 
+        noah_install(installation, config, nc, script_d)
         installation.genfstab()
         # modify_fstab(mountpoint)
 
