@@ -226,11 +226,16 @@ def set_extensions(
     log.info(f"'Extensions.Install' for {browser} has been overwritten.")
 
 
-def sys_file_copy(mnt_point: Path, script_dir: Path, dirs_to_cp=["etc", "usr"]) -> None:
+def sys_file_copy(
+    installation: Installer,
+    script_dir: Path,
+    dirs_to_cp=["etc", "usr"],
+) -> None:
     for dir_name in dirs_to_cp:
         source_dir = script_dir / dir_name
-        target_dir = mnt_point / dir_name
+        target_dir = installation.target / dir_name
         copy_it(source_dir, target_dir)
+    installation.enable_service("sysinfo")
 
 
 def kde_fuse_and_nss(mnt_point: Path) -> None:
@@ -852,7 +857,7 @@ def noah_install(
     kde_fuse_and_nss(installation.target)
     if nc.firefox_browser:
         set_extensions(installation.target, nc.firefox_browser)
-    sys_file_copy(installation.target, script_d)
+    sys_file_copy(installation, script_d)
     install_icons(installation)
     if nc.logitech_mouse:
         install_logid(installation, script_d)

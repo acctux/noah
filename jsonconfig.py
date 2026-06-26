@@ -70,7 +70,6 @@ archinstall_json = {
         "named.service",
         "systemd-networkd",
         "paccache.timer",
-        "sysinfo",
     ],
     "swap": {
         "algorithm": "zstd",
