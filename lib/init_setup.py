@@ -16,12 +16,6 @@ from pathlib import Path
 log = get_logger("Noah")
 
 
-def unmount_usb(usb_mnt: Path):
-    run_dmc(["umount", str(usb_mnt)], check=True)
-    run_dmc(["udevadm", "settle"])
-    time.sleep(1)
-
-
 def get_device(
     min_gb: int = 20,
     allowed_fs: list[str] = ["ext4", "exfat"],
@@ -89,21 +83,6 @@ def get_device(
     return selected_path
 
 
-def copy_usb_to_root(usb_path: Path, missing: list[tuple[Path, Path]]):
-    if not yes_no("Mount USB?"):
-        return
-    selected = get_device()
-    if not selected:
-        return
-    run_dmc(["mount", "-o", "ro", str(selected), str(usb_path)], check=True)
-    run_dmc(["udevadm", "settle"])
-    time.sleep(1)
-    for src, dest in missing:
-        copy_it(src, dest)
-    if yes_no("Files copied, unmount?"):
-        unmount_usb(usb_path)
-
-
 def auto_services(
     base_pkgs: list[str],
     pkg_srvs={
@@ -168,22 +147,40 @@ def init_setup(
     arch_config_handler: ArchConfigHandler,
     usb_mnt: Path = Path("/mnt/usb"),
 ) -> tuple[ArchConfigHandler, NoahConfig]:
+    def unmount_usb(usb_mnt: Path):
+        run_dmc(["umount", str(usb_mnt)], check=True)
+        run_dmc(["udevadm", "settle"])
+        time.sleep(1)
+
     nc = NoahConfig.from_config(noahconf_json)
     if usb_mnt.is_mount() and yes_no("USB mounted, unmount?"):
         unmount_usb(usb_mnt)
-    to_check = []
-    if nc.copy_config:
-        to_check.extend(nc.copy_config.resolve_usb_to_root())
-    if nc.auth_config:
-        auth_src, auth_dest = nc.auth_config.resolve_usb_to_root()
-        to_check.append((auth_src, auth_dest))
-    if missing := [(src, dest) for src, dest in to_check if not dest.exists()]:
-        log.warning(f"Not present: {', '.join(dest.name for _, dest in missing)}")
-        usb_mnt.mkdir(parents=True, exist_ok=True)
-        copy_usb_to_root(usb_mnt, missing)
-    else:
-        log.info("All files to copy from USB found.")
+    if copy_conf := nc.copy_config:
+        missing = []
+        m_names = []
+        for src, dest, type in copy_conf.resolve_usb_to_root():
+            if not dest.exists():
+                missing.append((src, dest, type))
+                m_names.append(dest.name)
+            if type == "auth_conf":
+                auth_conf_path = dest
+        if missing:
+            log.warning(f"Not present: {', '.join(m_names)}")
+            usb_mnt.mkdir(parents=True, exist_ok=True)
+            if yes_no("Mount USB?"):
+                if selected := get_device():
+                    run_dmc(
+                        ["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True
+                    )
+                    run_dmc(["udevadm", "settle"])
+                    time.sleep(1)
+                    for src, dest, _ in missing:
+                        copy_it(src, dest)
+                    if yes_no("Files copied, unmount?"):
+                        unmount_usb(usb_mnt)
+        else:
+            log.info("All files to copy from USB found.")
     arch_config_handler = init_arch_conf(
-        arch_config_json, auth_dest, arch_config_handler
+        arch_config_json, auth_conf_path, arch_config_handler
     )
     return arch_config_handler, nc

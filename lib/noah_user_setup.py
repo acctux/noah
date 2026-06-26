@@ -1,5 +1,5 @@
 from packages.aur import aur_pkgs
-from lib.datahandler import NoahConfig, UserService, CopyConfiguration
+from lib.datahandler import NoahConfig, UserService
 from archinstall.lib.models import User
 from textwrap import dedent
 from utils import log, write_etc_file, copy_it
@@ -141,30 +141,6 @@ def aur_and_remove_root(
     log.info(f"Created pass requirement for {user_name}")
 
 
-def copy_root_to_mnt(
-    installation: Installer, cc: CopyConfiguration, username: str
-) -> None:
-    if path_tuples := cc.resolve_root_to_mnt(
-        mnt_point=installation.target,
-        username=username,
-    ):
-        for src, dest in path_tuples:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            copy_it(src, dest)
-            if ".ssh" in dest.parts or ".gnupg" in dest.parts:
-                dest.chmod(0o600)
-                dest.parent.chmod(0o700)
-            elif "etc" in dest.parts and "wireguard" in dest.parts:
-                if dest.is_dir():
-                    dest.chmod(0o700)
-                    for item in dest.iterdir():
-                        if item.suffix == ".conf":
-                            item.chmod(0o600)
-                else:
-                    dest.chmod(0o600)
-                    dest.parent.chmod(0o700)
-
-
 def auto_add_user_groups(
     installation: Installer,
     username: str,
@@ -198,7 +174,7 @@ def noah_user_setup(
     create_automount(installation, users)
     for user in users:
         if nc.copy_config:
-            copy_root_to_mnt(installation, nc.copy_config, user.username)
+            nc.copy_config.copy_root_to_mnt(installation.target, user.username)
         auto_add_user_groups(installation, user.username, base_pkgs)
         copy_it(
             script_d, (installation.target / "home" / user.username / script_d.name)

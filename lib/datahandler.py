@@ -1,3 +1,4 @@
+from utils import copy_it
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,23 +45,6 @@ class GitReposConfiguration:
 
 
 @dataclass
-class AuthConfig:
-    source: str
-    name: str
-    root_path: Path = Path("/root")
-    usb: Path = Path("/mnt/usb")
-
-    @classmethod
-    def from_arg(cls, arg: dict[str, Any]) -> AuthConfig:
-        return cls(source=arg.get("source", ""), name=arg.get("name", ""))
-
-    def resolve_usb_to_root(self) -> tuple[Path, Path]:
-        src = self.usb / self.source / self.name
-        dst = self.root_path / self.name
-        return (src, dst)
-
-
-@dataclass
 class CopySpec:
     source: str
     target: str
@@ -91,7 +75,7 @@ class CopyConfiguration:
                 )
         return cls(specs=specs)
 
-    def resolve_usb_to_root(self) -> list[tuple[Path, Path]]:
+    def resolve_usb_to_root(self) -> list[tuple[Path, Path, str]]:
         results = []
         if not self.specs:
             return results
@@ -99,22 +83,35 @@ class CopyConfiguration:
             for name in spec.names:
                 src = self.usb / spec.source / name
                 dst = self.root_path / spec.source.lstrip("/") / name
-                results.append((src, dst))
+                results.append((src, dst, spec.key_type))
         return results
 
-    def resolve_root_to_mnt(
-        self, mnt_point: Path, username: str
-    ) -> list[tuple[Path, Path]]:
-        results = []
+    def copy_root_to_mnt(self, mnt_point: Path, username: str) -> None:
         if not self.specs:
-            return results
+            return
         home_base = f"home/{username}"
         for spec in self.specs:
+            if spec.key_type == "auth_conf":
+                continue
             for name in spec.names:
                 src = self.root_path / spec.source.lstrip("/") / name
-                dst = mnt_point / spec.target.replace("~", home_base).lstrip("/") / name
-                results.append((src, dst))
-        return results
+                dest = (
+                    mnt_point / spec.target.replace("~", home_base).lstrip("/") / name
+                )
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                copy_it(src, dest)
+                if spec.key_type == ".ssh" or spec.key_type == ".gnupg":
+                    dest.chmod(0o600)
+                    dest.parent.chmod(0o700)
+                elif spec.key_type == "wireguard":
+                    if dest.is_dir():
+                        dest.chmod(0o700)
+                        for item in dest.iterdir():
+                            if item.suffix == ".conf":
+                                item.chmod(0o600)
+                    else:
+                        dest.chmod(0o600)
+                        dest.parent.chmod(0o700)
 
     def user_space_resolve_by_type(self, key_type: str, HOME: Path) -> list[Path]:
         """Filters paths by key_type and returns as Path objects."""
@@ -206,7 +203,6 @@ class NoahConfig:
     dotdirs_to_link: list[str] | None = None
     copy_config: CopyConfiguration | None = None
     user_services_config: UserServiceConfiguration | None = None
-    auth_config: AuthConfig | None = None
 
     @classmethod
     def from_config(cls, args: dict[str, Any]) -> "NoahConfig":
@@ -268,9 +264,6 @@ class NoahConfig:
 
         if us := args.get("user_services"):
             noah.user_services_config = UserServiceConfiguration.from_arg(us)
-
-        if auth := args.get("auth_conf"):
-            noah.auth_config = AuthConfig.from_arg(auth)
 
         if gr := args.get("git_repo_config"):
             noah.git_repos_config = GitReposConfiguration.from_arg(gr)

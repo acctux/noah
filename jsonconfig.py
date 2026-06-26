@@ -104,15 +104,16 @@ noah_json = {
         "etc/xdg/autostart/firewall-applet.desktop",
         "usr/share/icons/capitaine-cursors/*",
     ],
-    "auth_conf": {
-        "source": "noahinstall",
-        "name": "users.json",
-    },
     "copy_config": [
         {
             "type": "gpg",
             "source": "noahinstall",
             "targets": [{"dest": "~/.gnupg", "names": ["my_sec_gpg.asc"]}],
+        },
+        {
+            "type": "auth_conf",
+            "source": "noahinstall",
+            "targets": [{"dest": "~/", "names": ["users.json"]}],
         },
         {
             "type": "ssh",
