@@ -75,22 +75,30 @@ class PolkaDots:
 
 @dataclass(slots=True)
 class NoahUserProcessor:
+    data: NoahConfig
+    encrypted_dir: Path | None = None
+    dotdirs_to_link: list[str] | None = None
+    ssh_paths: list[Path] | None = None
+    gpg_paths: list[Path] | None = None
+    masterpass_paths: list[Path] | None = None
+    dirs_icons: dict[Path, str] | None = None
     HOME: Path = Path.home()
 
     def __init__(self, data: NoahConfig) -> None:
         self.data = data
+        self.HOME = Path.home()
         self.encrypted_dir = self._path(self.HOME, data.encrypted_dir)
         self.dotdirs_to_link = data.dotdirs_to_link
-        self.ssh_paths: list[Path]
-        self.gpg_paths: list[Path]
-        self.masterpass_paths: list[Path]
-        self.dirs_icons = self._dirs_icons()
+        self.ssh_paths = []
+        self.gpg_paths = []
+        self.masterpass_paths = []
         if cc := data.copy_config:
             self.ssh_paths = cc.user_space_resolve_by_type("ssh", self.HOME)
             self.gpg_paths = cc.user_space_resolve_by_type("gpg", self.HOME)
             self.masterpass_paths = cc.user_space_resolve_by_type(
                 "masterpass", self.HOME
             )
+        self.dirs_icons = self._dirs_icons()
 
     def _path(self, base: Path, value: str | None) -> Path | None:
         if value is None:
@@ -363,9 +371,10 @@ def user_setup(HOME: Path = Path.home()) -> None:
         ["uv", "add", "openmeteo-requests"],
         cwd=str(nu.HOME / ".local" / "bin" / "weather"),
     )
-    for path in nu.gpg_paths:
-        if path.is_file():
-            import_gpg(path)
+    if nu.gpg_paths:
+        for path in nu.gpg_paths:
+            if path.is_file():
+                import_gpg(path)
     if nu.encrypted_dir and shutil.which("gocryptfs"):
         if not (nu.encrypted_dir / "gocryptfs.conf").exists():
             init_gocrypt(nu.encrypted_dir)
@@ -377,10 +386,11 @@ def user_setup(HOME: Path = Path.home()) -> None:
     if nc.git_repos_config and shutil.which("git"):
         gm = GitManager(HOME)
         use_ssh = False
-        for path in nu.ssh_paths:
-            if path.is_file():
-                gm.import_ssh(path)
-                use_ssh = True
+        if nu.ssh_paths:
+            for path in nu.ssh_paths:
+                if path.is_file():
+                    gm.import_ssh(path)
+                    use_ssh = True
         gm.clone_repos(nc.git_repos_config, nu.HOME, ssh=use_ssh)
     if nc.dotdirs_to_link:
         dotdirs = nu.dotdirs_paths()
@@ -388,8 +398,9 @@ def user_setup(HOME: Path = Path.home()) -> None:
     if shutil.which("scrcpy") and not (HOME / ".android" / "adbkey").is_file():
         scrcpy_setup()
     if nc.firefox_browser:
-        if nu.masterpass_paths[0].is_file():
-            launch_apps(nu.masterpass_paths[0], nc.firefox_browser)
+        if nu.masterpass_paths:
+            if nu.masterpass_paths[0].is_file():
+                launch_apps(nu.masterpass_paths[0], nc.firefox_browser)
     if shutil.which("gh"):
         run_dmc(
             ["gh", "auth", "login", "-h", "github.com", "-s", "delete_repo"],

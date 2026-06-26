@@ -107,27 +107,62 @@ noah_json = {
         {
             "type": "gpg",
             "source": "noahinstall",
-            "targets": [{"dest": "~/.gnupg", "names": ["my_sec_gpg.asc"]}],
+            "targets": [
+                {
+                    "dest": "~/.gnupg",
+                    "names": [
+                        "my_sec_gpg.asc",
+                    ],
+                }
+            ],
         },
         {
             "type": "auth_conf",
             "source": "noahinstall",
-            "targets": [{"dest": "~/", "names": ["users.json"]}],
+            "targets": [
+                {
+                    "dest": "~/",
+                    "names": [
+                        "users.json",
+                    ],
+                }
+            ],
         },
         {
             "type": "ssh",
             "source": "noahinstall",
-            "targets": [{"dest": "~/.ssh", "names": ["id_ed25519"]}],
+            "targets": [
+                {
+                    "dest": "~/.ssh",
+                    "names": [
+                        "id_ed25519",
+                    ],
+                }
+            ],
         },
         {
             "type": "masterpass",
             "source": "noahinstall",
-            "targets": [{"dest": "~/", "names": ["pass.txt"]}],
+            "targets": [
+                {
+                    "dest": "~/",
+                    "names": [
+                        "pass.txt",
+                    ],
+                }
+            ],
         },
         {
             "type": "wireguard",
             "source": "noahinstall",
-            "targets": [{"dest": "/etc", "names": ["wireguard"]}],
+            "targets": [
+                {
+                    "dest": "/etc",
+                    "names": [
+                        "wireguard",
+                    ],
+                }
+            ],
         },
     ],
     "user_services": [
