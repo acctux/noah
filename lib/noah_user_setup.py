@@ -62,14 +62,15 @@ def user_service(
     installation: Installer,
     user: str,
     terminal: str,
-    user_setup_script_dir: str,
+    current_script_dir: Path,
     user_script="user_setup.py",
 ) -> None:
+    user_script_dir = f"home/{user}/{current_script_dir.name}"
     if terminal.strip().lower() == "kitty":
         terminal = "kitty --hold"
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
-    run_script = f"/home/{user}/{user_setup_script_dir}/{user_script}"
+    run_script = f"/{user_script_dir}/{user_script}"
     content = dedent(
         f"""\
         [Unit]
@@ -88,6 +89,8 @@ def user_service(
     )
     dir_path = f"home/{user}/.config/systemd/user"
     name = f"{user_script.rsplit('.', 1)[0]}.service"
+
+    copy_it(current_script_dir, (installation.target / user_script_dir))
     (installation.target / dir_path / name).write_text(content)
     installation.arch_chroot(f"chown {user}:{user} /{dir_path}/{name}")
     unit = UserService(
@@ -176,13 +179,11 @@ def noah_user_setup(
         if nc.copy_config:
             nc.copy_config.copy_root_to_mnt(installation.target, user.username)
         auto_add_user_groups(installation, user.username, base_pkgs)
-        copy_it(
-            script_d, (installation.target / "home" / user.username / script_d.name)
-        )
+
         installation.arch_chroot("xdg-user-dirs-update", user.username)
         if nc.apps_to_hide:
             hide_apps(installation, user.username, nc.apps_to_hide)
-        user_service(installation, user.username, nc.terminal, str(script_d))
+        user_service(installation, user.username, nc.terminal, script_d)
         mpd_tmpfiles(installation, user.username)
         if serv_conf := nc.user_services_config:
             if srvcs := serv_conf.services:

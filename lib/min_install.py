@@ -108,9 +108,7 @@ def handle_reflector(mountpoint: Path | None, options: list[str] | None):
         )
         write_etc_file(
             mnt_point=mountpoint,
-            files_to_write={
-                "etc/xdg/reflector/reflector.conf": "\n".join(options),
-            },
+            files_to_write={"etc/xdg/reflector/reflector.conf": "\n".join(options)},
         )
     else:
         cmd = []

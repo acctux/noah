@@ -157,15 +157,15 @@ def init_setup(
         unmount_usb(usb_mnt)
     if copy_conf := nc.copy_config:
         missing = []
-        m_names = []
         for src, dest, type in copy_conf.resolve_usb_to_root():
             if not dest.exists():
                 missing.append((src, dest, type))
-                m_names.append(dest.name)
             if type == "auth_conf":
                 auth_conf_path = dest
         if missing:
-            log.warning(f"Not present: {', '.join(m_names)}")
+            log.warning(
+                f"Not present: {', '.join(dest.name for _, dest, _ in missing)}"
+            )
             usb_mnt.mkdir(parents=True, exist_ok=True)
             if yes_no("Mount USB?"):
                 if selected := get_device():
