@@ -76,18 +76,18 @@ class PolkaDots:
 
 @dataclass(slots=True)
 class NoahUserProcessor:
-    data: NoahConfig
     HOME: Path = Path.home()
+    username = pwd.getpwuid(os.getuid()).pw_name
 
-    def __post_init__(self) -> None:
-        self.username = pwd.getpwuid(os.getuid()).pw_name
-        self.encrypted_dir = self._path(self.HOME, self.data.encrypted_dir)
-        self.dotdirs_to_link = self.data.dotdirs_to_link
+    def __init__(self, data: NoahConfig) -> None:
+        self.data = data
+        self.encrypted_dir = self._path(self.HOME, data.encrypted_dir)
+        self.dotdirs_to_link = data.dotdirs_to_link
         self.ssh_paths: list[Path]
         self.gpg_paths: list[Path]
         self.masterpass_paths: list[Path]
         self.dirs_icons = self._dirs_icons()
-        if cc := self.data.copy_config:
+        if cc := data.copy_config:
             self.ssh_paths = cc.user_space_resolve_by_type("ssh", self.HOME)
             self.gpg_paths = cc.user_space_resolve_by_type("gpg", self.HOME)
             self.masterpass_paths = cc.user_space_resolve_by_type(
