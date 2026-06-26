@@ -19,16 +19,20 @@ log = get_logger("Noah")
 ############################
 # USER SETUP HELPERS
 ############################
-def ping(host: str = "google.com") -> bool:
-    """Check network connectivity via single ping."""
+def ping(host: str = "8.8.8.8", timeout: int = 2) -> bool:
     try:
-        res = subprocess.run(
-            ["ping", "-c", "1", "-W", "2", host],
+        # -c 1: Send 1 packet
+        # -W 2: Wait 2 seconds
+        # Using shell=False (default) for security
+        result = subprocess.run(
+            ["ping", "-c", "1", "-W", str(timeout), host],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            check=False,
         )
-        return res.returncode == 0
+        return result.returncode == 0
     except Exception:
+        # Log error here if necessary
         return False
 
 

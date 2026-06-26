@@ -11,9 +11,8 @@ from pathlib import Path
 # USR_SVC
 ###################################
 def hide_apps(installation: Installer, user: str, apps_to_hide: list[str]):
-    user_home = f"home/{user}"
     for app in apps_to_hide:
-        file_p = f"{user_home}/.local/share/applications/{app}.desktop"
+        file_p = f"home/{user}/.local/share/applications/{app}.desktop"
         (installation.target / file_p).write_text("[Desktop Entry]\nNoDisplay=true\n")
         installation.chown(user, f"/{file_p}")
 
@@ -65,12 +64,14 @@ def user_service(
     current_script_dir: Path,
     user_script="user_setup.py",
 ) -> None:
-    user_script_dir = f"home/{user}/{current_script_dir.name}"
     if terminal.strip().lower() == "kitty":
         terminal = "kitty --hold"
     if terminal.strip().lower() == "alacritty":
         terminal = "alacritty -e"
+
+    user_script_dir = f"home/{user}/{current_script_dir.name}"
     run_script = f"/{user_script_dir}/{user_script}"
+
     content = dedent(
         f"""\
         [Unit]
@@ -130,10 +131,6 @@ def aur_and_remove_root(
         cmd=f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
         run_as=user_name,
     )
-    installation.arch_chroot(
-        cmd="sudo passwd -dl root",
-        run_as=user_name,
-    )
     write_etc_file(
         mnt_point=installation.target,
         files_to_write={
@@ -165,6 +162,17 @@ def auto_add_user_groups(
     installation.arch_chroot(f"usermod -aG {group_str} {username}")
 
 
+def remove_root(installation: Installer, users: list[User]):
+    for user in users:
+        if user.sudo:
+            sudo_user = user.username
+        for g in user.groups:
+            if g == "wheel":
+                sudo_user = user.username
+    if sudo_user:
+        installation.arch_chroot(cmd="sudo passwd -dl root", run_as=sudo_user)
+
+
 def noah_user_setup(
     installation: Installer,
     users: list[User],
@@ -172,6 +180,7 @@ def noah_user_setup(
     script_d: Path,
     base_pkgs: list[str],
 ):
+    remove_root(installation, users)
     user_1 = users[0].username
     aur_and_remove_root(installation, user_1, nc.sudo_defaults)
     create_automount(installation, users)
@@ -179,7 +188,6 @@ def noah_user_setup(
         if nc.copy_config:
             nc.copy_config.copy_root_to_mnt(installation.target, user.username)
         auto_add_user_groups(installation, user.username, base_pkgs)
-
         installation.arch_chroot("xdg-user-dirs-update", user.username)
         if nc.apps_to_hide:
             hide_apps(installation, user.username, nc.apps_to_hide)
