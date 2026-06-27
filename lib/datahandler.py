@@ -100,7 +100,7 @@ class CopyConfiguration:
                 )
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 copy_it(src, dest)
-                if spec.key_type == ".ssh" or spec.key_type == ".gnupg":
+                if spec.key_type == "ssh" or spec.key_type == "gnupg":
                     dest.chmod(0o600)
                     dest.parent.chmod(0o700)
                 elif spec.key_type == "wireguard":
