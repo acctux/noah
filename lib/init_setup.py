@@ -132,13 +132,12 @@ def init_arch_conf(
     auto_srvcs = auto_services(arch_config.packages)
     arch_config_handler.config.services = arch_config.services + auto_srvcs
     arch_config_handler.config.app_config = arch_config.app_config
-    if not auth_conf_path or not auth_conf_path.is_file():
-        return arch_config_handler
-    with open(auth_conf_path, "r") as f:
-        users_dict = json.load(f)
-        auth_conf = ArchConfig.from_config(users_dict, Arguments(None))
-        arch_config_handler.config.auth_config = auth_conf.auth_config
-        return arch_config_handler
+    if auth_conf_path and auth_conf_path.is_file():
+        with open(auth_conf_path, "r") as auth_conf_data:
+            arch_config_handler.config.auth_config = ArchConfig.from_config(
+                json.load(auth_conf_data), Arguments(None)
+            ).auth_config
+    return arch_config_handler
 
 
 def init_setup(

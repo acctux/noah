@@ -167,11 +167,12 @@ def init_gocrypt(enc_dir: Path) -> None:
 
 
 class GitManager:
+    ssh_socket_dir = Path(f"/run/user/{os.getuid()}/gcr/ssh")
+
     def __init__(self, home_path: Path):
         self.home_path = home_path
         self.ssh_dir = home_path / ".ssh"
         self.known_hosts_file = self.ssh_dir / "known_hosts"
-        self.ssh_socket_dir = Path(f"/run/user/{os.getuid()}/gcr/ssh")
 
     def _run(self, cmd: list[str], check: bool = True) -> str:
         result = subprocess.run(
@@ -220,7 +221,10 @@ class GitManager:
     # Clone repositories
     ############################
     def clone_repos(
-        self, git_repos: GitReposConfiguration, dest: Path, ssh: bool = True
+        self,
+        git_repos: GitReposConfiguration,
+        dest: Path,
+        ssh: bool = True,
     ) -> None:
         dest.mkdir(parents=True, exist_ok=True)
         for git_user in git_repos.repositories:
