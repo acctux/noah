@@ -230,9 +230,9 @@ class GitManager:
                     log.warning(f"Repo destination {repo_dest} exists, skipping.")
                     continue
                 try:
-                    url = f"https://github.com/{git_user}/{repo_name}.git"
+                    url = f"https://github.com/{git_user.username}/{repo_name}.git"
                     if ssh:
-                        url = f"git@github.com:{git_user}/{repo_name}.git"
+                        url = f"git@github.com:{git_user.username}/{repo_name}.git"
                     self._run(["git", "clone", url, str(repo_dest)], check=True)
                     log.info(f"Successfully cloned {repo_name} to {repo_dest}")
                 except subprocess.CalledProcessError as e:
