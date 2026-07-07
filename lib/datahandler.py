@@ -195,6 +195,7 @@ class NoahConfig:
     disable_svcs: list[str] | None = None
     sudo_defaults: list[str] | None = None
     mask_svcs: list[str] | None = None
+    non_vm_pkgs: list[str] | None = None
     apps_to_hide: list[str] | None = None
     no_extracts: list[str] | None = None
     yazi_plugins: list[str] | None = None
@@ -237,6 +238,9 @@ class NoahConfig:
 
         if "mask_svcs" in args:
             noah.mask_svcs = args["mask_svcs"]
+
+        if "non_vm_pkgs" in args:
+            noah.non_vm_pkgs = args["non_vm_pkgs"]
 
         if "sudo_defaults" in args:
             noah.sudo_defaults = args["sudo_defaults"]

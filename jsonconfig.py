@@ -99,6 +99,15 @@ noah_json = {
     "mask_svcs": [
         "systemd-networkd-wait-online",
     ],
+    "non_vm_pkgs": (
+        pp.android
+        + pp.gaming
+        + pp.ios
+        + pp.language
+        + pp.media
+        + pc.additional_chaotic_pkgs
+        + pc.game_chaotic_pkgs
+    ),
     "no_extracts": [
         "etc/xdg/autostart/firewall-applet.desktop",
         "usr/share/icons/capitaine-cursors/*",

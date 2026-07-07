@@ -1,7 +1,6 @@
 hardware: list[str] = [
     "ananicy-cpp",
     "bees",
-    "bolt",
     "bluetui",
     "bluez-utils",  # for loggy
     "bolt",
@@ -27,17 +26,19 @@ network: list[str] = [
     "networkmanager",
 ]
 media: list[str] = [
+    # "easyeffects",
+    # "inkscape",
     # "ardour",
     # "blender",
     "cava",
-    # "gimp",
+    "gimp",
     "guvcview",
-    # "handbrake-cli",
+    "handbrake-cli",
     "imv",
     "mpd",
     "mpd-mpris",
     "mpv-mpris",
-    # "obs-studio",
+    "obs-studio",
     "playerctl",
     "realtime-privileges",
     "rmpc",
@@ -56,7 +57,7 @@ monitoring: list[str] = [
     "systemctl-tui",
 ]
 coding: list[str] = [
-    # General
+    # ----General----
     "git-zsh-completion",
     "github-cli",
     "git-delta",
@@ -66,7 +67,7 @@ coding: list[str] = [
     "neovim-lspconfig",
     "uv",
     "rust",
-    # Language Servers
+    # ----Language Servers----
     "bash-language-server",
     "lua-language-server",
     "rust-analyzer",
@@ -75,17 +76,17 @@ coding: list[str] = [
     "vscode-css-languageserver",
     "vscode-json-languageserver",
     "yaml-language-server",
-    # Formatters
+    # ----Formatters----
     "ruff",
     "shfmt",
     "stylua",
     "yamlfmt",
-    # Lint
+    # ----Lint----
     "biome",
     "luacheck",
     "shellcheck",
     "yamllint",
-    # Tree sitter
+    # ----Tree sitter----
     "tree-sitter-bash",
     "tree-sitter-cli",
     "tree-sitter-python",
@@ -199,6 +200,7 @@ office: list[str] = [
     "khard",
     "ledger",
     "libreoffice-fresh",
+    # "coin-or-mp",  # LibreOffice Calc Solver
     "msmtp",
     "neomutt",
     "notmuch",
@@ -209,6 +211,9 @@ office: list[str] = [
     "timew",
     "urlscan",
     "zathura-pdf-mupdf",
+    # "python-plotly",
+    # "python-scipy",
+    # "python-statsmodels",
 ]
 android: list[str] = [
     "kdeconnect",
@@ -229,6 +234,32 @@ basic_server: list[str] = [
     "mariadb",
     "python-pymysql",
 ]
+earth: list[str] = [
+    "python-gpxpy",
+    "python-piexif",
+    "qgis",
+    "stellarium",
+]
+random: list[str] = [
+    "ugrep",
+    "fwupd",
+    "mtpfs",
+    "pastel",
+    "performous",
+    "radicale",
+    "showmethekey",
+    "profile-cleaner",
+    "localsend",
+    "nwg-look",
+]
+emulators: list[str] = [
+    "desmume",
+    "dolphin-emu",
+    "plastic",
+    "mupen64plus",
+    "ppsspp",
+    "snes9x",
+]
 printer: list[str] = [
     "cups",
     "cups-browsed",
@@ -246,38 +277,6 @@ printer: list[str] = [
     "simple-scan",
     "splix",
     "system-config-printer",
-]
-earth: list[str] = [
-    "python-gpxpy",
-    "python-piexif",
-    "qgis",
-    "stellarium",
-]
-random: list[str] = [
-    "ugrep",
-    "coin-or-mp",  # LibreOffice Calc Solver
-    "easyeffects",
-    "fwupd",
-    "inkscape",
-    "mtpfs",
-    "pastel",
-    "performous",
-    "radicale",
-    "showmethekey",
-    "profile-cleaner",
-    "python-plotly",
-    "localsend",
-    "python-scipy",
-    "python-statsmodels",
-    "nwg-look",
-]
-emulators: list[str] = [
-    "desmume",
-    "dolphin-emu",
-    "plastic",
-    "mupen64plus",
-    "ppsspp",
-    "snes9x",
 ]
 server: list[str] = [
     "termscp",

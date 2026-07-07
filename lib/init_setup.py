@@ -9,8 +9,6 @@ from utils import run_dmc, yes_no, get_logger, copy_it
 from lib.datahandler import NoahConfig
 import subprocess
 import json
-import packages.pacman as pp
-import packages.chaotic as pc
 from pathlib import Path
 
 log = get_logger("Noah")
@@ -102,6 +100,7 @@ def auto_services(
 
 def init_arch_conf(
     arch_config_json: dict,
+    nc: NoahConfig,
     auth_conf_path: Path | None,
     arch_config_handler: ArchConfigHandler,
 ) -> ArchConfigHandler:
@@ -119,15 +118,8 @@ def init_arch_conf(
     pkgs = arch_config.packages
     sys_info = SysInfo()
     if not sys_info.is_vm():
-        pkgs += (
-            pp.android
-            + pp.gaming
-            + pp.ios
-            + pp.language
-            + pp.media
-            + pc.additional_chaotic_pkgs
-            + pc.game_chaotic_pkgs
-        )
+        if nc.non_vm_pkgs:
+            pkgs += nc.non_vm_pkgs
     arch_config_handler.config.packages = pkgs
     auto_srvcs = auto_services(arch_config.packages)
     arch_config_handler.config.services = arch_config.services + auto_srvcs
@@ -180,6 +172,6 @@ def init_setup(
         else:
             log.info("All files to copy from USB found.")
     arch_config_handler = init_arch_conf(
-        arch_config_json, auth_conf_path, arch_config_handler
+        arch_config_json, nc, auth_conf_path, arch_config_handler
     )
     return arch_config_handler, nc
