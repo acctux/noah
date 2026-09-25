@@ -1,6 +1,6 @@
 hardware: list[str] = [
     "ananicy-cpp",
-    "bees",
+    # "bees",
     "bluetui",
     "bluez-utils",  # for loggy
     "bolt",
@@ -8,7 +8,6 @@ hardware: list[str] = [
     "dmidecode",
     "dosfstools",
     "exfatprogs",
-    "keyd",
     "ntfs-3g",
     "smartmontools",
     "udisks2-btrfs",
@@ -51,6 +50,7 @@ monitoring: list[str] = [
     "rocm-smi-lib",  # btop dependency for amd gpu
     "gnome-logs",
     "jolt",
+    "keyd",
     "nvtop",
     "logrotate",
     "powertop",
@@ -259,24 +259,6 @@ emulators: list[str] = [
     "mupen64plus",
     "ppsspp",
     "snes9x",
-]
-printer: list[str] = [
-    "cups",
-    "cups-browsed",
-    "cups-filters",
-    "cups-pdf",
-    "foomatic-db",
-    "foomatic-db-engine",
-    "foomatic-db-gutenprint-ppds",
-    "foomatic-db-nonfree",
-    "foomatic-db-nonfree-ppds",
-    "foomatic-db-ppds",
-    "ghostscript",
-    "gsfonts",
-    "gutenprint",
-    "simple-scan",
-    "splix",
-    "system-config-printer",
 ]
 server: list[str] = [
     "termscp",

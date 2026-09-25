@@ -1,5 +1,5 @@
-import packages.pacman as pp
 import packages.chaotic as pc
+import packages.pacman as pp
 
 archinstall_json = {
     "app_config": {
@@ -66,8 +66,8 @@ archinstall_json = {
         "profile": {"main": ["Minimal"]},
     },
     "services": [
-        "iwd.service",
-        "named.service",
+        "iwd",
+        "named",
         "systemd-networkd",
         "paccache.timer",
     ],
@@ -101,6 +101,7 @@ noah_json = {
     ],
     "non_vm_pkgs": (
         pp.android
+        + pp.earth
         + pp.gaming
         + pp.ios
         + pp.language

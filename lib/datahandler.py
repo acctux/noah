@@ -1,7 +1,8 @@
-from utils import copy_it
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from utils import copy_it
 
 
 # =============================================================================
@@ -15,7 +16,7 @@ class GitRepo:
     @property
     def full_repos(self) -> list[str]:
         repos = []
-        for repo in self.repos.keys():
+        for repo in self.repos:
             repos.append(f"{self.username}/{repo}")
         return repos
 
@@ -122,7 +123,7 @@ class CopyConfiguration:
                     for name in spec.names:
                         raw_target = spec.target.replace("~", str(HOME))
                         dst = Path(raw_target) / name
-                        results.append((dst))
+                        results.append(dst)
         return results
 
 
@@ -206,7 +207,7 @@ class NoahConfig:
     user_services_config: UserServiceConfiguration | None = None
 
     @classmethod
-    def from_config(cls, args: dict[str, Any]) -> "NoahConfig":
+    def from_config(cls, args: dict[str, Any]) -> NoahConfig:
         noah = cls()
 
         if "terminal" in args:

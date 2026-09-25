@@ -1,9 +1,10 @@
+import shutil
 import time
+from pathlib import Path
+
 from archinstall.lib.installer import Installer
 from lib.datahandler import NoahConfig
-import shutil
-from utils import write_etc_file, run_dmc, copy_it
-from pathlib import Path
+from utils import copy_it, run_dmc, write_etc_file
 
 
 def modify_pacman_conf(
@@ -39,6 +40,36 @@ def modify_pacman_conf(
         pacman.write("\n".join(content) + "\n")
 
 
+def handle_reflector(mountpoint: Path | None, options: list[str] | None):
+    if not options:
+        options = [
+            "--protocol https",
+            "--latest 25",
+            "--sort rate",
+            "--number 3",
+            "--save /etc/pacman.d/mirrorlist",
+        ]
+    if mountpoint:
+        copy_it(
+            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
+        )
+        write_etc_file(
+            mnt_point=mountpoint,
+            files_to_write={"etc/xdg/reflector/reflector.conf": "\n".join(options)},
+        )
+    else:
+        cmd = []
+        for opt in options:
+            for part in opt.split():
+                cmd.append(part.strip())
+        run_dmc(["reflector"] + cmd)
+
+
+def min_install_pre(nc: NoahConfig):
+    handle_reflector(mountpoint=None, options=nc.reflector_options)
+    modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
+
+
 def chaotic_repo(installation: Installer) -> None:
     web = "https://cdn-mirror.chaotic.cx/chaotic-aur/"
     key_id = "3056513887B78AEB"
@@ -65,6 +96,17 @@ def chaotic_repo(installation: Installer) -> None:
     installation.arch_chroot(" ".join(sync_cmd))
 
 
+def copy_skel(mountpoint: Path, dots_git_user_repo: str):
+    tmp = mountpoint / "tmp" / "tmp_skel"
+    tmp.mkdir(exist_ok=True)
+    git = f"https://github.com/{dots_git_user_repo}.git"
+    run_dmc(["git", "clone", git, str(tmp)])
+    shutil.rmtree(tmp / ".git")
+    for p in tmp.iterdir():
+        p.rename(p.parent / ("." + p.name))
+    copy_it(tmp, mountpoint / "etc" / "skel")
+
+
 def write_default_xdg_dirs(installation: Installer):
     user_dirs = {
         "DOCUMENTS": "Desktop/Documents",
@@ -86,47 +128,6 @@ def write_default_xdg_dirs(installation: Installer):
     write_etc_file(
         installation.target, {"etc/xdg/user-dirs.defaults": "\n".join(lines)}
     )
-
-
-def min_intall_pre(nc: NoahConfig):
-    handle_reflector(mountpoint=None, options=nc.reflector_options)
-    modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
-
-
-def handle_reflector(mountpoint: Path | None, options: list[str] | None):
-    if not options:
-        options = [
-            "--protocol https",
-            "--latest 25",
-            "--sort rate",
-            "--number 3",
-            "--save /etc/pacman.d/mirrorlist",
-        ]
-    if mountpoint:
-        copy_it(
-            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        )
-        write_etc_file(
-            mnt_point=mountpoint,
-            files_to_write={"etc/xdg/reflector/reflector.conf": "\n".join(options)},
-        )
-    else:
-        cmd = []
-        for opt in options:
-            for part in opt.split():
-                cmd.append(part.strip())
-        run_dmc(["reflector"] + cmd)
-
-
-def copy_skel(mountpoint: Path, dots_git_user_repo: str):
-    tmp = mountpoint / "tmp" / "tmp_skel"
-    tmp.mkdir(exist_ok=True)
-    git = f"https://github.com/{dots_git_user_repo}.git"
-    run_dmc(["git", "clone", git, str(tmp)])
-    shutil.rmtree(tmp / ".git")
-    for p in tmp.iterdir():
-        p.rename(p.parent / ("." + p.name))
-    copy_it(tmp, mountpoint / "etc" / "skel")
 
 
 def min_install_post(installation: Installer, nc: NoahConfig):

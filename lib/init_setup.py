@@ -1,23 +1,21 @@
-###################################
-# USB Files
-###################################
-from archinstall.lib.hardware import SysInfo
-from typing import Any
-from archinstall.lib.args import ArchConfigHandler, Arguments, ArchConfig
-import time
-from utils import run_dmc, yes_no, get_logger, copy_it
-from lib.datahandler import NoahConfig
 import subprocess
 import json
+import time
 from pathlib import Path
+from typing import Any
+from archinstall.lib.args import ArchConfig, ArchConfigHandler, Arguments
+from archinstall.lib.hardware import SysInfo
+from lib.datahandler import NoahConfig
+from utils import copy_it, get_logger, run_dmc, yes_no
+import jsonconfig as json_conf
+
 
 log = get_logger("Noah")
 
 
-def get_device(
-    min_gb: int = 20,
-    allowed_fs: list[str] = ["ext4", "exfat"],
-) -> str:
+def get_device(min_gb: int = 20) -> str:
+    allowed_fs: list[str] = ["ext4", "exfat"]
+
     def recurse(devices: list[dict[str, Any]]):
         for dev in devices:
             size_str = dev.get("size", "0G")
@@ -81,20 +79,18 @@ def get_device(
     return selected_path
 
 
-def auto_services(
-    base_pkgs: list[str],
-    pkg_srvs={
-        "ananicy-cpp": "ananicy-cpp",
-        "reflector": "reflector.timer",
-        "logrotate": "logrotate.timer",
-        "man-db": "man-db.timer",
-        "swayosd": "swayosd-libinput-backend",
-    },
-) -> list[str]:
+def auto_services(base_pkgs: list[str]) -> list[str]:
+    pkg_srvs = {
+        "ananicy-cpp": ["ananicy-cpp"],
+        "reflector": ["reflector.timer"],
+        "logrotate": ["logrotate.timer"],
+        "man-db": ["man-db.timer"],
+        "swayosd": ["swayosd-libinput-backend"],
+    }
     srvcs_to_enable = []
     for pkg, srv in pkg_srvs.items():
         if pkg in base_pkgs:
-            srvcs_to_enable.append(srv)
+            srvcs_to_enable.extend(srv)
     return srvcs_to_enable
 
 
@@ -117,9 +113,8 @@ def init_arch_conf(
     arch_config_handler.config.kernels = arch_config.kernels
     pkgs = arch_config.packages
     sys_info = SysInfo()
-    if not sys_info.is_vm():
-        if nc.non_vm_pkgs:
-            pkgs += nc.non_vm_pkgs
+    if not sys_info.is_vm() and nc.non_vm_pkgs:
+        pkgs += nc.non_vm_pkgs
     arch_config_handler.config.packages = pkgs
     auto_srvcs = auto_services(arch_config.packages)
     arch_config_handler.config.services = arch_config.services + auto_srvcs
@@ -133,9 +128,9 @@ def init_arch_conf(
 
 
 def init_setup(
-    arch_config_json: dict,
-    noahconf_json: dict,
     arch_config_handler: ArchConfigHandler,
+    arch_config_json=json_conf.archinstall_json,
+    noahconf_json=json_conf.noah_json,
     usb_mnt: Path = Path("/mnt/usb"),
 ) -> tuple[ArchConfigHandler, NoahConfig]:
     def unmount_usb(usb_mnt: Path):
@@ -159,7 +154,8 @@ def init_setup(
             )
             usb_mnt.mkdir(parents=True, exist_ok=True)
             if yes_no("Mount USB?"):
-                if selected := get_device():
+                selected = get_device()
+                if selected:
                     run_dmc(
                         ["mount", "-o", "ro", str(selected), str(usb_mnt)], check=True
                     )

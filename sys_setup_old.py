@@ -1,13 +1,13 @@
-import os
-import sys
-import time
-from pathlib import Path
-
+#!/usr/bin/env python3
+from lib.main_event import noah_install
+from lib.min_install import min_intall_pre, min_install_post
+from archinstall.lib.mirror.mirror_handler import MirrorListHandler
+from archinstall.lib.translationhandler import tr
+from archinstall.lib.packages.util import check_version_upgrade
+from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.args import ArchConfig, ArchConfigHandler
-from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
-from archinstall.lib.bootloader.utils import validate_bootloader_layout
-from archinstall.lib.configuration import confirm_config
+from archinstall.lib.configuration import ConfigurationOutput
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.disk.utils import disk_layouts
 from archinstall.lib.general.general_menu import (
@@ -17,46 +17,50 @@ from archinstall.lib.general.general_menu import (
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import (
     Installer,
-    accessibility_tools_in_use,
     run_custom_user_commands,
+    accessibility_tools_in_use,
 )
-from archinstall.lib.log import debug, error, info
 from archinstall.lib.menu.util import delayed_warning
-from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.models import Bootloader
-from archinstall.lib.models.device import DiskLayoutType, EncryptionType
+from archinstall.lib.models.device import DiskLayoutType, EncryptionType, SnapshotType
 from archinstall.lib.models.users import User
+from archinstall.lib.output import debug, error, info
+from archinstall.tui.ui.components import tui
 from archinstall.lib.network.network_handler import install_network_config
-from archinstall.lib.packages.util import check_version_upgrade
 from archinstall.lib.profile.profiles_handler import profile_handler
-from archinstall.lib.translationhandler import tr
-from archinstall.tui.components import tui
-
 from lib.init_setup import init_setup
 from lib.datahandler import NoahConfig
-from lib.min_install import min_install_pre, min_install_post
-from lib.main_event import noah_install
+from pathlib import Path
+import sys
+import time
+import subprocess
+import jsonconfig as json_conf
 
 
-def show_menu(
-    arch_config_handler: ArchConfigHandler,
-    mirror_list_handler: MirrorListHandler,
-) -> None:
+###################################
+# Archinstall
+###################################
+def show_menu(arch_config_handler: ArchConfigHandler) -> None:
     upgrade = check_version_upgrade()
     title_text = "Archlinux"
-
     if upgrade:
         text = tr("New version available") + f": {upgrade}"
         title_text += f" ({text})"
-
-    global_menu = GlobalMenu(
-        arch_config_handler.config,
-        mirror_list_handler,
-        arch_config_handler.args.skip_boot,
-        advanced=arch_config_handler.args.advanced,
-        title=title_text,
-    )
-
+    global_menu = GlobalMenu(arch_config_handler.config)
+    global_menu.disable_all()
+    global_menu.set_enabled("disk_config", True)
+    global_menu.set_enabled("archinstall_language", True)
+    global_menu.set_enabled("locale_config", True)
+    global_menu.set_enabled("timezone", True)
+    global_menu.set_enabled("bootloader_config", True)
+    global_menu.set_enabled("ntp", True)
+    global_menu.set_enabled("kernels", True)
+    global_menu.set_enabled("profile_config", True)
+    global_menu.set_enabled("hostname", True)
+    global_menu.set_enabled("auth_config", True)
+    global_menu.set_enabled("app_config", True)
+    global_menu.set_enabled("packages", True)
+    global_menu.set_enabled("__config__", True)
     result: ArchConfig | None = tui.run(global_menu)
     if result is None:
         sys.exit(0)
@@ -64,70 +68,54 @@ def show_menu(
 
 def perform_installation(
     arch_config_handler: ArchConfigHandler,
-    mirror_list_handler: MirrorListHandler,
     auth_handler: AuthenticationHandler,
+    mirror_list_handler: MirrorListHandler,
     application_handler: ApplicationHandler,
     nc: NoahConfig,
 ) -> None:
-    """
-    Performs the installation steps on a block device.
-    Only requirement is that the block devices are
-    formatted and setup prior to entering this function.
-    """
+    script_d = Path(__file__).resolve().parent
     start_time = time.monotonic()
     info("Starting installation...")
-
     mountpoint = arch_config_handler.args.mountpoint
     config = arch_config_handler.config
-
     if not config.disk_config:
         error("No disk configuration provided")
         return
-
     disk_config = config.disk_config
     run_mkinitcpio = not config.bootloader_config or not config.bootloader_config.uki
-    locale_config = config.locale_config
+    locale = config.locale_config
     optional_repositories = (
         config.mirror_config.optional_repositories if config.mirror_config else []
     )
     mountpoint = disk_config.mountpoint if disk_config.mountpoint else mountpoint
-
     with Installer(
         mountpoint,
         disk_config,
+        base_packages=[],
         kernels=config.kernels,
         silent=arch_config_handler.args.silent,
     ) as installation:
-        # Mount all the drives to the desired mountpoint
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             installation.mount_ordered_layout()
-
         installation.sanity_check(
             arch_config_handler.args.offline,
             arch_config_handler.args.skip_ntp,
             arch_config_handler.args.skip_wkd,
         )
-
         if disk_config.config_type != DiskLayoutType.Pre_mount:
             if (
                 disk_config.disk_encryption
                 and disk_config.disk_encryption.encryption_type
                 != EncryptionType.NO_ENCRYPTION
             ):
-                # generate encryption key files for the mounted luks devices
                 installation.generate_key_files()
 
-        if mirror_config := config.mirror_config:
-            installation.set_mirrors(
-                mirror_list_handler, mirror_config, on_target=False
-            )
-
-        min_install_pre(nc)
+        min_intall_pre(nc)
         installation.minimal_installation(
             optional_repositories=optional_repositories,
             mkinitcpio=run_mkinitcpio,
-            hostname=arch_config_handler.config.hostname,
-            locale_config=locale_config,
+            hostname=config.hostname,
+            locale_config=locale,
             pacman_config=config.pacman_config,
         )
         min_install_post(installation, nc)
@@ -138,29 +126,25 @@ def perform_installation(
         if config.swap and config.swap.enabled:
             installation.setup_swap(algo=config.swap.algorithm)
 
-        if (
-            config.bootloader_config
-            and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER
-        ):
-            installation.add_bootloader(
-                config.bootloader_config.bootloader,
-                config.bootloader_config.uki,
-                config.bootloader_config.removable,
-                config.bootloader_config.plymouth,
-            )
+        installation.add_bootloader(
+            Bootloader.Limine,
+            uki_enabled=False,
+            bootloader_removable=False,
+        )
 
         if config.network_config:
             install_network_config(
-                config.network_config,
-                installation,
-                config.profile_config,
+                config.network_config, installation, config.profile_config
             )
 
         users = None
-        if config.auth_config and config.auth_config.users:
-            users = config.auth_config.users
-            installation.create_users(config.auth_config.users)
-            auth_handler.setup_auth(installation, config.auth_config, config.hostname)
+        if config.auth_config:
+            if config.auth_config.users:
+                users = config.auth_config.users
+                installation.create_users(config.auth_config.users)
+                auth_handler.setup_auth(
+                    installation, config.auth_config, config.hostname
+                )
 
         if app_config := config.app_config:
             application_handler.install_applications(installation, app_config)
@@ -186,47 +170,37 @@ def perform_installation(
 
         if (profile_config := config.profile_config) and profile_config.profile:
             profile_config.profile.post_install(installation)
-
             if users:
                 profile_config.profile.provision(installation, users)
 
-        # If the user provided a list of services to be enabled, pass the list to the enable_service function.
-        # Note that while it's called enable_service, it can actually take a list of services and iterate it.
+        if disk_config.has_default_btrfs_vols():
+            btrfs_options = disk_config.btrfs_options
+            if btrfs_options:
+                installation.setup_btrfs_snapshot(
+                    SnapshotType.Snapper, Bootloader.Limine
+                )
+
         if services := config.services:
             installation.enable_service(services)
 
-        if disk_config.has_default_btrfs_vols():
-            btrfs_options = disk_config.btrfs_options
-            snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
-            snapshot_type = snapshot_config.snapshot_type if snapshot_config else None
-            if snapshot_type:
-                bootloader = (
-                    config.bootloader_config.bootloader
-                    if config.bootloader_config
-                    else None
-                )
-                installation.setup_btrfs_snapshot(snapshot_type, bootloader)
-
-        # If the user provided custom commands to be run post-installation, execute them now.
         if cc := config.custom_commands:
             run_custom_user_commands(cc, installation)
 
-        noah_install(installation, config, nc, Path(__file__).resolve().parent)
+        noah_install(installation, config, nc, script_d)
         installation.genfstab()
+        # modify_fstab(mountpoint)
 
         debug(f"Disk states after installing:\n{disk_layouts()}")
-
         if not arch_config_handler.args.silent:
             elapsed_time = time.monotonic() - start_time
             action: PostInstallationAction = tui.run(
                 lambda: select_post_installation(elapsed_time)
             )
-
             match action:
                 case PostInstallationAction.EXIT:
                     pass
                 case PostInstallationAction.REBOOT:
-                    _ = os.system("reboot")  # type: ignore[deprecated]
+                    _ = subprocess.run(["sudo", "reboot"], check=True)
                 case PostInstallationAction.CHROOT:
                     try:
                         installation.drop_to_shell()
@@ -237,57 +211,39 @@ def perform_installation(
 def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
     if arch_config_handler is None:
         arch_config_handler = ArchConfigHandler()
-
     mirror_list_handler = MirrorListHandler(
         offline=arch_config_handler.args.offline,
         verbose=arch_config_handler.args.verbose,
     )
-
-    arch_config_handler, nc = init_setup(arch_config_handler)
-
+    arch_config_handler, nc = init_setup(
+        arch_config_json=json_conf.archinstall_json,
+        noahconf_json=json_conf.noah_json,
+        arch_config_handler=arch_config_handler,
+    )
     if not arch_config_handler.args.silent:
-        show_menu(arch_config_handler, mirror_list_handler)
-
-    arch_config_handler.config.write_debug()
-    arch_config_handler.config.save()
-
-    # Safety net for silent/config-file flow. The TUI menu blocks Install via
-    # GlobalMenu._validate_bootloader() before reaching this point.
-    if failure := validate_bootloader_layout(
-        arch_config_handler.config.bootloader_config,
-        arch_config_handler.config.disk_config,
-    ):
-        error(failure.description)
-        return
-
-    if arch_config_handler.args.dry_run:
-        return
-
+        show_menu(arch_config_handler)
+    config = ConfigurationOutput(arch_config_handler.config)
+    config.write_debug()
+    config.save()
     if not arch_config_handler.args.silent:
         aborted = False
-        res: bool = tui.run(lambda: confirm_config(arch_config_handler.config))
-
+        res: bool = tui.run(config.confirm_config)
         if not res:
             debug("Installation aborted")
             aborted = True
-
         if aborted:
             return main(arch_config_handler)
-
     if arch_config_handler.config.disk_config:
         fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-
         if not delayed_warning(tr("Starting device modifications in ")):
             return main()
-
         fs_handler.perform_filesystem_operations()
-
     perform_installation(
-        arch_config_handler,
-        mirror_list_handler,
-        AuthenticationHandler(),
-        ApplicationHandler(),
-        nc,
+        arch_config_handler=arch_config_handler,
+        mirror_list_handler=mirror_list_handler,
+        auth_handler=AuthenticationHandler(),
+        application_handler=ApplicationHandler(),
+        nc=nc,
     )
 
 

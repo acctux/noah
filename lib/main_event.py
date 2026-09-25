@@ -16,6 +16,46 @@ from utils import write_etc_file, log, copy_it, modify_mkinit
 from dataclasses import dataclass
 
 
+###################################
+# POST APPLICATIONS
+###################################
+def ufw_post(installation: Installer, ports_to_open: list[str]):
+    for allowed_port in ports_to_open:
+        installation.arch_chroot(f"ufw allow {allowed_port}")
+
+
+def printer_post(installation: Installer):
+    installation.add_additional_packages(["cups-browsed", "simple-scan"])
+    installation.enable_service("avahi-daemon")
+
+
+def tuned_post(installation: Installer):
+    write_etc_file(
+        mnt_point=installation.target,
+        files_to_write={
+            "etc/tuned/ppd.conf": dedent(
+                """\
+                [main]
+                # The default PPD profile
+                default=power-saver
+                battery_detection=true
+                sysfs_acpi_monitor=true
+
+                [profiles]
+                # PPD = TuneD
+                power-saver=laptop-battery-powersave
+                balanced=laptop-ac-powersave
+                performance=balanced
+
+                [battery]
+                # PPD = TuneD
+                balanced=balanced-battery
+                """
+            ),
+        },
+    )
+
+
 def install_nvidia(installation: Installer):
     packages = [
         "libva-nvidia-driver",
@@ -45,7 +85,8 @@ def install_nvidia(installation: Installer):
     installation.enable_service("nvidia-persistenced")
 
 
-def replace_ly_config(mnt_point: Path) -> None:
+def install_ly(installation: Installer) -> None:
+    profile_handler.install_greeter(installation, GreeterType.Ly)
     replacements = {
         "animation": "matrix",
         "bg": "0x00101013",
@@ -57,7 +98,7 @@ def replace_ly_config(mnt_point: Path) -> None:
         "numlock": "true",
         "session_log": ".cache/ly",
     }
-    conf = Path(mnt_point / "etc/ly/config.ini")
+    conf = Path(installation.target / "etc/ly/config.ini")
     lines = conf.read_text().splitlines()
     for i, line in enumerate(lines):
         stripped = line.strip()
@@ -66,38 +107,6 @@ def replace_ly_config(mnt_point: Path) -> None:
                 lines[i] = f"{key} = {value}"
                 break
     conf.write_text("\n".join(lines) + "\n")
-
-
-def ufw_post(installation: Installer, ports_to_open: list[str]):
-    for allow_port in ports_to_open:
-        installation.arch_chroot(f"ufw allow {allow_port}")
-
-
-def tuned_post(installation: Installer):
-    write_etc_file(
-        mnt_point=installation.target,
-        files_to_write={
-            "etc/tuned/ppd.conf": dedent(
-                """\
-                [main]
-                # The default PPD profile
-                default=power-saver
-                battery_detection=true
-                sysfs_acpi_monitor=true
-
-                [profiles]
-                # PPD = TuneD
-                power-saver=laptop-battery-powersave
-                balanced=laptop-ac-powersave
-                performance=balanced
-
-                [battery]
-                # PPD = TuneD
-                balanced=balanced-battery
-                """
-            ),
-        },
-    )
 
 
 def install_logid(installation: Installer, script_d: Path):
@@ -170,91 +179,6 @@ def install_logid(installation: Installer, script_d: Path):
     installation.enable_service("loggy")
 
 
-def install_icons(installation: Installer):
-    git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
-    installation.arch_chroot(f"git clone {git}")
-    installation.arch_chroot("bash ./WhiteSur-icon-theme/install.sh")
-    installation.arch_chroot("rm -rf ./WhiteSur-icon-theme")
-    icon_path = installation.target / "usr/share/icons"
-    white_sur_light = icon_path / "WhiteSur-light"
-    if white_sur_light.exists():
-        shutil.rmtree(white_sur_light)
-        log.info(f"Removed {white_sur_light}")
-    themes_to_modify = []
-    for folder in icon_path.iterdir():
-        if folder.is_dir() and ("-dark" in folder.name or "WhiteSur" in folder.name):
-            themes_to_modify.append(folder)
-    for theme_dir in themes_to_modify:
-        for svg_file in theme_dir.rglob("*.svg"):
-            if svg_file.is_file():
-                text = svg_file.read_text()
-                if "#ffffff" in text:
-                    svg_file.write_text(text.replace("#ffffff", "#F4F5F6"))
-                    log.info(f"Modified {svg_file}")
-
-
-def set_extensions(
-    mnt_point: Path,
-    browser: str,
-    extension_ids: list[str] = [
-        "return-youtube-dislikes",
-        "leechblock-ng",
-        "proton-pass",
-        "firefox-color",
-        "darkreader",
-        "flagfox",
-        "ublock-origin",
-    ],
-) -> None:
-    """Set Firefox extensions from a list of extension IDs."""
-    new_install = [
-        f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
-        for ext in extension_ids
-    ]
-    file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
-    data = {}
-    if file_path.exists():
-        try:
-            data = json.loads(file_path.read_text())
-        except json.JSONDecodeError:
-            log.warning(f"Corrupt JSON in {file_path}, resetting.")
-    policies = data.setdefault("policies", {})
-    extensions = policies.setdefault("Extensions", {})
-    extensions["Install"] = new_install
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_path.write_text(json.dumps(data, indent=2))
-    log.info(f"'Extensions.Install' for {browser} has been overwritten.")
-
-
-def sys_file_copy(
-    installation: Installer,
-    script_dir: Path,
-    dirs_to_cp=["etc", "usr"],
-) -> None:
-    for dir_name in dirs_to_cp:
-        source_dir = script_dir / dir_name
-        target_dir = installation.target / dir_name
-        copy_it(source_dir, target_dir)
-    installation.enable_service("sysinfo")
-
-
-def kde_fuse_and_nss(mnt_point: Path) -> None:
-    def update_config(file_path: Path, match: str, new_line: str) -> None:
-        lines = file_path.read_text().splitlines()
-        for i, line in enumerate(lines):
-            if line.lstrip().startswith(match):
-                lines[i] = new_line
-                break
-        file_path.write_text("\n".join(lines) + "\n")
-
-    update_config(mnt_point / "etc/fuse.conf", "#user_allow_other", "user_allow_other")
-    update_config(
-        mnt_point / "etc/nsswitch.conf",
-        "hosts:",
-        "hosts: mymachines mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] files myhostname dns",
-    )
-
-
 def inst_systemd_oomd(installation: Installer):
     write_etc_file(
         mnt_point=installation.target,
@@ -309,10 +233,88 @@ def install_powertop(installation: Installer):
     installation.enable_service("powertop")
 
 
-def inst_pac_contrib():
-    pass
+def install_icons(installation: Installer):
+    git = "https://github.com/vinceliuice/WhiteSur-icon-theme.git"
+    installation.arch_chroot(f"git clone {git}")
+    installation.arch_chroot("bash ./WhiteSur-icon-theme/install.sh")
+    installation.arch_chroot("rm -rf ./WhiteSur-icon-theme")
+    icon_path = installation.target / "usr/share/icons"
+    white_sur_light = icon_path / "WhiteSur-light"
+    if white_sur_light.exists():
+        shutil.rmtree(white_sur_light)
+        log.info(f"Removed {white_sur_light}")
+    themes_to_modify = []
+    for folder in icon_path.iterdir():
+        if folder.is_dir() and ("-dark" in folder.name or "WhiteSur" in folder.name):
+            themes_to_modify.append(folder)
+    for theme_dir in themes_to_modify:
+        for svg_file in theme_dir.rglob("*.svg"):
+            if svg_file.is_file():
+                text = svg_file.read_text()
+                if "#ffffff" in text:
+                    svg_file.write_text(text.replace("#ffffff", "#F4F5F6"))
+                    log.info(f"Modified {svg_file}")
 
 
+def set_extensions(mnt_point: Path, browser: str) -> None:
+    """Set Firefox extensions from a list of extension IDs."""
+    extension_ids: list[str] = [
+        "return-youtube-dislikes",
+        "leechblock-ng",
+        "proton-pass",
+        "firefox-color",
+        "darkreader",
+        "flagfox",
+        "ublock-origin",
+    ]
+    new_install = [
+        f"https://addons.mozilla.org/firefox/downloads/latest/{ext}/latest.xpi"
+        for ext in extension_ids
+    ]
+    file_path = mnt_point / "usr" / "lib" / browser / "distribution" / "policies.json"
+    data = {}
+    if file_path.exists():
+        try:
+            data = json.loads(file_path.read_text())
+        except json.JSONDecodeError:
+            log.warning(f"Corrupt JSON in {file_path}, resetting.")
+    policies = data.setdefault("policies", {})
+    extensions = policies.setdefault("Extensions", {})
+    extensions["Install"] = new_install
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(json.dumps(data, indent=2))
+    log.info(f"'Extensions.Install' for {browser} has been overwritten.")
+
+
+def sys_file_copy(installation: Installer, script_dir: Path) -> None:
+    dirs_to_cp = ["etc", "usr"]
+    for dir_name in dirs_to_cp:
+        source_dir = script_dir / dir_name
+        target_dir = installation.target / dir_name
+        copy_it(source_dir, target_dir)
+    installation.enable_service("sysinfo")
+
+
+def kde_fuse_and_nss(mnt_point: Path) -> None:
+    def update_config(file_path: Path, match: str, new_line: str) -> None:
+        lines = file_path.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if line.lstrip().startswith(match):
+                lines[i] = new_line
+                break
+        file_path.write_text("\n".join(lines) + "\n")
+
+    update_config(mnt_point / "etc/fuse.conf", "#user_allow_other", "user_allow_other")
+    update_config(
+        mnt_point / "etc/nsswitch.conf",
+        "hosts:",
+        "hosts: mymachines mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] files myhostname dns",
+    )
+
+
+###################################
+# FILES
+###################################
 network_files: dict[str, str] = {
     "etc/iwd/main.conf": dedent(
         """\
@@ -434,6 +436,9 @@ etc_files_to_write: dict[str, str] = {
 }
 
 
+###################################
+# SNAPPER
+###################################
 @dataclass
 class SnapperProfile:
     name: str
@@ -460,56 +465,32 @@ def update_existing_snapper_files(target_root: Path, profile: SnapperProfile) ->
     path = target_root / "etc" / "snapper" / "configs" / profile.name
     if not path.exists():
         return
-    try:
-        updates = profile.to_config_dict()
-        keys_pattern = "|".join(map(re.escape, updates.keys()))
-        pattern = re.compile(rf"^(\s*)({keys_pattern})=")
-        lines = path.read_text(encoding="utf-8").splitlines()
-        new_lines = []
-        for line in lines:
-            if match := pattern.match(line):
-                leading_whitespace, key = match.groups()
-                new_lines.append(f'{leading_whitespace}{key}="{updates[key]}"')
-            else:
-                new_lines.append(line)
-        path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
-    except Exception as e:
-        log.error(f"Error modifying config file {path}: {e}")
+    updates = profile.to_config_dict()
+    keys_pattern = "|".join(map(re.escape, updates.keys()))
+    pattern = re.compile(rf"^(\s*)({keys_pattern})=")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    new_lines = []
+    for line in lines:
+        if match := pattern.match(line):
+            leading_whitespace, key = match.groups()
+            new_lines.append(f'{leading_whitespace}{key}="{updates[key]}"')
+        else:
+            new_lines.append(line)
+    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
 def snapper_post(
-    installation: Installer,
-    users: list[User] | None,
-    profiles: list[SnapperProfile] = [
-        SnapperProfile(
-            name="root",
-            mount="/",
-            number_limit=15,
-            limit_hourly=5,
-            limit_daily=5,
-            limit_weekly=5,
-            limit_monthly=0,
-        ),
-        SnapperProfile(
-            name="home",
-            mount="/home",
-            number_limit=20,
-            limit_hourly=5,
-            limit_daily=7,
-            limit_weekly=5,
-            limit_monthly=3,
-        ),
-    ],
+    installation: Installer, users: list[User] | None, profiles: list[SnapperProfile]
 ) -> None:
+
     installation.add_additional_packages("limine-snapper-sync")
     modify_mkinit(installation.target, hook="btrfs-overlayfs", after_hook="filesystems")
-    if profiles:
-        for profile in profiles:
-            if users and profile.mount == "/home":
-                for user in users:
-                    cmd = f"snapper --no-dbus -c {profile.name} set-config 'ALLOW_USERS={user.username}' SYNC_ACL='yes'"
-                    installation.arch_chroot(cmd)
-            update_existing_snapper_files(installation.target, profile)
+    for profile in profiles:
+        if users and profile.mount == "/home":
+            for user in users:
+                cmd = f"snapper --no-dbus -c {profile.name} set-config 'ALLOW_USERS={user.username}' SYNC_ACL='yes'"
+                installation.arch_chroot(cmd)
+        update_existing_snapper_files(installation.target, profile)
 
 
 ###################################
@@ -612,12 +593,10 @@ def mpd_tmpfiles(installation: Installer, user: str) -> None:
     installation.arch_chroot(f"chown -R {user}:{user} /{cache}")
 
 
-###################################
-# USR_SVC
-###################################
 def aur_and_remove_root(
     installation: Installer,
     users: list[User],
+    aur_install_pkgs: list[str],
     sudo_default: list[str] | None = None,
 ) -> None:
     def write_sudoers(pword_require: str, user_name: str) -> None:
@@ -631,9 +610,11 @@ def aur_and_remove_root(
         for user in users:
             if user.sudo:
                 sudo_user = user.username
-            for g in user.groups:
-                if g == "wheel":
-                    sudo_user = user.username
+            else:
+                for g in user.groups:
+                    if g == "wheel":
+                        sudo_user = user.username
+                        break
         return sudo_user
 
     sudo_user = find_sudo_user()
@@ -641,10 +622,10 @@ def aur_and_remove_root(
         write_sudoers("NOPASSWD:ALL", sudo_user)
         log.info(f"Removed pass requirement for {sudo_user}")
         installation.arch_chroot(
-            cmd=f"paru -S --noconfirm --needed {' '.join(aur_pkgs)}",
+            cmd=f"paru -S --noconfirm --needed {' '.join(aur_install_pkgs)}",
             run_as=sudo_user,
         )
-        installation.arch_chroot(cmd="sudo passwd -dl root", run_as=sudo_user)
+        installation.arch_chroot("sudo passwd -dl root", sudo_user)
         write_etc_file(
             mnt_point=installation.target,
             files_to_write={
@@ -659,13 +640,13 @@ def auto_add_user_groups(
     installation: Installer,
     username: str,
     base_pkgs: list[str],
-    pkg_groups={
+) -> None:
+    pkg_groups = {
         "realtime-privileges": "realtime",
         "android-udev": "adbusers",
         "scrcpy": "adbusers",
         "gnome-logs": "adm",
-    },
-) -> None:
+    }
     groups = []
     for pkg, group in pkg_groups.items():
         if pkg in base_pkgs and group not in groups:
@@ -676,35 +657,9 @@ def auto_add_user_groups(
     installation.arch_chroot(f"usermod -aG {group_str} {username}")
 
 
-# ==============================================================================
+###################################
 # 1. LIMINE CONFIGURATION
-# ==============================================================================
-def write_limine_opt(
-    installation: Installer, filename: str, kernel_params: str, run_refresh: bool = True
-) -> None:
-    """Writes a kernel command line option to limine-entry-tool configuration."""
-    output_dir = installation.target / "etc" / "limine-entry-tool.d"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    target_file = output_dir / f"{filename}.conf"
-    target_file.write_text(f"KERNEL_CMDLINE[default]+={kernel_params}\n")
-    log.info(f"Wrote extra option '{kernel_params}' to {target_file}")
-    if run_refresh:
-        installation.arch_chroot("limine-mkinitcpio")
-
-
-def set_default_cmdline(installation: Installer) -> None:
-    limine_conf = installation.target / "boot" / "EFI" / "arch-limine" / "limine.conf"
-    if not limine_conf.exists():
-        log.warning(f"Limine configuration file not found at {limine_conf}")
-        cmdline = ""
-    for line in limine_conf.read_text().splitlines():
-        line = line.strip()
-        if line.startswith("cmdline:"):
-            cmdline = line.split(":", 1)[1].strip()
-            log.info(f"Retrieved cmdline: {cmdline}")
-    write_limine_opt(installation, "original_flags", cmdline, run_refresh=True)
-
-
+###################################
 def set_boot_default(mountpoint: Path) -> None:
     limine_conf = mountpoint / "boot" / "limine.conf"
     if not limine_conf.exists():
@@ -737,14 +692,25 @@ def set_boot_default(mountpoint: Path) -> None:
 def set_etc_default(mnt: Path) -> None:
     default_limine = mnt / "etc" / "default" / "limine"
     copy_it(mnt / "etc" / "limine-entry-tool.conf", default_limine)
-    if not default_limine.exists():
-        return
     content = default_limine.read_text().splitlines()
     for i, line in enumerate(content):
         if line.strip().startswith("#TARGET_OS_NAME"):
             content[i] = "TARGET_OS_NAME='Arch Linux'"
             break
     default_limine.write_text("\n".join(content) + "\n")
+
+
+def set_default_cmdline(installation: Installer) -> None:
+    limine_conf = installation.target / "boot" / "EFI" / "arch-limine" / "limine.conf"
+    if not limine_conf.exists():
+        log.warning(f"Limine configuration file not found at {limine_conf}")
+        cmdline = ""
+    for line in limine_conf.read_text().splitlines():
+        line = line.strip()
+        if line.startswith("cmdline:"):
+            cmdline = line.split(":", 1)[1].strip()
+            log.info(f"Retrieved cmdline: {cmdline}")
+    write_limine_opt(installation, "original_flags", cmdline, run_refresh=True)
 
 
 def limine_post(installation: Installer) -> None:
@@ -754,9 +720,22 @@ def limine_post(installation: Installer) -> None:
     set_default_cmdline(installation)
 
 
-# ==============================================================================
+###################################
 # 2. SUBSYSTEM MODULES
-# ==============================================================================
+###################################
+def write_limine_opt(
+    installation: Installer, filename: str, kernel_params: str, run_refresh: bool = True
+) -> None:
+    """Writes a kernel command line option to limine-entry-tool configuration."""
+    output_dir = installation.target / "etc" / "limine-entry-tool.d"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    target_file = output_dir / f"{filename}.conf"
+    target_file.write_text(f"KERNEL_CMDLINE[default]+={kernel_params}\n")
+    log.info(f"Wrote extra option '{kernel_params}' to {target_file}")
+    if run_refresh:
+        installation.arch_chroot("limine-mkinitcpio")
+
+
 def inst_apparmor(installation: Installer) -> None:
     installation.add_additional_packages(["apparmor", "apparmor.d-git"])
     write_limine_opt(
@@ -787,13 +766,12 @@ def inst_plymouth(installation: Installer) -> None:
         kernel_params="quiet splash",
         run_refresh=False,
     )
-    modify_mkinit(
-        installation.target,
-        hook="plymouth",
-        after_hook="kms",
-    )
+    modify_mkinit(installation.target, hook="plymouth", after_hook="kms")
 
 
+###################################
+# MAIN NOAH
+###################################
 def noah_install(
     installation: Installer,
     config: ArchConfig,
@@ -802,7 +780,7 @@ def noah_install(
 ) -> None:
     if config.swap and config.swap.enabled:
         write_etc_file(
-            mnt_point=installation.target,
+            installation.target,
             files_to_write={
                 "etc/systemd/zram-generator.conf": dedent(
                     """\
@@ -822,9 +800,7 @@ def noah_install(
                 ),
             },
         )
-    # app_and_profile
-    profile_handler.install_greeter(installation, GreeterType.Ly)
-    replace_ly_config(installation.target)
+    install_ly(installation)
     sys_info = SysInfo()
     if sys_info.has_amd_graphics():
         profile_handler.install_gfx_driver(installation, GfxDriver.AmdOpenSource)
@@ -833,23 +809,25 @@ def noah_install(
         if sys_info.has_battery():
             installation.enable_service("nvidia-persistenced")
     if conf := config.app_config:
-        if conf.power_management_config:
-            if conf.power_management_config.power_management == PowerManagement.TUNED:
-                tuned_post(installation)
-        if firewall_conf := conf.firewall_config:
-            if firewall_conf.firewall == Firewall("ufw"):
-                ufw_post(installation, ["KDEConnect", "Deluge", "51820/udp"])
-    # bootloader
-    boot_conf = config.bootloader_config
-    if boot_conf:
-        if boot_conf.bootloader == Bootloader.Limine and not boot_conf.uki:
-            limine_post(installation)
-            inst_apparmor(installation)
-            inst_plymouth(installation)
-            log.info("Refreshing limine-mkinitcpio hooks cleanly.")
-            installation.arch_chroot("limine-mkinitcpio")
-    # bootloader
-    # custom apps
+        if (
+            conf.power_management_config
+            and conf.power_management_config.power_management == PowerManagement.TUNED
+        ):
+            tuned_post(installation)
+        if conf.firewall_config and conf.firewall_config.firewall == Firewall("ufw"):
+            ufw_post(installation, ["KDEConnect", "Deluge", "51820/udp"])
+        if conf.print_service_config:
+            printer_post(installation)
+    if (
+        config.bootloader_config
+        and config.bootloader_config.bootloader == Bootloader.Limine
+        and not config.bootloader_config.uki
+    ):
+        limine_post(installation)
+        inst_apparmor(installation)
+        inst_plymouth(installation)
+        log.info("Refreshing limine-mkinitcpio hooks.")
+        installation.arch_chroot("limine-mkinitcpio")
     inst_systemd_oomd(installation)
     install_powertop(installation)
     write_etc_file(installation.target, network_files)
@@ -861,40 +839,61 @@ def noah_install(
     install_icons(installation)
     if nc.logitech_mouse:
         install_logid(installation, script_d)
-    # custom apps
-    # Noah disk
-    if disk_config := config.disk_config:
-        if disk_config.has_default_btrfs_vols():
-            btrfs_options = disk_config.btrfs_options
-            if btrfs_options:
-                if auth_conf := config.auth_config:
-                    if users := auth_conf.users:
-                        snapper_post(installation, users)
-            srvcs = ["btrfs-scrub@-.timer", "btrfs-scrub@home.timer"]
-            installation.enable_service(srvcs)
-    # Noah disk
-    aur_and_remove_root(installation, users, nc.sudo_defaults)
-    create_automount(installation, users)
-    if auth_conf := config.auth_config:
-        if users := auth_conf.users:
-            for user in users:
-                if nc.copy_config:
-                    nc.copy_config.copy_root_to_mnt(installation.target, user.username)
-                auto_add_user_groups(installation, user.username, config.packages)
-                installation.arch_chroot("xdg-user-dirs-update", user.username)
-                if nc.apps_to_hide:
-                    hide_apps(installation, user.username, nc.apps_to_hide)
-                user_service(installation, user.username, nc.terminal, script_d)
-                mpd_tmpfiles(installation, user.username)
-                if serv_conf := nc.user_services_config:
-                    if srvcs := serv_conf.services:
-                        for serv in srvcs:
-                            enable_user_serv(installation, serv, user.username)
-                installation.arch_chroot(
-                    f"chown -R {user.username}:{user.username} /home/{user.username}"
-                )
-            installation.arch_chroot("chown -R root:root /usr/lib/systemd/user")
-    if disable_svcs := nc.disable_svcs:
-        installation.disable_service(disable_svcs)
-    if mask_svcs := nc.disable_svcs:
-        installation.arch_chroot(f"systemctl mask {' '.join(mask_svcs)}")
+    if config.disk_config and config.disk_config.has_default_btrfs_vols():
+        if (
+            config.disk_config.btrfs_options
+            and config.auth_config
+            and config.auth_config.users
+        ):
+            # Move enable_service to snapper_post
+            snapper_post(
+                installation,
+                config.auth_config.users,
+                [
+                    SnapperProfile(
+                        name="root",
+                        mount="/",
+                        number_limit=15,
+                        limit_hourly=5,
+                        limit_daily=5,
+                        limit_weekly=5,
+                        limit_monthly=0,
+                    ),
+                    SnapperProfile(
+                        name="home",
+                        mount="/home",
+                        number_limit=20,
+                        limit_hourly=5,
+                        limit_daily=7,
+                        limit_weekly=5,
+                        limit_monthly=3,
+                    ),
+                ],
+            )
+        installation.enable_service(["btrfs-scrub@-.timer", "btrfs-scrub@home.timer"])
+    if config.auth_config and config.auth_config.users:
+        aur_and_remove_root(
+            installation, config.auth_config.users, aur_pkgs, nc.sudo_defaults
+        )
+        create_automount(installation, config.auth_config.users)
+        for user in config.auth_config.users:
+            if nc.copy_config:
+                nc.copy_config.copy_root_to_mnt(installation.target, user.username)
+            auto_add_user_groups(installation, user.username, config.packages)
+            installation.arch_chroot("xdg-user-dirs-update", user.username)
+            if nc.apps_to_hide:
+                hide_apps(installation, user.username, nc.apps_to_hide)
+            user_service(installation, user.username, nc.terminal, script_d)
+            mpd_tmpfiles(installation, user.username)
+            if nc.user_services_config and nc.user_services_config.services:
+                for serv in nc.user_services_config.services:
+                    enable_user_serv(installation, serv, user.username)
+            installation.arch_chroot(
+                f"chown -R {user.username}:{user.username} /home/{user.username}"
+            )
+        installation.arch_chroot("chown -R root:root /usr/lib/systemd/user")
+    if nc.disable_svcs:
+        installation.disable_service(nc.disable_svcs)
+    if nc.mask_svcs:
+        for srv in nc.mask_svcs:
+            installation.arch_chroot(f"systemctl mask {srv}")
