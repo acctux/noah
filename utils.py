@@ -1,8 +1,8 @@
-import shutil
-from pathlib import Path
-import sys
 import logging
+import shutil
 import subprocess
+import sys
+from pathlib import Path
 
 
 #########################

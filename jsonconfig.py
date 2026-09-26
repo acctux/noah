@@ -101,6 +101,7 @@ noah_json = {
     ],
     "non_vm_pkgs": (
         pp.android
+        + pp.basic_server
         + pp.earth
         + pp.gaming
         + pp.ios

@@ -608,9 +608,7 @@ def aur_and_remove_root(
 
 
 def auto_add_user_groups(
-    installation: Installer,
-    username: str,
-    base_pkgs: list[str],
+    installation: Installer, username: str, base_pkgs: list[str]
 ) -> None:
     pkg_groups = {
         "realtime-privileges": "realtime",
@@ -711,8 +709,8 @@ def inst_apparmor(installation: Installer) -> None:
     installation.add_additional_packages(["apparmor", "apparmor.d-git"])
     write_limine_opt(
         installation,
-        filename="apparmor",
-        kernel_params="lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
+        "apparmor",
+        "lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
         run_refresh=False,
     )
     write_etc_file(
