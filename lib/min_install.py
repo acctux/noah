@@ -40,34 +40,29 @@ def modify_pacman_conf(
         pacman.write("\n".join(content) + "\n")
 
 
-def handle_reflector(mountpoint: Path | None, options: list[str] | None):
+def handle_reflector(mnt: Path | None, options: list[str] | None):
     if not options:
-        options = [
+        opts = [
             "--protocol https",
             "--latest 25",
             "--sort rate",
             "--number 3",
             "--save /etc/pacman.d/mirrorlist",
         ]
-    if mountpoint:
-        copy_it(
-            Path("/etc/pacman.d/mirrorlist"), mountpoint / "etc/pacman.d/mirrorlist"
-        )
-        write_etc_file(
-            mnt_point=mountpoint,
-            files_to_write={"etc/xdg/reflector/reflector.conf": "\n".join(options)},
-        )
+    if mnt:
+        copy_it(Path("/etc/pacman.d/mirrorlist"), mnt / "etc/pacman.d/mirrorlist")
+        write_etc_file(mnt, {"etc/xdg/reflector/reflector.conf": "\n".join(opts)})
     else:
         cmd = []
-        for opt in options:
+        for opt in opts:
             for part in opt.split():
                 cmd.append(part.strip())
         run_dmc(["reflector"] + cmd)
 
 
 def min_install_pre(nc: NoahConfig):
-    handle_reflector(mountpoint=None, options=nc.reflector_options)
-    modify_pacman_conf(mnt_point=None, no_extracts=nc.no_extracts)
+    handle_reflector(None, nc.reflector_options)
+    modify_pacman_conf(None, nc.no_extracts)
 
 
 def chaotic_repo(installation: Installer) -> None:
@@ -108,6 +103,7 @@ def copy_skel(mountpoint: Path, dots_git_user_repo: str):
 
 
 def write_default_xdg_dirs(installation: Installer):
+    # Move to jsonconfig
     user_dirs = {
         "DOCUMENTS": "Desktop/Documents",
         "DESKTOP": "Desktop",
@@ -131,12 +127,9 @@ def write_default_xdg_dirs(installation: Installer):
 
 
 def min_install_post(installation: Installer, nc: NoahConfig):
-    handle_reflector(mountpoint=installation.target, options=nc.reflector_options)
-    modify_pacman_conf(mnt_point=installation.target, no_extracts=nc.no_extracts)
+    handle_reflector(installation.target, nc.reflector_options)
+    modify_pacman_conf(installation.target, nc.no_extracts)
     chaotic_repo(installation)
     if nc.dots_git_user_repo:
-        copy_skel(
-            mountpoint=installation.target,
-            dots_git_user_repo=nc.dots_git_user_repo,
-        )
+        copy_skel(installation.target, nc.dots_git_user_repo)
     write_default_xdg_dirs(installation)

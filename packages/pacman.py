@@ -3,7 +3,7 @@ hardware: list[str] = [
     # "bees",
     "bluetui",
     "bluez-utils",  # for loggy
-    "bolt",
+    # "bolt",
     "brightnessctl",
     "dmidecode",
     "dosfstools",
@@ -37,7 +37,7 @@ media: list[str] = [
     "mpd",
     "mpd-mpris",
     "mpv-mpris",
-    "obs-studio",
+    # "obs-studio",
     "playerctl",
     "realtime-privileges",
     "rmpc",

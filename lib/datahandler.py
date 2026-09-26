@@ -5,6 +5,30 @@ from typing import Any
 from utils import copy_it
 
 
+# SNAPPER
+# Needs to be put into the config
+@dataclass
+class SnapperProfile:
+    name: str
+    mount: str
+    number_limit: int
+    limit_hourly: int
+    limit_daily: int
+    limit_weekly: int
+    limit_monthly: int
+    limit_yearly: int = 0
+
+    def to_config_dict(self) -> dict[str, int]:
+        return {
+            "NUMBER_LIMIT": self.number_limit,
+            "TIMELINE_LIMIT_HOURLY": self.limit_hourly,
+            "TIMELINE_LIMIT_DAILY": self.limit_daily,
+            "TIMELINE_LIMIT_WEEKLY": self.limit_weekly,
+            "TIMELINE_LIMIT_MONTHLY": self.limit_monthly,
+            "TIMELINE_LIMIT_YEARLY": self.limit_yearly,
+        }
+
+
 # =============================================================================
 # Leaf Models
 # =============================================================================

@@ -2,18 +2,17 @@ from packages.aur import aur_pkgs
 import shutil
 import json
 import re
-from lib.datahandler import UserService, NoahConfig
+from lib.datahandler import UserService, NoahConfig, SnapperProfile
 from archinstall.lib.models import Bootloader, User
 from pathlib import Path
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.models.application import PowerManagement, Firewall
 from archinstall.lib.args import ArchConfig
 from archinstall.lib.installer import Installer
-from archinstall.lib.hardware import SysInfo, GfxDriver
+from archinstall.lib.hardware import SysInfo, GfxDriver, CpuVendor
 from archinstall.lib.profile.profiles_handler import profile_handler
 from textwrap import dedent
 from utils import write_etc_file, log, copy_it, modify_mkinit
-from dataclasses import dataclass
 
 
 ###################################
@@ -56,13 +55,10 @@ def tuned_post(installation: Installer):
     )
 
 
-def install_nvidia(installation: Installer):
-    packages = [
-        "libva-nvidia-driver",
-        "nvidia-open",
-        "nvidia-prime",
-    ]
-    installation.add_additional_packages(packages=packages)
+def install_nvidia(installation: Installer, has_bat: bool):
+    installation.add_additional_packages(
+        ["libva-nvidia-driver", "nvidia-open", "nvidia-prime"]
+    )
     nvidia_files: dict[str, str] = {
         "etc/modprobe.d/nvidia.conf": dedent(
             """\
@@ -82,7 +78,8 @@ def install_nvidia(installation: Installer):
         ),
     }
     write_etc_file(installation.target, nvidia_files)
-    installation.enable_service("nvidia-persistenced")
+    if has_bat:
+        installation.enable_service("nvidia-persistenced")
 
 
 def install_ly(installation: Installer) -> None:
@@ -161,8 +158,8 @@ def install_logid(installation: Installer, script_d: Path):
     copy_it(src_d / "loggy.service", installation.target / "etc" / "systemd" / "system")
     copy_it(src_d / "loggy.py", installation.target / "usr" / "local" / "bin")
     write_etc_file(
-        mnt_point=installation.target,
-        files_to_write={
+        installation.target,
+        {
             "etc/logid.cfg": dedent(
                 f"""\
                 devices: ({{
@@ -209,12 +206,12 @@ def inst_systemd_oomd(installation: Installer):
 
 
 def install_powertop(installation: Installer):
+    # DOESN'T WORK
     installation.add_additional_packages("powertop")
-    srv_name = "powertop"
     write_etc_file(
         installation.target,
         {
-            f"etc/systemd/system/{srv_name}.service": dedent(
+            "etc/systemd/system/powertop.service": dedent(
                 """\
                 [Unit]
                 Description=Powertop tunings
@@ -286,12 +283,9 @@ def set_extensions(mnt_point: Path, browser: str) -> None:
     log.info(f"'Extensions.Install' for {browser} has been overwritten.")
 
 
-def sys_file_copy(installation: Installer, script_dir: Path) -> None:
-    dirs_to_cp = ["etc", "usr"]
-    for dir_name in dirs_to_cp:
-        source_dir = script_dir / dir_name
-        target_dir = installation.target / dir_name
-        copy_it(source_dir, target_dir)
+def sysinfo_file_copy(installation: Installer, script_dir: Path) -> None:
+    for dir_name in ["etc", "usr"]:
+        copy_it(script_dir / dir_name, installation.target / dir_name)
     installation.enable_service("sysinfo")
 
 
@@ -412,14 +406,6 @@ etc_files_to_write: dict[str, str] = {
         SystemMaxUse=50M
         """
     ),
-    "etc/modprobe.d/blacklist.conf": dedent(
-        """\
-        # Blacklist the Intel TCO Watchdog/Timer module
-        blacklist iTCO_wdt
-        # Blacklist the AMD SP5100 TCO Watchdog/Timer module (Required for Ryzen cpus)
-        blacklist sp5100_tco"
-        """
-    ),
     "etc/udisks2/mount_options.conf": dedent(
         """\
         [defaults]
@@ -436,31 +422,17 @@ etc_files_to_write: dict[str, str] = {
 }
 
 
+def cpu_blacklist(installation: Installer, sys_info: SysInfo):
+    if sys_info.cpu_vendor() == CpuVendor.AuthenticAMD:
+        cpu_blacklist = {"etc/modprobe.d/blacklist.conf": "blacklist sp5100_tco"}
+    else:
+        cpu_blacklist = {"etc/modprobe.d/blacklist.conf": "blacklist iTCO_wdt"}
+    write_etc_file(installation.target, cpu_blacklist)
+
+
 ###################################
 # SNAPPER
 ###################################
-@dataclass
-class SnapperProfile:
-    name: str
-    mount: str
-    number_limit: int
-    limit_monthly: int
-    limit_hourly: int
-    limit_daily: int
-    limit_weekly: int
-    limit_yearly: int = 0
-
-    def to_config_dict(self) -> dict[str, int]:
-        return {
-            "NUMBER_LIMIT": self.number_limit,
-            "TIMELINE_LIMIT_HOURLY": self.limit_hourly,
-            "TIMELINE_LIMIT_DAILY": self.limit_daily,
-            "TIMELINE_LIMIT_WEEKLY": self.limit_weekly,
-            "TIMELINE_LIMIT_MONTHLY": self.limit_monthly,
-            "TIMELINE_LIMIT_YEARLY": self.limit_yearly,
-        }
-
-
 def update_existing_snapper_files(target_root: Path, profile: SnapperProfile) -> None:
     path = target_root / "etc" / "snapper" / "configs" / profile.name
     if not path.exists():
@@ -482,7 +454,6 @@ def update_existing_snapper_files(target_root: Path, profile: SnapperProfile) ->
 def snapper_post(
     installation: Installer, users: list[User] | None, profiles: list[SnapperProfile]
 ) -> None:
-
     installation.add_additional_packages("limine-snapper-sync")
     modify_mkinit(installation.target, hook="btrfs-overlayfs", after_hook="filesystems")
     for profile in profiles:
@@ -778,36 +749,13 @@ def noah_install(
     nc: NoahConfig,
     script_d: Path,
 ) -> None:
-    if config.swap and config.swap.enabled:
-        write_etc_file(
-            installation.target,
-            files_to_write={
-                "etc/systemd/zram-generator.conf": dedent(
-                    """\
-                    [zram0]
-                    zram-size = min(ram / 2, 8192)
-                    compression-algorithm = zstd
-                    """
-                ),
-                "etc/sysctl.d/99-zram.conf": dedent(
-                    """\
-                    vm.swappiness = 180
-                    vm.watermark_boost_factor = 0
-                    vm.watermark_scale_factor = 125
-                    vm.page-cluster = 0
-                    vm.dirty_writeback_centisecs = 1500
-                    """
-                ),
-            },
-        )
     install_ly(installation)
     sys_info = SysInfo()
     if sys_info.has_amd_graphics():
         profile_handler.install_gfx_driver(installation, GfxDriver.AmdOpenSource)
     if sys_info.has_nvidia_graphics():
-        install_nvidia(installation)
-        if sys_info.has_battery():
-            installation.enable_service("nvidia-persistenced")
+        install_nvidia(installation, has_bat=sys_info.has_battery())
+    cpu_blacklist(installation, sys_info)
     if conf := config.app_config:
         if (
             conf.power_management_config
@@ -835,10 +783,32 @@ def noah_install(
     kde_fuse_and_nss(installation.target)
     if nc.firefox_browser:
         set_extensions(installation.target, nc.firefox_browser)
-    sys_file_copy(installation, script_d)
+    sysinfo_file_copy(installation, script_d)
     install_icons(installation)
     if nc.logitech_mouse:
         install_logid(installation, script_d)
+    if config.swap and config.swap.enabled:
+        write_etc_file(
+            installation.target,
+            files_to_write={
+                "etc/systemd/zram-generator.conf": dedent(
+                    """\
+                    [zram0]
+                    zram-size = min(ram / 2, 8192)
+                    compression-algorithm = zstd
+                    """
+                ),
+                "etc/sysctl.d/99-zram.conf": dedent(
+                    """\
+                    vm.swappiness = 180
+                    vm.watermark_boost_factor = 0
+                    vm.watermark_scale_factor = 125
+                    vm.page-cluster = 0
+                    vm.dirty_writeback_centisecs = 1500
+                    """
+                ),
+            },
+        )
     if config.disk_config and config.disk_config.has_default_btrfs_vols():
         if (
             config.disk_config.btrfs_options
