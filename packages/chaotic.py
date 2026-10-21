@@ -3,13 +3,14 @@ waydroid_pkgs: list[str] = [
     "waydroid-script-git",
 ]
 base_chaotic_pkgs: list[str] = [
+    "apparmor.d-git",
     "cachyos-ananicy-rules-git",
     "downgrade",
     "firedragon",
+    "ocrmypdf",
     "octopi",
     "paru",
     "systemd-oomd-defaults",
-    "ocrmypdf",
 ]
 additional_chaotic_pkgs: list[str] = [
     "ayugram-desktop-git",
