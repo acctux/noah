@@ -9,7 +9,7 @@ from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.models.application import PowerManagement, Firewall
 from archinstall.lib.args import ArchConfig
 from archinstall.lib.installer import Installer
-from archinstall.lib.hardware import SysInfo, GfxDriver, CpuVendor
+from archinstall.lib.hardware import SysInfo, GfxDriver, CPUVendor
 from archinstall.lib.profile.profiles_handler import profile_handler
 from textwrap import dedent
 from utils import write_etc_file, log, copy_it, modify_mkinit
@@ -423,7 +423,7 @@ etc_files_to_write: dict[str, str] = {
 
 
 def cpu_blacklist(installation: Installer, sys_info: SysInfo):
-    if sys_info.cpu_vendor() == CpuVendor.AuthenticAMD:
+    if sys_info.cpu_vendor() == CPUVendor.AMD:
         cpu_blacklist = {"etc/modprobe.d/blacklist.conf": "blacklist sp5100_tco"}
     else:
         cpu_blacklist = {"etc/modprobe.d/blacklist.conf": "blacklist iTCO_wdt"}
