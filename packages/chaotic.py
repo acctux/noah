@@ -3,7 +3,6 @@ waydroid_pkgs: list[str] = [
     "waydroid-script-git",
 ]
 base_chaotic_pkgs: list[str] = [
-    "apparmor.d-git",
     "cachyos-ananicy-rules-git",
     "downgrade",
     "firedragon",

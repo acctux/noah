@@ -10,7 +10,7 @@ archinstall_json = {
             "enabled": True,
         },
         "firewall_config": {
-            "firewall": "firewalld",
+            "firewall": "ufw",
         },
         "fonts_config": {
             "fonts": [
@@ -121,9 +121,7 @@ noah_json = {
             "targets": [
                 {
                     "dest": "~/.gnupg",
-                    "names": [
-                        "my_sec_gpg.asc",
-                    ],
+                    "names": ["my_sec_gpg.asc"],
                 }
             ],
         },
@@ -133,9 +131,7 @@ noah_json = {
             "targets": [
                 {
                     "dest": "~/",
-                    "names": [
-                        "users.json",
-                    ],
+                    "names": ["users.json"],
                 }
             ],
         },
@@ -145,9 +141,7 @@ noah_json = {
             "targets": [
                 {
                     "dest": "~/.ssh",
-                    "names": [
-                        "id_ed25519",
-                    ],
+                    "names": ["id_ed25519"],
                 }
             ],
         },
@@ -157,9 +151,7 @@ noah_json = {
             "targets": [
                 {
                     "dest": "~/",
-                    "names": [
-                        "pass.txt",
-                    ],
+                    "names": ["pass.txt"],
                 }
             ],
         },
@@ -169,9 +161,7 @@ noah_json = {
             "targets": [
                 {
                     "dest": "/etc",
-                    "names": [
-                        "wireguard",
-                    ],
+                    "names": ["wireguard"],
                 }
             ],
         },
@@ -221,10 +211,12 @@ noah_json = {
         },
     ],
     "apps_to_hide": [
+        "assistant",
         "avahi-discover",
         "bssh",
         "btop",
         "bvnc",
+        "designer",
         "jshell-java-openjdk",
         "jconsole-java-openjdk",
         "libreoffice-base",
@@ -233,6 +225,7 @@ noah_json = {
         "libreoffice-math",
         "khal",
         "kvantummanager",
+        "linguist",
         "notmuch-emacs-mua",
         "nvtop",
         "octopi-cachecleaner",
@@ -240,6 +233,7 @@ noah_json = {
         "octopi-repoeditor",
         "org.gnome.baobab",
         "org.kde.kdeconnect.nonplasma",
+        "qdbusviewer",
         "qt5ct",
         "qt6ct",
         "qv4l2",

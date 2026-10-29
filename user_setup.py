@@ -19,19 +19,16 @@ log = get_logger("Noah")
 # USER SETUP HELPERS
 ############################
 def ping(host: str = "8.8.8.8", timeout: int = 2) -> bool:
-    try:
-        # -c 1: Send 1 packet
-        # -W 2: Wait 2 seconds
-        # Using shell=False (default) for security
-        result = subprocess.run(
-            ["ping", "-c", "1", "-W", str(timeout), host],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
+    # -c 1: Send 1 packet
+    # -W 2: Wait 2 seconds
+    # Using shell=False (default) for security
+    result = subprocess.run(
+        ["ping", "-c", "1", "-W", str(timeout), host],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return result.returncode == 0
 
 
 class PolkaDots:
@@ -302,12 +299,7 @@ def launch_apps(
 ) -> None:
     password = pass_path.read_text().strip()
     pyperclip.copy(password)
-    apps.append(
-        [
-            firefox_browser,
-            "https://addons.mozilla.org/en-US/firefox/addon/proton-pass/",
-        ]
-    )
+    apps.append([firefox_browser])
     for process in apps:
         if shutil.which(process[0]):
             subprocess.Popen(process).wait()
