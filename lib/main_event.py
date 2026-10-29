@@ -451,21 +451,10 @@ def update_existing_snapper_files(target_root: Path, profile: SnapperProfile) ->
     path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
-def snapper_post(
-    installation: Installer, users: list[User] | None, profiles: list[SnapperProfile]
-) -> None:
+def snapper_post(installation: Installer, profile: SnapperProfile) -> None:
     installation.add_additional_packages("limine-snapper-sync")
     modify_mkinit(installation.target, hook="btrfs-overlayfs", after_hook="filesystems")
-    for profile in profiles:
-        update_existing_snapper_files(installation.target, profile)
-        if users and profile.mount == "/home":
-            installation.arch_chroot(
-                f"snapper -c {profile.name} create-config {profile.mount}"
-            )
-            for user in users:
-                installation.arch_chroot(
-                    f"snapper --no-dbus -c {profile.name} set-config 'ALLOW_USERS={user.username}' SYNC_ACL='yes'"
-                )
+    update_existing_snapper_files(installation.target, profile)
 
 
 ###################################
@@ -820,27 +809,15 @@ def noah_install(
             # Move enable_service to snapper_post
             snapper_post(
                 installation,
-                config.auth_config.users,
-                [
-                    SnapperProfile(
-                        name="root",
-                        mount="/",
-                        number_limit=15,
-                        limit_hourly=5,
-                        limit_daily=5,
-                        limit_weekly=5,
-                        limit_monthly=0,
-                    ),
-                    SnapperProfile(
-                        name="home",
-                        mount="/home",
-                        number_limit=20,
-                        limit_hourly=5,
-                        limit_daily=7,
-                        limit_weekly=5,
-                        limit_monthly=3,
-                    ),
-                ],
+                SnapperProfile(
+                    name="root",
+                    mount="/",
+                    number_limit=15,
+                    limit_hourly=5,
+                    limit_daily=5,
+                    limit_weekly=5,
+                    limit_monthly=0,
+                ),
             )
         installation.enable_service(["btrfs-scrub@-.timer", "btrfs-scrub@home.timer"])
     if config.auth_config and config.auth_config.users:
