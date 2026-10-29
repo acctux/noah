@@ -566,7 +566,8 @@ def aur_and_remove_root(
     def write_sudoers(pword_require: str, user_name: str) -> None:
         write_data = [f"{user_name} ALL=(ALL:ALL) {pword_require}"]
         if sudo_default:
-            write_data += "\n".join(f"Defaults    {line}" for line in sudo_default)
+            for line in sudo_default:
+                write_data.extend(f"Defaults    {line}")
         sudoers_file = installation.target / f"etc/sudoers.d/00_{user_name}"
         sudoers_file.write_text("\n".join(write_data))
 
