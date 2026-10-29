@@ -457,11 +457,12 @@ def snapper_post(
     installation.add_additional_packages("limine-snapper-sync")
     modify_mkinit(installation.target, hook="btrfs-overlayfs", after_hook="filesystems")
     for profile in profiles:
+        update_existing_snapper_files(installation.target, profile)
         if users and profile.mount == "/home":
             for user in users:
-                cmd = f"snapper --no-dbus -c {profile.name} set-config 'ALLOW_USERS={user.username}' SYNC_ACL='yes'"
-                installation.arch_chroot(cmd)
-        update_existing_snapper_files(installation.target, profile)
+                installation.arch_chroot(
+                    f"snapper --no-dbus -c {profile.name} set-config 'ALLOW_USERS={user.username}' SYNC_ACL='yes'"
+                )
 
 
 ###################################
