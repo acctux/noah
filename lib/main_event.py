@@ -433,14 +433,10 @@ def cpu_blacklist(installation: Installer, sys_info: SysInfo):
 ###################################
 # SNAPPER
 ###################################
-def update_existing_snapper_files(
-    installation: Installer, profile: SnapperProfile
-) -> None:
-    path = installation.target / "etc" / "snapper" / "configs" / profile.name
+def update_existing_snapper_files(target_root: Path, profile: SnapperProfile) -> None:
+    path = target_root / "etc" / "snapper" / "configs" / profile.name
     if not path.exists():
-        installation.arch_chroot(
-            f"snapper -c {profile.name} create-config {profile.mount}"
-        )
+        return
     updates = profile.to_config_dict()
     keys_pattern = "|".join(map(re.escape, updates.keys()))
     pattern = re.compile(rf"^(\s*)({keys_pattern})=")
@@ -461,8 +457,11 @@ def snapper_post(
     installation.add_additional_packages("limine-snapper-sync")
     modify_mkinit(installation.target, hook="btrfs-overlayfs", after_hook="filesystems")
     for profile in profiles:
-        update_existing_snapper_files(installation, profile)
+        update_existing_snapper_files(installation.target, profile)
         if users and profile.mount == "/home":
+            installation.arch_chroot(
+                f"snapper -c {profile.name} create-config {profile.mount}"
+            )
             for user in users:
                 installation.arch_chroot(
                     f"snapper --no-dbus -c {profile.name} set-config 'ALLOW_USERS={user.username}' SYNC_ACL='yes'"
