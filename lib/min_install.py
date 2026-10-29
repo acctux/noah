@@ -49,6 +49,8 @@ def handle_reflector(mnt: Path | None, options: list[str] | None):
             "--number 3",
             "--save /etc/pacman.d/mirrorlist",
         ]
+    else:
+        opts = options
     if mnt:
         copy_it(Path("/etc/pacman.d/mirrorlist"), mnt / "etc/pacman.d/mirrorlist")
         write_etc_file(mnt, {"etc/xdg/reflector/reflector.conf": "\n".join(opts)})
