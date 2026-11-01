@@ -3,46 +3,19 @@ import packages.pacman as pp
 
 archinstall_json = {
     "app_config": {
-        "audio_config": {
-            "audio": "pipewire",
-        },
-        "bluetooth_config": {
-            "enabled": True,
-        },
-        "firewall_config": {
-            "firewall": "ufw",
-        },
-        "fonts_config": {
-            "fonts": [
-                "noto-fonts-emoji",
-                "ttf-liberation",
-            ]
-        },
-        "power_management_config": {
-            "power_management": "tuned",
-        },
-        "print_service_config": {
-            "enabled": False,
-        },
+        "audio_config": {"audio": "pipewire"},
+        "bluetooth_config": {"enabled": True},
+        "firewall_config": {"firewall": "ufw"},
+        "fonts_config": {"fonts": ["noto-fonts-emoji", "ttf-liberation"]},
+        "power_management_config": {"power_management": "tuned"},
+        "print_service_config": {"enabled": False},
     },
     "archinstall-language": "English",
-    "bootloader_config": {
-        "bootloader": "Limine",
-        "removable": False,
-        "uki": False,
-    },
+    "bootloader_config": {"bootloader": "Limine", "removable": False, "uki": False},
     "hostname": "yulia",
-    "kernels": [
-        "linux",
-    ],
-    "locale_config": {
-        "kb_layout": "us",
-        "sys_enc": "UTF-8",
-        "sys_lang": "en_US.UTF-8",
-    },
-    "optional_repositories": [
-        "multilib",
-    ],
+    "kernels": ["linux"],
+    "locale_config": {"kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US.UTF-8"},
+    "optional_repositories": ["multilib"],
     "network_config": {"type": "iso"},
     "ntp": True,
     "packages": (
@@ -56,25 +29,14 @@ archinstall_json = {
         + pp.personal
         + pc.base_chaotic_pkgs
     ),
-    "pacman_config": {
-        "color": True,
-        "parallel_downloads": 10,
-    },
+    "pacman_config": {"color": True, "parallel_downloads": 10},
     "profile_config": {
         "gfx_driver": "AMD / ATI (open-source)",
         "greeter": "ly",
         "profile": {"main": ["Minimal"]},
     },
-    "services": [
-        "iwd",
-        "named",
-        "systemd-networkd",
-        "paccache.timer",
-    ],
-    "swap": {
-        "algorithm": "zstd",
-        "enabled": True,
-    },
+    "services": ["iwd", "named", "systemd-networkd", "paccache.timer"],
+    "swap": {"algorithm": "zstd", "enabled": True},
     "timezone": "US/Eastern",
     "version": "4.3",
 }
@@ -92,13 +54,8 @@ noah_json = {
         "--number 3",
         "--save /etc/pacman.d/mirrorlist",
     ],
-    "disable_svcs": [
-        "systemd-resolved",
-        "systemd-networkd-wait-online",
-    ],
-    "mask_svcs": [
-        "systemd-networkd-wait-online",
-    ],
+    "disable_svcs": ["systemd-resolved", "systemd-networkd-wait-online"],
+    "mask_svcs": ["systemd-networkd-wait-online"],
     "non_vm_pkgs": (
         pp.android
         + pp.basic_server
@@ -110,73 +67,40 @@ noah_json = {
         + pc.additional_chaotic_pkgs
         + pc.game_chaotic_pkgs
     ),
-    "no_extracts": [
-        "etc/xdg/autostart/firewall-applet.desktop",
-        "usr/share/icons/capitaine-cursors/*",
-    ],
+    "no_extracts": ["usr/share/icons/capitaine-cursors/*"],
     "copy_config": [
         {
             "type": "gpg",
             "source": "noahinstall",
-            "targets": [
-                {
-                    "dest": "~/.gnupg",
-                    "names": ["my_sec_gpg.asc"],
-                }
-            ],
+            "targets": [{"dest": "~/.gnupg", "names": ["my_sec_gpg.asc"]}],
         },
         {
             "type": "auth_conf",
             "source": "noahinstall",
-            "targets": [
-                {
-                    "dest": "~/",
-                    "names": ["users.json"],
-                }
-            ],
+            "targets": [{"dest": "~/", "names": ["users.json"]}],
         },
         {
             "type": "ssh",
             "source": "noahinstall",
-            "targets": [
-                {
-                    "dest": "~/.ssh",
-                    "names": ["id_ed25519"],
-                }
-            ],
+            "targets": [{"dest": "~/.ssh", "names": ["id_ed25519"]}],
         },
         {
             "type": "masterpass",
             "source": "noahinstall",
-            "targets": [
-                {
-                    "dest": "~/",
-                    "names": ["pass.txt"],
-                }
-            ],
+            "targets": [{"dest": "~/", "names": ["pass.txt"]}],
         },
         {
             "type": "wireguard",
             "source": "noahinstall",
-            "targets": [
-                {
-                    "dest": "/etc",
-                    "names": ["wireguard"],
-                }
-            ],
+            "targets": [{"dest": "/etc", "names": ["wireguard"]}],
         },
     ],
     "user_services": [
         {
             "source": "/usr/lib/systemd/user",
             "targets": {
-                "default": [
-                    "psd.service",
-                ],
-                "sockets": [
-                    "gcr-ssh-agent.socket",
-                    "mpd.socket",
-                ],
+                "default": ["psd.service"],
+                "sockets": ["gcr-ssh-agent.socket", "mpd.socket"],
                 "graphical-session": [
                     "cliphist.service",
                     "hypridle.service",
@@ -257,16 +181,9 @@ noah_json = {
     ],
     "git_repo_config": {
         "user_name": "acctux",
-        "repos": {
-            "noah": "Lit/noah",
-            "polka": "Lit/polka",
-            "docs": "Lit/Docs",
-        },
+        "repos": {"noah": "Lit/noah", "polka": "Lit/polka", "docs": "Lit/Docs"},
     },
-    "dotdirs_to_link": [
-        "Lit/polka",
-        "Lit/Docs/secdots",
-    ],
+    "dotdirs_to_link": ["Lit/polka", "Lit/Docs/secdots"],
     "encrypted_dir": "Desktop/Private",
     "dirs_icons": {
         "Desktop/Games": "folder-games",

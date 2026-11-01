@@ -19,6 +19,7 @@ from utils import write_etc_file, log, copy_it, modify_mkinit
 # POST APPLICATIONS
 ###################################
 def ufw_post(installation: Installer, ports_to_open: list[str]):
+    installation.add_additional_packages("ufw-extras")
     for allowed_port in ports_to_open:
         installation.arch_chroot(f"ufw allow {allowed_port}")
 
@@ -705,7 +706,7 @@ def inst_apparmor(installation: Installer) -> None:
         installation,
         "apparmor",
         "lsm=landlock,lockdown,yama,integrity,apparmor,bpf",
-        run_refresh=False,
+        False,
     )
     write_etc_file(
         mnt_point=installation.target,
@@ -723,30 +724,22 @@ def inst_apparmor(installation: Installer) -> None:
 
 def inst_plymouth(installation: Installer) -> None:
     installation.add_additional_packages("plymouth")
-    write_limine_opt(
-        installation,
-        filename="plymouth",
-        kernel_params="quiet splash",
-        run_refresh=False,
-    )
-    modify_mkinit(installation.target, hook="plymouth", after_hook="kms")
+    write_limine_opt(installation, "plymouth", "quiet splash", False)
+    modify_mkinit(installation.target, "plymouth", "kms")
 
 
 ###################################
 # MAIN NOAH
 ###################################
 def noah_install(
-    installation: Installer,
-    config: ArchConfig,
-    nc: NoahConfig,
-    script_d: Path,
+    installation: Installer, config: ArchConfig, nc: NoahConfig, script_d: Path
 ) -> None:
     install_ly(installation)
     sys_info = SysInfo()
     if sys_info.has_amd_graphics():
         profile_handler.install_gfx_driver(installation, GfxDriver.AmdOpenSource)
     if sys_info.has_nvidia_graphics():
-        install_nvidia(installation, has_bat=sys_info.has_battery())
+        install_nvidia(installation, sys_info.has_battery())
     cpu_blacklist(installation, sys_info)
     if conf := config.app_config:
         if (

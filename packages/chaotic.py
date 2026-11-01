@@ -9,7 +9,6 @@ base_chaotic_pkgs: list[str] = [
     "ocrmypdf",
     "octopi",
     "paru",
-    "systemd-oomd-defaults",
 ]
 additional_chaotic_pkgs: list[str] = [
     "ayugram-desktop-git",
