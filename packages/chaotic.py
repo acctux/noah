@@ -19,6 +19,6 @@ game_chaotic_pkgs: list[str] = [
     "linux-headers",
     "xpadneo-dkms",
     "proton-cachyos-slr",
-    "rpcs3-git",
+    # "rpcs3-git",
     "eden-git",
 ]
