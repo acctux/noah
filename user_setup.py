@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
+
 import os
 import shutil
 import subprocess
 import time
-from dataclasses import dataclass
 import getpass
 from pathlib import Path
 import gnupg
@@ -32,91 +32,102 @@ def ping(host: str = "8.8.8.8", timeout: int = 2) -> bool:
 
 
 class PolkaDots:
-    HOME = Path.home()
+    def __init__(
+        self,
+        HOME: Path,
+        dotfiles_dirs: list[Path],
+        skip_dirs: set[str] | None = None,
+        skip_files: set[str] | None = None,
+    ) -> None:
+        self.home = HOME
+        self.dotfiles_dirs = dotfiles_dirs
+        self.skip_dirs = skip_dirs or {".git", "__pycache__", ".venv"}
+        self.skip_files = skip_files or {".gitignore"}
 
-    def __init__(self, dotfiles_dirs: list[Path]):
-        self.dotfiles_paths = dotfiles_dirs
-        self.skip_base = {".git", "__pycache__", ".venv"}
-        self.skip_name = {".gitignore"}
+    def _should_skip(self, relative_path: Path) -> bool:
+        return relative_path.name in self.skip_files or any(
+            part in self.skip_dirs for part in relative_path.parts
+        )
 
-    def deploy(self):
+    def _destination_for(self, relative_path: Path) -> Path:
+        parts = relative_path.parts
+        return self.home / Path(f".{parts[0]}", *parts[1:])
+
+    def _link_file(self, source: Path, destination: Path) -> bool:
+        target = os.path.relpath(source, destination.parent)
+
+        if destination.is_symlink() and os.readlink(destination) == target:
+            return False
+
+        if destination.exists() or destination.is_symlink():
+            destination.unlink()
+            log.info("Removed: %s", destination)
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.symlink_to(target)
+        log.info("Linked: %s → %s", destination, target)
+        return True
+
+    def deploy(self) -> None:
         linked = 0
-        for src_dir in self.dotfiles_paths:
-            if not src_dir.is_dir():
-                log.warning(f"{src_dir} not found, skipping.")
+
+        for source_dir in self.dotfiles_dirs:
+            if not source_dir.is_dir():
+                log.warning("%s not found, skipping.", source_dir)
                 continue
-            for src in src_dir.rglob("*"):
-                if not src.is_file():
+
+            for source in source_dir.rglob("*"):
+                if not source.is_file():
                     continue
-                parts = src.relative_to(src_dir).parts
-                for part in parts:
-                    if part in self.skip_base:
-                        continue
-                if parts[-1] in self.skip_name:
+
+                relative_path = source.relative_to(source_dir)
+                if self._should_skip(relative_path):
                     continue
-                dst = self.HOME / Path("." + parts[0], *parts[1:])
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                rel = os.path.relpath(src, dst.parent)
-                if dst.is_symlink() and os.readlink(dst) == rel:
-                    continue
-                if dst.exists() or dst.is_symlink():
-                    dst.unlink()
-                    log.info(f"Removed: {dst}")
-                dst.symlink_to(rel)
-                log.info(f"Linked: {dst} → {rel}")
-                linked += 1
-        log.info(f"Total linked: {linked}")
-        subprocess.run(["hyprctl", "reload"], check=False)
-        log.info("Hyprland reloaded")
+
+                destination = self._destination_for(relative_path)
+                linked += self._link_file(source, destination)
+
+        log.info("Total linked: %d", linked)
+
+        if linked:
+            subprocess.run(["hyprctl", "reload"], check=False)
+            log.info("Hyprland reloaded")
 
 
-@dataclass(slots=True)
 class NoahUserProcessor:
     data: NoahConfig
-    encrypted_dir: Path | None = None
-    dotdirs_to_link: list[str] | None = None
-    ssh_paths: list[Path] | None = None
-    gpg_paths: list[Path] | None = None
-    masterpass_paths: list[Path] | None = None
-    dirs_icons: dict[Path, str] | None = None
-    HOME: Path = Path.home()
+    HOME: Path
+    encrypted_dir: Path | None
+    dotdirs_to_link: list[str] | None
+    ssh_paths: list[Path]
+    gpg_paths: list[Path]
+    masterpass_paths: list[Path]
+    dirs_icons: dict[Path, str]
 
-    def __init__(self, data: NoahConfig) -> None:
+    def __init__(self, data: NoahConfig, HOME: Path) -> None:
         self.data = data
-        self.HOME = Path.home()
-        self.encrypted_dir = self._path(self.HOME, data.encrypted_dir)
-        self.dotdirs_to_link = data.dotdirs_to_link
+        self.HOME = HOME
+        self.encrypted_dir = HOME / data.encrypted_dir if data.encrypted_dir else None
+        self.dotdirs_to_link = data.dotdirs_to_link if data.dotdirs_to_link else None
+
         self.ssh_paths = []
         self.gpg_paths = []
         self.masterpass_paths = []
-        if cc := data.copy_config:
-            self.ssh_paths = cc.user_space_resolve_by_type("ssh", self.HOME)
-            self.gpg_paths = cc.user_space_resolve_by_type("gpg", self.HOME)
-            self.masterpass_paths = cc.user_space_resolve_by_type(
-                "masterpass", self.HOME
+
+        if data.copy_config:
+            self.ssh_paths = data.copy_config.user_space_resolve_by_type("ssh", HOME)
+            self.gpg_paths = data.copy_config.user_space_resolve_by_type("gpg", HOME)
+            self.masterpass_paths = data.copy_config.user_space_resolve_by_type(
+                "masterpass", HOME
             )
-        self.dirs_icons = self._dirs_icons()
 
-    def _path(self, base: Path, value: str | None) -> Path | None:
-        if value is None:
-            return None
-        return base / value
-
-    def _dirs_icons(self) -> dict[Path, str]:
-        result: dict[Path, str] = {}
-        config = self.data.dirs_icons
-        if not config:
-            return result
-        for path, icon in config.items():
-            resolved = self._path(self.HOME, path)
-            if resolved:
-                result[resolved] = icon
-        return result
+        if data.dirs_icons:
+            self.dirs_icons = {
+                HOME / path: icon for path, icon in data.dirs_icons.items()
+            }
 
     def dotdirs_paths(self) -> list[Path]:
-        if not self.dotdirs_to_link:
-            return []
-        return [self.HOME / d for d in self.dotdirs_to_link]
+        return [self.HOME / directory for directory in (self.dotdirs_to_link or [])]
 
 
 ###########################################################
@@ -135,19 +146,6 @@ def enter_pass(prompt_str: str) -> str:
 ############################
 # ENCRYPTION / KEYS
 ############################
-def import_ssh(key_path: Path) -> None:
-    socket_path = Path(f"/run/user/{os.getuid()}/gcr/ssh")
-    if not socket_path.exists():
-        socket_path.mkdir(parents=True, exist_ok=True)
-        os.chmod(socket_path, 0o700)  # Owner only
-        run_dmc(["systemctl", "--user", "enable", "gcr-ssh-agent.socket"])
-        run_dmc(["systemctl", "--user", "start", "gcr-ssh-agent.socket"])
-    if key_path.exists():
-        os.chmod(key_path, 0o600)  # Owner read/write only
-    run_dmc(["ssh-add", str(key_path)], check=True)
-    log.info(f"SSH identity processed for: {key_path}")
-
-
 def import_gpg(gpg_path: Path) -> None:
     key_data = gpg_path.read_text()
     gpg = gnupg.GPG()
@@ -166,9 +164,9 @@ def init_gocrypt(enc_dir: Path) -> None:
 class GitManager:
     ssh_socket_dir = Path(f"/run/user/{os.getuid()}/gcr/ssh")
 
-    def __init__(self, home_path: Path):
-        self.home_path = home_path
-        self.ssh_dir = home_path / ".ssh"
+    def __init__(self, HOME: Path):
+        self.home_path = HOME
+        self.ssh_dir = HOME / ".ssh"
         self.known_hosts_file = self.ssh_dir / "known_hosts"
 
     def _run(self, cmd: list[str], check: bool = True) -> str:
@@ -193,26 +191,17 @@ class GitManager:
             log.error("Cannot scan user metadata without active SSH session.")
             return
         my_email = lines[0].split()[2]
+        self._run(["git", "config", "--global", "user.email", my_email])
         my_name = input("Enter your global git user.name profile identity: ").strip()
-        if not self._run(
-            ["git", "config", "--global", "--get", "user.email"], check=False
-        ):
-            self._run(["git", "config", "--global", "user.email", my_email])
-        if not self._run(
-            ["git", "config", "--global", "--get", "user.name"], check=False
-        ):
-            self._run(["git", "config", "--global", "user.name", my_name])
+        self._run(["git", "config", "--global", "user.name", my_name])
         log.info(f"Created Git configuration: {my_name} <{my_email}>")
         self.ssh_dir.mkdir(parents=True, exist_ok=True)
-        self.known_hosts_file.touch(exist_ok=True)
-        content = self.known_hosts_file.read_text(errors="ignore")
-        if "github.com" not in content:
-            scan = self._run(["ssh-keyscan", "-H", "github.com"], check=True)
-            if scan:
-                self.known_hosts_file.write_text(content + scan)
-                log.info("Appended github.com validation signature to known_hosts")
-            else:
-                log.info("Could not -keyscan to verify GitHub host identity.")
+        scan = self._run(["ssh-keyscan", "-H", "github.com"], check=True)
+        if scan:
+            self.known_hosts_file.write_text(scan)
+            log.info("Appended github.com validation signature to known_hosts")
+        else:
+            log.info("Could not -keyscan to verify GitHub host identity.")
 
     ############################
     # Clone repositories
@@ -274,14 +263,15 @@ def enable_mariadb() -> None:
 # DESKTOP ENVIRONMENT / APPS
 ############################
 def set_folder_icons(custom_folder_icons: dict[Path, str]) -> None:
-    cmd = [
-        "gsettings",
-        "set",
-        "org.gnome.desktop.interface",
-        "icon-theme",
-        "'WhiteSur-dark'",
-    ]
-    run_dmc(cmd)
+    run_dmc(
+        [
+            "gsettings",
+            "set",
+            "org.gnome.desktop.interface",
+            "icon-theme",
+            "WhiteSur-dark",
+        ]
+    )
     icon_dir: str = "/usr/share/icons/WhiteSur-dark/places/scalable"
     for folder, icon_name in custom_folder_icons.items():
         icon = Path(icon_dir) / f"{icon_name}.svg"
@@ -295,14 +285,18 @@ def set_folder_icons(custom_folder_icons: dict[Path, str]) -> None:
 def launch_apps(
     pass_path: Path,
     firefox_browser: str,
-    apps: list[list[str]] = [["steam"], ["kitty", "protonmail-bridge-core", "--cli"]],
 ) -> None:
+    """Copy the password, then launch configured apps and the browser."""
     password = pass_path.read_text().strip()
     pyperclip.copy(password)
-    apps.append([firefox_browser])
-    for process in apps:
-        if shutil.which(process[0]):
-            subprocess.Popen(process).wait()
+    processes = [
+        [firefox_browser],
+        ["steam"],
+        ["kitty", "protonmail-bridge-core", "-c"],
+    ]
+    for command in processes:
+        if shutil.which(command[0]):
+            subprocess.Popen(command).wait()
 
 
 def scrcpy_setup(port: int = 5555) -> None:
@@ -354,15 +348,18 @@ def fix_network_stack() -> None:
 ############################
 # MAIN FLOW
 ############################
-def user_setup(HOME: Path = Path.home()) -> None:
+def user_setup() -> None:
+    HOME: Path = Path.home()
+
     run_dmc(["systemctl", "--user", "disable", "user_setup"])
     if shutil.which("zsh"):
         run_dmc(["chsh", "-s", "/usr/bin/zsh"], interactive=True)
+        (HOME / ".local" / "share" / "zsh").mkdir(parents=True, exist_ok=True)
     fix_network_stack()
     if shutil.which("mariadb"):
         enable_mariadb()
     nc = NoahConfig.from_config(noah_json)
-    nu = NoahUserProcessor(nc)
+    nu = NoahUserProcessor(nc, HOME)
     run_dmc(
         ["uv", "add", "openmeteo-requests"],
         cwd=str(nu.HOME / ".local" / "bin" / "weather"),
@@ -390,7 +387,7 @@ def user_setup(HOME: Path = Path.home()) -> None:
         gm.clone_repos(nc.git_repos_config, nu.HOME, ssh=use_ssh)
     if nc.dotdirs_to_link:
         dotdirs = nu.dotdirs_paths()
-        PolkaDots(dotdirs).deploy()
+        PolkaDots(HOME, dotdirs).deploy()
     if shutil.which("scrcpy") and not (HOME / ".android" / "adbkey").is_file():
         scrcpy_setup()
     if nc.firefox_browser:

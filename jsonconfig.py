@@ -99,8 +99,13 @@ noah_json = {
         {
             "source": "/usr/lib/systemd/user",
             "targets": {
-                "default": ["psd.service"],
-                "sockets": ["gcr-ssh-agent.socket", "mpd.socket"],
+                "default": [
+                    "psd.service",
+                ],
+                "sockets": [
+                    "gcr-ssh-agent.socket",
+                    "mpd.socket",
+                ],
                 "graphical-session": [
                     "cliphist.service",
                     "hypridle.service",
@@ -181,7 +186,11 @@ noah_json = {
     ],
     "git_repo_config": {
         "user_name": "acctux",
-        "repos": {"noah": "Lit/noah", "polka": "Lit/polka", "docs": "Lit/Docs"},
+        "repos": {
+            "noah": "Lit/noah",
+            "polka": "Lit/polka",
+            "docs": "Lit/Docs",
+        },
     },
     "dotdirs_to_link": ["Lit/polka", "Lit/Docs/secdots"],
     "encrypted_dir": "Desktop/Private",
@@ -203,7 +212,7 @@ noah_json = {
         "yazi-rs/plugins:jump-to-char",
         "uhs-robert/sshfs",
         "boydaihungst/gvfs",
-        "uhs-robert/recycle-bin",
+        "goon/omni-trash",
         "ndtoan96/ouch",
         "yazi-rs/plugins:full-border",
     ],
