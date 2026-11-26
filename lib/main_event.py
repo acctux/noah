@@ -2,9 +2,10 @@ from packages.aur import aur_pkgs
 import shutil
 import json
 import re
+from pathlib import Path
 from lib.datahandler import UserService, NoahConfig, SnapperProfile
 from archinstall.lib.models import Bootloader, User
-from pathlib import Path
+from archinstall.lib.models.device import SnapshotType
 from archinstall.default_profiles.profile import GreeterType
 from archinstall.lib.models.application import PowerManagement, Firewall
 from archinstall.lib.args import ArchConfig
@@ -207,7 +208,6 @@ def inst_systemd_oomd(installation: Installer):
 
 
 def install_powertop(installation: Installer):
-    # DOESN'T WORK
     installation.add_additional_packages("powertop")
     write_etc_file(
         installation.target,
@@ -219,7 +219,7 @@ def install_powertop(installation: Installer):
 
                 [Service]
                 Type=oneshot
-                RemainAfterExit=yes
+                ExecStartPre=/usr/bin/sleep 10
                 ExecStart=/usr/bin/powertop --auto-tune
 
                 [Install]
@@ -432,33 +432,6 @@ def cpu_blacklist(installation: Installer, sys_info: SysInfo):
 
 
 ###################################
-# SNAPPER
-###################################
-def update_existing_snapper_files(target_root: Path, profile: SnapperProfile) -> None:
-    path = target_root / "etc" / "snapper" / "configs" / profile.name
-    if not path.exists():
-        return
-    updates = profile.to_config_dict()
-    keys_pattern = "|".join(map(re.escape, updates.keys()))
-    pattern = re.compile(rf"^(\s*)({keys_pattern})=")
-    lines = path.read_text(encoding="utf-8").splitlines()
-    new_lines = []
-    for line in lines:
-        if match := pattern.match(line):
-            leading_whitespace, key = match.groups()
-            new_lines.append(f'{leading_whitespace}{key}="{updates[key]}"')
-        else:
-            new_lines.append(line)
-    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
-
-
-def snapper_post(installation: Installer, profile: SnapperProfile) -> None:
-    installation.add_additional_packages("limine-snapper-sync")
-    modify_mkinit(installation.target, hook="btrfs-overlayfs", after_hook="filesystems")
-    update_existing_snapper_files(installation.target, profile)
-
-
-###################################
 # USR_SVC
 ###################################
 def hide_apps(installation: Installer, user: str, apps_to_hide: list[str]):
@@ -629,18 +602,6 @@ def set_boot_default(mountpoint: Path) -> None:
     if not limine_conf.exists():
         log.warning(f"Limine configuration file not found at {limine_conf}")
         return
-    theme = [
-        "interface_branding:",
-        "term_palette: 21222c;ff5555;00ff99;f1fa8c;0072ff;ff79c6;33ccff;bfbfbf",
-        "term_palette_bright: 4d4d4d;ff6e6e;10b981;ffffa5;a5b4fc;ff92df;a4ffff;ffffff",
-        "term_background: 101013",
-        "term_foreground: f4f5f6",
-        "term_background_bright: 4d4d4d",
-        "term_foreground_bright: white",
-        "interface_branding_color: 0072ff",
-        "interface_help_color: 0072ff",
-        "interface_help_color_bright: a5b4fc",
-    ]
     new_lines = []
     for line in limine_conf.read_text().splitlines():
         if line.strip().startswith("timeout:"):
@@ -648,6 +609,18 @@ def set_boot_default(mountpoint: Path) -> None:
             continue
         new_lines.append(line)
         if line.strip() == "### Theme":
+            theme = [
+                "interface_branding:",
+                "term_palette: 21222c;ff5555;00ff99;f1fa8c;0072ff;ff79c6;33ccff;bfbfbf",
+                "term_palette_bright: 4d4d4d;ff6e6e;10b981;ffffa5;a5b4fc;ff92df;a4ffff;ffffff",
+                "term_background: 101013",
+                "term_foreground: f4f5f6",
+                "term_background_bright: 4d4d4d",
+                "term_foreground_bright: white",
+                "interface_branding_color: 0072ff",
+                "interface_help_color: 0072ff",
+                "interface_help_color_bright: a5b4fc",
+            ]
             new_lines.extend(theme)
     limine_conf.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
     log.info(f"Updated config parameters inside {limine_conf}")
@@ -682,6 +655,27 @@ def limine_post(installation: Installer) -> None:
     set_boot_default(installation.target)
     set_etc_default(installation.target)
     set_default_cmdline(installation)
+
+
+###################################
+# SNAPPER
+###################################
+def update_existing_snapper_files(target_root: Path, profile: SnapperProfile) -> None:
+    path = target_root / "etc" / "snapper" / "configs" / profile.name
+    if not path.exists():
+        return
+    updates = profile.to_config_dict()
+    keys_pattern = "|".join(map(re.escape, updates.keys()))
+    pattern = re.compile(rf"^(\s*)({keys_pattern})=")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    new_lines = []
+    for line in lines:
+        if match := pattern.match(line):
+            leading_whitespace, key = match.groups()
+            new_lines.append(f'{leading_whitespace}{key}="{updates[key]}"')
+        else:
+            new_lines.append(line)
+    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
 ###################################
@@ -751,6 +745,11 @@ def noah_install(
             ufw_post(installation, ["KDEConnect", "Deluge", "51820/udp"])
         if conf.print_service_config:
             printer_post(installation)
+    if config.disk_config:
+        if btrfs_opts := config.disk_config.has_default_btrfs_vols():
+            installation.enable_service(
+                ["btrfs-scrub@-.timer", "btrfs-scrub@home.timer"]
+            )
     if (
         config.bootloader_config
         and config.bootloader_config.bootloader == Bootloader.Limine
@@ -759,8 +758,27 @@ def noah_install(
         limine_post(installation)
         inst_apparmor(installation)
         inst_plymouth(installation)
+        if btrfs_opts:
+            installation.setup_btrfs_snapshot(SnapshotType.Snapper, Bootloader.Limine)
+            update_existing_snapper_files(
+                installation.target,
+                SnapperProfile(
+                    name="root",
+                    mount="/",
+                    number_limit=5,
+                    limit_hourly=3,
+                    limit_daily=1,
+                    limit_weekly=1,
+                    limit_monthly=0,
+                ),
+            )
+            installation.add_additional_packages("limine-snapper-sync")
+            modify_mkinit(
+                installation.target, hook="btrfs-overlayfs", after_hook="filesystems"
+            )
         log.info("Refreshing limine-mkinitcpio hooks.")
         installation.arch_chroot("limine-mkinitcpio")
+
     inst_systemd_oomd(installation)
     install_powertop(installation)
     write_etc_file(installation.target, network_files)
@@ -794,26 +812,6 @@ def noah_install(
                 ),
             },
         )
-    if config.disk_config and config.disk_config.has_default_btrfs_vols():
-        if (
-            config.disk_config.btrfs_options
-            and config.auth_config
-            and config.auth_config.users
-        ):
-            # Move enable_service to snapper_post
-            snapper_post(
-                installation,
-                SnapperProfile(
-                    name="root",
-                    mount="/",
-                    number_limit=15,
-                    limit_hourly=5,
-                    limit_daily=5,
-                    limit_weekly=5,
-                    limit_monthly=0,
-                ),
-            )
-        installation.enable_service(["btrfs-scrub@-.timer", "btrfs-scrub@home.timer"])
     if config.auth_config and config.auth_config.users:
         aur_and_remove_root(
             installation, config.auth_config.users, aur_pkgs, nc.sudo_defaults

@@ -6,15 +6,28 @@ archinstall_json = {
         "audio_config": {"audio": "pipewire"},
         "bluetooth_config": {"enabled": True},
         "firewall_config": {"firewall": "ufw"},
-        "fonts_config": {"fonts": ["noto-fonts-emoji", "ttf-liberation"]},
+        "fonts_config": {
+            "fonts": [
+                "noto-fonts-emoji",
+                "ttf-liberation",
+            ]
+        },
         "power_management_config": {"power_management": "tuned"},
         "print_service_config": {"enabled": False},
     },
     "archinstall-language": "English",
-    "bootloader_config": {"bootloader": "Limine", "removable": False, "uki": False},
+    "bootloader_config": {
+        "bootloader": "Limine",
+        "removable": False,
+        "uki": False,
+    },
     "hostname": "yulia",
     "kernels": ["linux"],
-    "locale_config": {"kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US.UTF-8"},
+    "locale_config": {
+        "kb_layout": "us",
+        "sys_enc": "UTF-8",
+        "sys_lang": "en_US.UTF-8",
+    },
     "optional_repositories": ["multilib"],
     "network_config": {"type": "iso"},
     "ntp": True,
