@@ -136,7 +136,6 @@ noah_json = {
                     "clip-persist.service",
                     "kdeconnectd.service",
                     "shikane.service",
-                    "playerctld.service",
                     "polkit-gnome.service",
                     "snixembed.service",
                     "swayosd-server.service",
